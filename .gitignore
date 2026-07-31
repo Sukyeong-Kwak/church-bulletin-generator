@@ -42,3 +42,6 @@ next-env.d.ts
 
 # 셸 크래시 덤프
 *.stackdump
+
+# 폰으로 보여주려고 올려둔 주보 이미지
+/.shares/

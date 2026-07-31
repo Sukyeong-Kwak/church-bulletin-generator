@@ -13,6 +13,7 @@ import { putImage } from "@/lib/imageStore";
 import { newId } from "@/lib/store";
 import type { BulletinDoc, ExportScale } from "@/lib/types";
 import { Btn } from "../ui";
+import { SharePanel } from "./SharePanel";
 
 interface Props {
   doc: BulletinDoc;
@@ -137,46 +138,17 @@ export function ExportPanel({ doc, setDoc, getNodes, onImagesReady, pageCount }:
       </div>
 
       {done && (
-        <div
-          className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2"
-          style={{ background: "#f1f8f4" }}
-        >
+        <div className="px-4 py-2" style={{ background: "#f1f8f4" }}>
           <span className="text-[12px] font-bold" style={{ color: "#2b8a3e" }}>
-            내보내기 완료 · {pageCount}장 {formatBytes(totalSize)} · 배포 체크리스트
-          </span>
-          <label className="flex items-center gap-1.5 text-[12px]">
-            <input
-              type="checkbox"
-              checked={doc.distribution.band}
-              style={{ width: "auto" }}
-              onChange={(e) =>
-                setDoc((d) => ({
-                  ...d,
-                  distribution: { ...d.distribution, band: e.target.checked },
-                }))
-              }
-            />
-            청년부 밴드 업로드
-          </label>
-          <label className="flex items-center gap-1.5 text-[12px]">
-            <input
-              type="checkbox"
-              checked={doc.distribution.newFamily}
-              style={{ width: "auto" }}
-              onChange={(e) =>
-                setDoc((d) => ({
-                  ...d,
-                  distribution: { ...d.distribution, newFamily: e.target.checked },
-                }))
-              }
-            />
-            새가족부 QR 담당자에게 전달
-          </label>
-          <span className="text-[11px]" style={{ color: "var(--ui-muted)" }}>
-            만든 이미지는 보관함에 저장되어 나중에 다시 받을 수 있습니다.
+            내보내기 완료 · {pageCount}장 {formatBytes(totalSize)} · 보관함에 저장되어 나중에 다시
+            받을 수 있습니다
           </span>
         </div>
       )}
+
+      <div className="border-t" style={{ borderColor: "var(--ui-border)" }}>
+        <SharePanel doc={doc} />
+      </div>
     </div>
   );
 }

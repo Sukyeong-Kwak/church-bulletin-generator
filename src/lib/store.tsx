@@ -171,7 +171,6 @@ export function makeDraft(settings: Settings, serviceDate = upcomingSunday()): B
     ],
     exportScale: 3,
     exportFormat: "jpg",
-    distribution: { band: false, newFamily: false },
   };
 }
 
@@ -387,7 +386,6 @@ export function DocProvider({ children }: { children: ReactNode }) {
       copy.id = newId("doc");
       copy.updatedAt = undefined;
       copy.imageKeys = undefined;
-      copy.distribution = { band: false, newFamily: false };
       const d = new Date(found.serviceDate);
       d.setDate(d.getDate() + 7);
       copy.serviceDate = toISO(d);

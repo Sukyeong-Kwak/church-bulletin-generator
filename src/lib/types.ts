@@ -152,8 +152,6 @@ export interface BulletinDoc {
   blocks: FlowBlock[];
   exportScale: ExportScale;
   exportFormat: ExportFormat;
-  /** 배포 체크리스트 */
-  distribution: { band: boolean; newFamily: boolean };
 }
 
 /** 조판 결과 한 페이지 */
