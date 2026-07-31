@@ -53,26 +53,33 @@ type FullStyle = Required<Omit<TextStyle, "highlight">> & { highlight: boolean }
 export const DEFAULT_STYLES: Record<Role, FullStyle> = {
   date: f({ fontSize: 26, lineHeight: 1.4, align: "center" }),
   adsHeader: f({ fontSize: 52, lineHeight: 1.3, align: "center", bold: true, title: true, marginBottom: 0 }),
-  blockTitle: f({ fontSize: 28, lineHeight: 1.4, align: "center", highlight: true, marginBottom: 10 }),
+  blockTitle: f({ fontSize: 28, lineHeight: 1.4, align: "center", bold: true, title: true, highlight: true, marginBottom: 10 }),
   blockBody: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
   worshipHeading: f({ fontSize: 52, lineHeight: 1.3, align: "center", bold: true, title: true, marginBottom: 24 }),
   worshipLabel: f({ fontSize: 27, lineHeight: 1.5, align: "right" }),
   worshipValue: f({ fontSize: 27, lineHeight: 1.5, align: "left" }),
   birthdayHeading: f({ fontSize: 46, lineHeight: 1.3, align: "center", bold: true, title: true, marginTop: 40, marginBottom: 20 }),
   birthdayName: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
-  scheduleHeading: f({ fontSize: 30, lineHeight: 1.4, align: "center", highlight: true, marginBottom: 12 }),
+  scheduleHeading: f({ fontSize: 30, lineHeight: 1.4, align: "center", bold: true, title: true, highlight: true, marginBottom: 12 }),
   scheduleItem: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
   sermonHeading: f({ fontSize: 46, lineHeight: 1.3, align: "center", bold: true, title: true, marginTop: 24, marginBottom: 14 }),
   sermonLine: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
   footer: f({ fontSize: 24, lineHeight: 1.4, align: "left" }),
 };
 
-/** 제목용 폰트를 쓰는 역할 */
-const TITLE_ROLES = new Set<Role>([
+/** 페이지 대제목 — 제목 색을 쓴다 */
+const TITLE_COLOR_ROLES = new Set<Role>([
   "adsHeader",
   "worshipHeading",
   "birthdayHeading",
   "sermonHeading",
+]);
+
+/** 제목용 폰트를 쓰는 역할. 블록 제목도 본문과 구분되도록 제목체를 쓴다. */
+const TITLE_FONT_ROLES = new Set<Role>([
+  ...TITLE_COLOR_ROLES,
+  "blockTitle",
+  "scheduleHeading",
 ]);
 
 function f(p: {
@@ -122,8 +129,7 @@ export function resolveStyle(
 ): ResolvedStyle {
   const base = DEFAULT_STYLES[role];
   const o = override ?? {};
-  const isTitle = TITLE_ROLES.has(role);
-  const defaultColor = isTitle ? theme.titleColor : theme.bodyColor;
+  const defaultColor = TITLE_COLOR_ROLES.has(role) ? theme.titleColor : theme.bodyColor;
 
   return {
     fontSize: Math.round((o.fontSize ?? base.fontSize) * theme.fontScale),
@@ -134,7 +140,7 @@ export function resolveStyle(
     letterSpacing: `${o.letterSpacing ?? base.letterSpacing}px`,
     marginTop: o.marginTop ?? base.marginTop,
     marginBottom: o.marginBottom ?? base.marginBottom,
-    fontFamily: isTitle ? "var(--font-title)" : "var(--font-body)",
+    fontFamily: TITLE_FONT_ROLES.has(role) ? "var(--font-title)" : "var(--font-body)",
     highlight: o.highlight ?? base.highlight,
   };
 }
@@ -171,6 +177,19 @@ export const DEFAULT_THEME: Theme = {
   highlightColor: "#FFF3B0",
   fontScale: 1,
 };
+
+/**
+ * 블록 제목은 항상 <> 로 감싸 보여준다.
+ * 붙여넣은 원문에 이미 괄호가 있으면 벗겨내고 다시 씌워 겹치지 않게 한다.
+ */
+export function bracketTitle(title: string): string {
+  const bare = title
+    .trim()
+    .replace(/^[<〈《【[(]\s*/, "")
+    .replace(/\s*[>〉》】\])]$/, "")
+    .trim();
+  return bare ? `<${bare}>` : "";
+}
 
 /** '2026-07-19' → '2026.07.19.주일' */
 export function formatServiceDate(iso: string): string {

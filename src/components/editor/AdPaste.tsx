@@ -54,6 +54,9 @@ export function AdPaste({ onApply, onClose }: Props) {
           </Btn>
         </div>
 
+        {/* 대기 중임을 창 전체에서 한눈에 알 수 있게 머리말 바로 아래에 둔다 */}
+        {status === "loading" && <div className="ai-bar" />}
+
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 p-4">
           <div className="flex min-h-0 flex-col gap-2">
             <span className="text-[11px] font-semibold" style={{ color: "var(--ui-muted)" }}>
@@ -76,7 +79,11 @@ export function AdPaste({ onApply, onClose }: Props) {
               </span>
 
               {status === "loading" ? (
-                <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: "#e7f5ff", color: "#1971c2" }}>
+                <span
+                  className="ai-pulse flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                  style={{ background: "#e7f5ff", color: "#1971c2" }}
+                >
+                  <span className="ai-spinner" />
                   AI가 나누는 중…
                 </span>
               ) : (
@@ -101,11 +108,26 @@ export function AdPaste({ onApply, onClose }: Props) {
               )}
             </div>
 
-            <div className="min-h-[320px] flex-1 overflow-auto rounded-lg border p-2" style={{ borderColor: "var(--ui-border)", background: "#fafafa" }}>
+            <div
+              className="min-h-[320px] flex-1 overflow-auto rounded-lg border p-2"
+              style={{
+                borderColor: "var(--ui-border)",
+                background: "#fafafa",
+                // 아직 확정 전인 규칙 결과라는 걸 흐리기로 알린다
+                opacity: status === "loading" ? 0.55 : 1,
+                transition: "opacity .2s ease",
+              }}
+            >
               {blocks.length === 0 ? (
-                <p className="p-3 text-[12px]" style={{ color: "var(--ui-muted)" }}>
-                  왼쪽에 붙여넣으면 광고 블록으로 나뉜 결과가 여기에 표시됩니다.
-                </p>
+                status === "loading" ? (
+                  <p className="ai-pulse p-3 text-[12px]" style={{ color: "var(--ui-muted)" }}>
+                    AI가 제목과 내용을 나누고 있습니다…
+                  </p>
+                ) : (
+                  <p className="p-3 text-[12px]" style={{ color: "var(--ui-muted)" }}>
+                    왼쪽에 붙여넣으면 광고 블록으로 나뉜 결과가 여기에 표시됩니다.
+                  </p>
+                )
               ) : (
                 blocks.map((p, i) => (
                   <div
@@ -135,7 +157,11 @@ export function AdPaste({ onApply, onClose }: Props) {
 
         <div className="flex items-center justify-between gap-3 border-t px-4 py-3" style={{ borderColor: "var(--ui-border)" }}>
           <div className="min-w-0">
-            <Hint>{summarize(blocks)}</Hint>
+            <Hint>
+              {status === "loading"
+                ? "AI가 나누는 중입니다. 잠시만 기다려 주세요 — 지금 보이는 건 임시 결과입니다."
+                : summarize(blocks)}
+            </Hint>
             {/* 키가 없는 건 고장이 아니라 '아직 안 켠 기능'이므로 조용히 안내한다 */}
             {error?.code === "no-key" ? (
               <Hint>AI 자동 구분은 꺼져 있습니다 (서버에 GEMINI_API_KEY 없음). 규칙 방식으로 나눴습니다.</Hint>
