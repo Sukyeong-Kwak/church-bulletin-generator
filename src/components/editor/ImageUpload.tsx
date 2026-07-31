@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CANVAS } from "@/lib/layout";
-import { getImage, readImageSize, storeFile } from "@/lib/imageStore";
+import { getBackend } from "@/lib/backend";
+import { readImageSize } from "@/lib/imageStore";
 import { Btn, Hint } from "../ui";
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
 export function ImageUpload({ label, value, onChange, prefix, checkResolution }: Props) {
   const [url, setUrl] = useState<string>();
   const [size, setSize] = useState<{ width: number; height: number }>();
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string>();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -30,7 +33,7 @@ export function ImageUpload({ label, value, onChange, prefix, checkResolution }:
         setSize(undefined);
         return;
       }
-      const blob = await getImage(value);
+      const blob = await getBackend().getImage(value);
       if (!blob || !alive) return;
       created = URL.createObjectURL(blob);
       setUrl(created);
@@ -48,7 +51,14 @@ export function ImageUpload({ label, value, onChange, prefix, checkResolution }:
 
   // 이전 이미지는 지우지 않는다. 보관함의 지난 주보가 같은 이미지를 가리키고 있을 수 있다.
   const pick = async (file: File) => {
-    onChange(await storeFile(file, prefix));
+    setUploading(true);
+    try {
+      onChange(await getBackend().putImage(file, prefix));
+    } catch {
+      setUploadError("이미지를 올리지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const tooSmall =
@@ -83,8 +93,8 @@ export function ImageUpload({ label, value, onChange, prefix, checkResolution }:
         </div>
 
         <div className="flex gap-1.5">
-          <Btn size="sm" onClick={() => inputRef.current?.click()}>
-            {value ? "교체" : "업로드"}
+          <Btn size="sm" disabled={uploading} onClick={() => inputRef.current?.click()}>
+            {uploading ? "올리는 중…" : value ? "교체" : "업로드"}
           </Btn>
           {value && (
             <Btn size="sm" variant="danger" onClick={() => onChange(undefined)}>
@@ -106,6 +116,11 @@ export function ImageUpload({ label, value, onChange, prefix, checkResolution }:
         />
       </div>
 
+      {uploadError && (
+        <p className="mt-1.5 text-[11px]" style={{ color: "#c92a2a" }}>
+          {uploadError}
+        </p>
+      )}
       {tooSmall && (
         <p className="mt-1.5 text-[11px]" style={{ color: "#b45309" }}>
           해상도가 낮습니다. 고화질로 내보내려면 {CANVAS.w * 2}×{CANVAS.h * 2} 이상을 권장합니다.

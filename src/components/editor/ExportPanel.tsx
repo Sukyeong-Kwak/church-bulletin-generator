@@ -9,8 +9,7 @@ import {
   saveBlob,
   saveZip,
 } from "@/lib/exportImages";
-import { putImage } from "@/lib/imageStore";
-import { newId } from "@/lib/store";
+import { getBackend } from "@/lib/backend";
 import type { BulletinDoc, ExportScale } from "@/lib/types";
 import { Btn } from "../ui";
 
@@ -32,11 +31,10 @@ export function ExportPanel({ doc, setDoc, getNodes, onImagesReady, pageCount }:
 
   /** 만든 이미지를 보관해 과거 주보에서 그대로 다시 받을 수 있게 한다 */
   async function keep(blobs: Blob[]) {
+    const backend = getBackend();
     const keys: string[] = [];
     for (const b of blobs) {
-      const key = newId("png");
-      await putImage(key, b);
-      keys.push(key);
+      keys.push(await backend.putImage(b, "export"));
     }
     onImagesReady(doc.id, keys);
   }

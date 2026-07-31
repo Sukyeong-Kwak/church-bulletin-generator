@@ -10,206 +10,22 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_THEME } from "./layout";
-import { deleteImage, getImage } from "./imageStore";
-import type {
-  BulletinDoc,
-  ChurchInfo,
-  CoverText,
-  FixedPages,
-  FlowBlock,
-  Theme,
-} from "./types";
+import { getBackend } from "./backend";
+import {
+  deepCopy,
+  makeDefaultSettings,
+  makeDraft,
+  newDocId,
+  toISO,
+  type Settings,
+} from "./settings";
+import type { BulletinDoc, FlowBlock } from "./types";
 
-const STORAGE_KEY = "bulletin-app-v1";
+export { newId, makeDefaultSettings, makeDraft } from "./settings";
+export type { Settings } from "./settings";
 
-export function newId(prefix = "b"): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-/** 다가오는(또는 오늘) 주일 */
-function upcomingSunday(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
-  return toISO(d);
-}
-
-function toISO(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
-
-/** 다음 주보에 상속되는 기본값. 고정 페이지 관리에서 편집한다. */
-export interface Settings {
-  church: ChurchInfo;
-  fixed: FixedPages;
-  theme: Theme;
-}
-
-/** 표지 서식이 바뀌면 올린다. 예전 저장본을 새 기본 서식으로 갱신하는 기준이 된다. */
-export const COVER_TEMPLATE_VERSION = 7;
-
-/** 표지 기본 로고 위치 — 아치형 교회명 아래 가운데 */
-const DEFAULT_LOGO_BOX = { x: 296, y: 325, width: 300 };
-
-/**
- * 표지 기본 문구.
- * 실제 주보 표지의 배치를 그대로 옮겨 위치·크기까지 잡아두었으므로 문구만 고쳐 쓰면 된다.
- */
-export function makeDefaultCoverTexts(): CoverText[] {
-  const cream = "#F7EBC4";
-  const inkline = "#8C7A4A";
-  return [
-    {
-      id: newId("ct"),
-      text: "포도나무교회",
-      kind: "arch",
-      y: 84,
-      size: 96,
-      curve: 138,
-      color: cream,
-      outline: inkline,
-      outlineWidth: 3,
-      letterSpacing: 30,
-      font: "ssurround",
-    },
-    {
-      id: newId("ct"),
-      text: "THE PIECE",
-      kind: "arch",
-      y: 880,
-      size: 62,
-      curve: -90,
-      color: "#FFFFFF",
-      outline: "#D8D2C0",
-      outlineWidth: 3,
-      letterSpacing: 6,
-      font: "ssurround",
-    },
-    {
-      id: newId("ct"),
-      text: "청년교구",
-      kind: "arch",
-      y: 936,
-      size: 88,
-      curve: -105,
-      color: cream,
-      outline: inkline,
-      outlineWidth: 3,
-      letterSpacing: 34,
-      font: "ssurround",
-    },
-    {
-      id: newId("ct"),
-      text: "VINE",
-      kind: "line",
-      y: 1176,
-      size: 25,
-      curve: 0,
-      color: "#4A4A4A",
-      letterSpacing: 5,
-      font: "body",
-    },
-    {
-      id: newId("ct"),
-      text: "YOUNG ADULT & COLLEGE",
-      kind: "line",
-      y: 1208,
-      size: 28,
-      curve: 0,
-      color: "#4A4A4A",
-      letterSpacing: 3,
-      font: "body",
-    },
-  ];
-}
-
-export function makeDefaultSettings(): Settings {
-  return {
-    church: {
-      pastorLine: "담당 목사  |  ",
-      accountLine: "청년교구 계좌  |  ",
-    },
-    fixed: {
-      cover: {
-        showDate: true,
-        showLogo: true,
-        logo: { ...DEFAULT_LOGO_BOX },
-        texts: makeDefaultCoverTexts(),
-        templateVersion: COVER_TEMPLATE_VERSION,
-      },
-      worship: {
-        heading: "예배 안내",
-        rows: [
-          { id: newId("r"), label: "주일 1부 예배", value: "8:30" },
-          { id: newId("r"), label: "주일 2부 예배", value: "11:00" },
-          { id: newId("r"), label: "청년부 예배", value: "15:00" },
-          { id: newId("r"), label: "오이코스", value: "주중, 오이코스별" },
-          { id: newId("r"), label: "목요일 이사야62 기도회", value: "20:00 / 본당" },
-          { id: newId("r"), label: "금요일 RGW", value: "20:00 / 본당" },
-          { id: newId("r"), label: "새벽 예배", value: "매일 6:30 / ZOOM" },
-        ],
-        birthdayHeading: "{month}월 생일",
-        birthdays: {},
-      },
-    },
-    theme: { ...DEFAULT_THEME },
-  };
-}
-
-export function makeDraft(settings: Settings, serviceDate = upcomingSunday()): BulletinDoc {
-  return {
-    id: newId("doc"),
-    serviceDate,
-    theme: { ...settings.theme },
-    church: { ...settings.church },
-    fixed: deepCopy(settings.fixed),
-    blocks: [
-      { id: newId("sch"), kind: "schedule", heading: "주요일정", items: [] },
-      { id: newId("ser"), kind: "sermon", heading: "본문 말씀", title: "", verse: "" },
-    ],
-    exportScale: 3,
-    exportFormat: "jpg",
-    distribution: { band: false, newFamily: false },
-  };
-}
-
-function deepCopy<T>(v: T): T {
-  return JSON.parse(JSON.stringify(v)) as T;
-}
-
-/** 예전에 저장한 데이터에 새로 생긴 항목(표지 글자·로고)을 채워 넣는다 */
-function normalizeFixed(fixed: FixedPages): FixedPages {
-  const base = makeDefaultSettings().fixed;
-  // 표지 서식이 옛 버전이면 글자와 로고를 새 기본 배치로 갱신한다
-  const outdated = (fixed.cover?.templateVersion ?? 0) < COVER_TEMPLATE_VERSION;
-
-  return {
-    ...fixed,
-    cover: {
-      ...base.cover,
-      ...fixed.cover,
-      // 버전 판정을 먼저 끝냈으므로 아래에서 새 서식으로 덮어써도 안전하다
-      texts: outdated
-        ? makeDefaultCoverTexts()
-        : fixed.cover.texts.map((t) => ({
-            ...t,
-            font: t.font ?? (t.titleFont ? "ssurround" : "body"),
-          })),
-      logo: outdated ? { ...DEFAULT_LOGO_BOX } : (fixed.cover.logo ?? base.cover.logo),
-      showLogo: fixed.cover?.showLogo ?? true,
-      templateVersion: COVER_TEMPLATE_VERSION,
-    },
-    worship: { ...base.worship, ...fixed.worship },
-  };
-}
-
-interface PersistedState {
-  settings: Settings;
-  draft: BulletinDoc;
-  library: BulletinDoc[];
-}
+/** 작성 중인 주보는 새로고침해도 남도록 이 브라우저에 따로 둔다 */
+const DRAFT_KEY = "bulletin-draft-v1";
 
 interface DocContextValue {
   /** 작성 중인 주보 */
@@ -219,67 +35,76 @@ interface DocContextValue {
   setSettings: (updater: (prev: Settings) => Settings) => void;
   /** 저장된 주보 목록 (최신순) */
   library: BulletinDoc[];
-  saveCurrent: () => void;
+  saveCurrent: () => Promise<void>;
   openSaved: (id: string) => void;
   duplicateSaved: (id: string) => void;
-  removeSaved: (id: string) => void;
+  removeSaved: (id: string) => Promise<void>;
   startNew: () => void;
   attachImages: (docId: string, keys: string[]) => void;
   urls: { background?: string; cover?: string; logo?: string };
   loaded: boolean;
   dirty: boolean;
+  saving: boolean;
+  error?: string;
 }
 
 const DocContext = createContext<DocContextValue | null>(null);
 
 export function DocProvider({ children }: { children: ReactNode }) {
+  const backend = useMemo(() => getBackend(), []);
+
   const [settings, setSettingsState] = useState<Settings>(makeDefaultSettings);
   const [doc, setDocState] = useState<BulletinDoc>(() => makeDraft(makeDefaultSettings()));
   const [library, setLibrary] = useState<BulletinDoc[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>();
   const [urls, setUrls] = useState<DocContextValue["urls"]>({});
 
-  // 저장본 복원은 첫 렌더 이후에만 가능하다.
+  // 저장소를 읽는 일은 첫 렌더 뒤에만 가능하다.
   // 초기값에서 바로 읽으면 서버 렌더 결과와 달라져 하이드레이션이 깨진다.
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const p = JSON.parse(raw) as Partial<PersistedState>;
-        const merged = { ...makeDefaultSettings(), ...(p.settings ?? {}) };
-        const s: Settings = { ...merged, fixed: normalizeFixed(merged.fixed) };
-        setSettingsState(s);
-        setDocState(
-          p.draft
-            ? { ...makeDraft(s), ...p.draft, fixed: normalizeFixed(p.draft.fixed ?? s.fixed) }
-            : makeDraft(s),
-        );
-        setLibrary(p.library ?? []);
-      }
-    } catch {
-      // 저장본이 깨졌으면 기본값으로 시작
-    }
-    setLoaded(true);
-  }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+    let alive = true;
 
-  // 문서는 가볍다 — 이미지 원본은 IndexedDB에 따로 보관한다
+    (async () => {
+      try {
+        const [s, list] = await Promise.all([backend.loadSettings(), backend.listBulletins()]);
+        if (!alive) return;
+
+        const next = s ?? makeDefaultSettings();
+        setSettingsState(next);
+        setLibrary(list);
+
+        const raw = localStorage.getItem(DRAFT_KEY);
+        const draft = raw ? (JSON.parse(raw) as BulletinDoc) : null;
+        setDocState(draft ? { ...makeDraft(next), ...draft } : makeDraft(next));
+      } catch (e) {
+        if (alive) setError(e instanceof Error ? e.message : "불러오지 못했습니다.");
+      } finally {
+        if (alive) setLoaded(true);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [backend]);
+
+  // 작성 중인 내용은 브라우저에 임시 보관한다 (저장을 누르면 보관함으로 들어간다)
   useEffect(() => {
     if (!loaded) return;
     const t = setTimeout(() => {
       try {
-        const state: PersistedState = { settings, draft: doc, library };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(doc));
       } catch {
-        // 저장 실패가 편집을 막지 않도록 무시
+        // 임시 보관 실패는 편집을 막지 않는다
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [settings, doc, library, loaded]);
+  }, [doc, loaded]);
 
-  // 배경·표지·로고 blob URL 준비
+  // 배경·표지·로고 이미지를 받아 화면에 쓸 주소를 만든다
   const imgKeys = `${doc.theme.backgroundUrl ?? ""}|${doc.theme.coverUrl ?? ""}|${doc.theme.logoUrl ?? ""}`;
   const urlsRef = useRef<string[]>([]);
 
@@ -295,15 +120,17 @@ export function DocProvider({ children }: { children: ReactNode }) {
         ["cover", doc.theme.coverUrl],
         ["logo", doc.theme.logoUrl],
       ];
+
       for (const [name, key] of pairs) {
         if (!key) continue;
-        const blob = await getImage(key);
+        const blob = await backend.getImage(key).catch(() => undefined);
         if (blob) {
           const url = URL.createObjectURL(blob);
           next[name] = url;
           created.push(url);
         }
       }
+
       if (!alive) {
         created.forEach((u) => URL.revokeObjectURL(u));
         return;
@@ -317,7 +144,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imgKeys, loaded]);
+  }, [imgKeys, loaded, backend]);
 
   const setDoc = useCallback((updater: (prev: BulletinDoc) => BulletinDoc) => {
     setDocState((prev) => updater(prev));
@@ -336,20 +163,29 @@ export function DocProvider({ children }: { children: ReactNode }) {
         theme: { ...d.theme, ...next.theme },
       }));
       setDirty(true);
+      void backend.saveSettings(next).catch(() => setError("설정을 저장하지 못했습니다."));
     },
-    [settings],
+    [settings, backend],
   );
 
-  const saveCurrent = useCallback(() => {
-    const saved: BulletinDoc = { ...deepCopy(doc), updatedAt: new Date().toISOString() };
-    setDocState(saved);
-    setLibrary((lib) =>
-      [saved, ...lib.filter((b) => b.id !== saved.id)].sort((a, b) =>
-        b.serviceDate.localeCompare(a.serviceDate),
-      ),
-    );
-    setDirty(false);
-  }, [doc]);
+  const saveCurrent = useCallback(async () => {
+    setSaving(true);
+    setError(undefined);
+    try {
+      const saved = await backend.saveBulletin(doc);
+      setDocState(saved);
+      setLibrary((lib) =>
+        [saved, ...lib.filter((b) => b.id !== saved.id)].sort((a, b) =>
+          b.serviceDate.localeCompare(a.serviceDate),
+        ),
+      );
+      setDirty(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "저장하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }, [doc, backend]);
 
   const openSaved = useCallback(
     (id: string) => {
@@ -366,14 +202,17 @@ export function DocProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       const found = library.find((b) => b.id === id);
       if (!found) return;
+
       const copy = deepCopy(found);
-      copy.id = newId("doc");
+      copy.id = newDocId();
       copy.updatedAt = undefined;
       copy.imageKeys = undefined;
       copy.distribution = { band: false, newFamily: false };
+
       const d = new Date(found.serviceDate);
       d.setDate(d.getDate() + 7);
       copy.serviceDate = toISO(d);
+
       setDocState(copy);
       setDirty(true);
     },
@@ -381,13 +220,11 @@ export function DocProvider({ children }: { children: ReactNode }) {
   );
 
   const removeSaved = useCallback(
-    (id: string) => {
-      const found = library.find((b) => b.id === id);
-      // 보관 중이던 이미지도 함께 지운다
-      found?.imageKeys?.forEach((k) => void deleteImage(k));
+    async (id: string) => {
+      await backend.deleteBulletin(id).catch(() => setError("삭제하지 못했습니다."));
       setLibrary((lib) => lib.filter((b) => b.id !== id));
     },
-    [library],
+    [backend],
   );
 
   const startNew = useCallback(() => {
@@ -395,7 +232,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
     setDirty(false);
   }, [settings]);
 
-  /** 내보낸 PNG를 주보에 붙여 과거 조회에서 그대로 다시 받을 수 있게 한다 */
+  /** 내보낸 이미지를 주보에 붙여 과거 조회에서 그대로 다시 받을 수 있게 한다 */
   const attachImages = useCallback((docId: string, keys: string[]) => {
     setDocState((d) => (d.id === docId ? { ...d, imageKeys: keys } : d));
     setLibrary((lib) => lib.map((b) => (b.id === docId ? { ...b, imageKeys: keys } : b)));
@@ -417,6 +254,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
       urls,
       loaded,
       dirty,
+      saving,
+      error,
     }),
     [
       doc,
@@ -433,6 +272,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
       urls,
       loaded,
       dirty,
+      saving,
+      error,
     ],
   );
 

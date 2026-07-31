@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { formatServiceDate } from "@/lib/layout";
 import { useDoc } from "@/lib/store";
+import { isPublicPath } from "@/lib/supabase/config";
+import { useAuth } from "@/lib/supabase/useAuth";
 import { Btn } from "./ui";
 
 const MAKE_PATHS = ["/", "/common", "/fixed", "/preview"];
@@ -20,8 +22,19 @@ const PRIMARY = [
 
 export function Nav() {
   const path = usePathname();
+  const router = useRouter();
   const { doc, saveCurrent, dirty, loaded } = useDoc();
+  const { user, enabled, signOut } = useAuth();
   const inMake = MAKE_PATHS.includes(path);
+
+  // 로그인·가입 화면에서는 상단 메뉴를 숨긴다
+  if (isPublicPath(path) || path === "/pending") return null;
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace("/login");
+    router.refresh();
+  };
 
   return (
     <header
@@ -60,16 +73,42 @@ export function Nav() {
         })}
       </nav>
 
-      {loaded && inMake && (
-        <div className="ml-auto flex items-center gap-2.5">
-          <span className="hidden text-[12px] sm:inline" style={{ color: "var(--ui-muted)" }}>
-            {formatServiceDate(doc.serviceDate)}
-          </span>
-          <Btn variant={dirty ? "primary" : "default"} size="sm" onClick={saveCurrent}>
-            {dirty ? "저장" : "저장됨"}
-          </Btn>
-        </div>
-      )}
+      <div className="ml-auto flex items-center gap-2">
+        {loaded && inMake && (
+          <>
+            <span className="hidden text-[12px] lg:inline" style={{ color: "var(--ui-muted)" }}>
+              {formatServiceDate(doc.serviceDate)}
+            </span>
+            <Btn variant={dirty ? "primary" : "default"} size="sm" onClick={saveCurrent}>
+              {dirty ? "저장" : "저장됨"}
+            </Btn>
+          </>
+        )}
+
+        {user?.role === "admin" && (
+          <Link
+            href="/admin"
+            className="rounded-lg px-2.5 py-1.5 text-[12px] font-semibold"
+            style={{
+              background: path === "/admin" ? "var(--ui-accent-soft)" : "transparent",
+              color: path === "/admin" ? "var(--ui-accent)" : "var(--ui-muted)",
+            }}
+          >
+            관리자
+          </Link>
+        )}
+
+        {enabled && user && (
+          <button
+            onClick={handleSignOut}
+            className="text-[12px]"
+            style={{ color: "var(--ui-muted)" }}
+            title={user.email}
+          >
+            로그아웃
+          </button>
+        )}
+      </div>
     </header>
   );
 }

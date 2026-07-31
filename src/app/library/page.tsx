@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Btn, Hint, Section } from "@/components/ui";
-import { getImage } from "@/lib/imageStore";
+import { getBackend } from "@/lib/backend";
 import { fileNameFor, saveBlob, saveZip } from "@/lib/exportImages";
 import { formatServiceDate } from "@/lib/layout";
 import { useDoc } from "@/lib/store";
@@ -95,7 +95,7 @@ function Row({
     let url: string | undefined;
     (async () => {
       if (!firstKey) return;
-      const blob = await getImage(firstKey);
+      const blob = await getBackend().getImage(firstKey);
       if (!blob || !alive) return;
       url = URL.createObjectURL(blob);
       setThumb(url);
@@ -115,7 +115,7 @@ function Row({
     try {
       const blobs: Blob[] = [];
       for (const k of bulletin.imageKeys) {
-        const blob = await getImage(k);
+        const blob = await getBackend().getImage(k);
         if (blob) blobs.push(blob);
       }
       const fmt = bulletin.exportFormat ?? "png";
