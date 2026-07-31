@@ -184,18 +184,16 @@ public/
 
 ## 서버 연결하기 (로그인·승인 켜기)
 
-1. **Supabase 프로젝트 생성** — [supabase.com](https://supabase.com) 무료 플랜으로 충분합니다
-2. **스키마 만들기** — 대시보드 `SQL Editor`에서 순서대로 실행
-   - [`supabase/migrations/001_init.sql`](./supabase/migrations/001_init.sql) — 테이블·권한
-   - [`supabase/migrations/002_share.sql`](./supabase/migrations/002_share.sql) — 공유 QR
-3. **이메일 확인 끄기** — `Authentication > Providers > Email`에서 **Confirm email**을 끕니다.
-   가입 관문은 메일 확인이 아니라 **관리자 승인**이므로, 켜두면 단계만 늘어납니다
-4. **키 복사** — `Project Settings > API`에서 Project URL과 anon public key
-5. **환경변수 등록**
-   - 로컬: `.env.example`을 복사해 `.env.local`을 만들고 값 채우기
-   - Vercel: `Settings > Environment Variables`에 같은 두 값을 Production·Preview·Development 모두 등록 후 재배포
-6. **첫 가입** — 처음 가입한 사람이 자동으로 **관리자**가 되고 바로 승인됩니다.
-   반드시 본인이 먼저 가입하세요
+**➡️ [SETUP.md](./SETUP.md) 에 클릭 순서까지 적어두었습니다.** 약 15분 걸립니다.
+
+요약하면 이렇습니다.
+
+1. Supabase 프로젝트 생성 (무료 플랜)
+2. `SQL Editor`에서 `supabase/migrations/001_init.sql` → `002_share.sql` 순서로 실행
+3. `Authentication`에서 **Confirm email** 끄기
+4. `Project Settings > API`에서 **Project URL**과 **anon public** 키 복사
+5. Vercel 환경변수에 등록하고 **재배포** (저장만으로는 반영되지 않습니다)
+6. 본인이 **가장 먼저 가입** — 첫 가입자가 자동으로 관리자가 됩니다
 
 > ⚠ `service_role` 키는 어디에도 넣지 마세요. 모든 권한을 우회하는 키이며,
 > `NEXT_PUBLIC_`으로 시작하는 값은 브라우저에 그대로 노출됩니다.
