@@ -69,7 +69,8 @@ export function anchorBlocks(source: string, pairs: AdPair[]): AnchorResult {
       break;
     }
 
-    blocks.push({ title: title.trim(), body: body.trim(), confident: true });
+    // 종류는 원문 글자가 아니라 분류일 뿐이라 모델 값을 그대로 쓴다
+    blocks.push({ kind: pair.kind, title: title.trim(), body: body.trim(), confident: true });
   }
 
   if (ok && MEANINGFUL.test(flat.slice(cursor))) {

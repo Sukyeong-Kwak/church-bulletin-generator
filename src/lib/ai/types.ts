@@ -1,6 +1,6 @@
 /** 서버·브라우저가 함께 쓰는 값. 여기에는 키를 만지는 코드가 없다. */
 
-import type { ParsedBlock } from "@/lib/parseAds";
+import type { ParsedBlock, ParsedKind } from "@/lib/parseAds";
 
 /** 붙여넣기 한 번에 보낼 수 있는 글자 수 상한 */
 export const MAX_INPUT = 20_000;
@@ -8,6 +8,8 @@ export const MAX_INPUT = 20_000;
 export interface AdPair {
   title: string;
   body: string;
+  /** 광고인지, 주요일정인지, 본문 말씀인지 */
+  kind: ParsedKind;
 }
 
 export type ParseFailure =

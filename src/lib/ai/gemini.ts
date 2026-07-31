@@ -6,7 +6,10 @@
  * anchor.ts 가 원문과 대조해 걸러낸다. (모델 말을 믿지 않는다)
  */
 
+import { classify, type ParsedKind } from "@/lib/parseAds";
 import type { AdPair, ParseFailure } from "./types";
+
+const KINDS: ParsedKind[] = ["ad", "schedule", "sermon"];
 
 /**
  * 모델은 여기 한 줄만 고치면 바뀐다.
@@ -26,7 +29,7 @@ export class GeminiError extends Error {
   }
 }
 
-const SYSTEM = `너는 교회 주보의 광고 원문을 "제목"과 "내용"으로 나누기만 하는 도구다.
+const SYSTEM = `너는 교회 주보의 광고 원문을 "제목"과 "내용"으로 나누고, 덩어리가 어떤 종류인지만 골라주는 도구다.
 
 규칙
 1. 원문의 글자를 절대 고치지 마라. 맞춤법·띄어쓰기·문장부호·숫자·줄바꿈을 원문 그대로 옮긴다. 요약·의역·번역·윤문·추가·삭제 모두 금지다.
@@ -35,18 +38,23 @@ const SYSTEM = `너는 교회 주보의 광고 원문을 "제목"과 "내용"으
 4. 제목이라고 볼 줄이 없으면 title은 빈 문자열로 두고 전부 body에 넣는다.
 5. 원문의 모든 글자는 title이나 body 중 정확히 한 곳에 들어가야 한다. 어디에도 넣지 않고 버리는 글자가 있으면 안 된다.
 6. 판단이 애매하면 나누지 말고 한 덩어리로 둬라. 지어내는 것보다 덜 나누는 편이 낫다.
-7. 설명·인사말·머리말 없이 JSON만 출력한다.`;
+7. 덩어리마다 kind를 하나 고른다. 종류를 고를 뿐, 글자를 옮기는 방식은 똑같다.
+   - "sermon": 그 주에 전할 설교를 알리는 덩어리. '본문 말씀'·'설교' 같은 제목이 붙었거나 설교 제목과 성경 구절(예: 이사야 62:5)이 함께 적혀 있다.
+   - "schedule": 앞으로의 행사와 날짜를 늘어놓은 덩어리. '주요일정' 같은 제목이 붙었거나 줄마다 행사명과 날짜가 짝지어 있다.
+   - "ad": 그 밖의 모든 광고. 어느 쪽인지 애매하면 "ad"를 고른다.
+8. 설명·인사말·머리말 없이 JSON만 출력한다.`;
 
 const SCHEMA = {
   type: "ARRAY",
   items: {
     type: "OBJECT",
     properties: {
+      kind: { type: "STRING", enum: ["ad", "schedule", "sermon"] },
       title: { type: "STRING" },
       body: { type: "STRING" },
     },
-    required: ["title", "body"],
-    propertyOrdering: ["title", "body"],
+    required: ["kind", "title", "body"],
+    propertyOrdering: ["kind", "title", "body"],
   },
 } as const;
 
@@ -115,9 +123,10 @@ export async function splitAdText(text: string): Promise<AdPair[]> {
 
   return parsed.map((item) => {
     const o = (item ?? {}) as Partial<AdPair>;
-    return {
-      title: typeof o.title === "string" ? o.title : "",
-      body: typeof o.body === "string" ? o.body : "",
-    };
+    const title = typeof o.title === "string" ? o.title : "";
+    const body = typeof o.body === "string" ? o.body : "";
+    // 종류를 빠뜨렸거나 엉뚱한 값을 보냈으면 규칙으로 다시 가른다
+    const kind = KINDS.includes(o.kind as ParsedKind) ? (o.kind as ParsedKind) : classify(title, body);
+    return { kind, title, body };
   });
 }

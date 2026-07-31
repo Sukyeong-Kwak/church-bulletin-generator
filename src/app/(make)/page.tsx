@@ -10,7 +10,7 @@ import { Btn, Hint, Section } from "@/components/ui";
 import { CANVAS } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { useDoc } from "@/lib/store";
-import type { AdBlock } from "@/lib/types";
+import type { FlowBlock, ScheduleBlock, SermonBlock } from "@/lib/types";
 
 export default function EditorPage() {
   const { doc, setDoc, urls, loaded } = useDoc();
@@ -26,14 +26,50 @@ export default function EditorPage() {
     return w < 1024 ? Math.min(0.55, (w - 48) / CANVAS.w) : 0.3;
   });
 
-  const applyAds = (blocks: AdBlock[], mode: "replace" | "append") => {
+  /**
+   * 붙여넣기 결과를 문서에 얹는다.
+   * 광고는 목록으로 쌓이고, 주요일정·본문 말씀은 이미 있는 자리를 채운다 —
+   * 같은 종류가 두 벌 생기면 미리보기에 같은 제목이 두 번 나오기 때문이다.
+   */
+  const applyAds = (incoming: FlowBlock[], mode: "replace" | "append") => {
     setDoc((d) => {
-      const others = d.blocks.filter((b) => b.kind !== "ad");
-      const ads =
-        mode === "replace"
-          ? blocks
-          : [...d.blocks.filter((b): b is AdBlock => b.kind === "ad"), ...blocks];
-      return { ...d, blocks: [...ads, ...others] };
+      // 일정이 여러 덩어리로 나뉘어 왔으면 항목을 한 자리에 모은다 (버려지는 줄이 없게)
+      const schedules = incoming.filter((b): b is ScheduleBlock => b.kind === "schedule");
+      const newSchedule: ScheduleBlock | undefined = schedules.length
+        ? { ...schedules[0], items: schedules.flatMap((s) => s.items) }
+        : undefined;
+      const newSermon = incoming.find((b): b is SermonBlock => b.kind === "sermon");
+
+      const ads = [
+        ...(mode === "replace" ? [] : d.blocks.filter((b) => b.kind === "ad")),
+        ...incoming.filter((b) => b.kind === "ad"),
+      ];
+
+      const filled = new Set<FlowBlock["kind"]>();
+      const others = d.blocks
+        .filter((b) => b.kind !== "ad")
+        .map((b) => {
+          if (b.kind === "schedule" && newSchedule) {
+            filled.add("schedule");
+            return {
+              ...b,
+              heading: newSchedule.heading || b.heading,
+              items: mode === "replace" ? newSchedule.items : [...b.items, ...newSchedule.items],
+            };
+          }
+          if (b.kind === "sermon" && newSermon) {
+            filled.add("sermon");
+            return { ...b, heading: newSermon.heading || b.heading, title: newSermon.title, verse: newSermon.verse };
+          }
+          return b;
+        });
+
+      // 옛 문서라 자리가 아예 없으면 새로 만들어 붙인다
+      const added = [newSchedule, newSermon].filter(
+        (b): b is ScheduleBlock | SermonBlock => !!b && !filled.has(b.kind),
+      );
+
+      return { ...d, blocks: [...ads, ...others, ...added] };
     });
     setPasteOpen(false);
   };

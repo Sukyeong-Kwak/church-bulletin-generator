@@ -1,3 +1,4 @@
+import { stripBrackets } from "./parseAds";
 import type { Align, TextStyle, Theme } from "./types";
 
 /** 캔버스 규격 — A4 세로 비율(1:1.414). 미리캔버스 원본과 동일. */
@@ -173,7 +174,8 @@ export const DEFAULT_THEME: Theme = {
   cardOpacity: 0.72,
   cardEnabled: true,
   titleColor: "#3B3B98",
-  bodyColor: "#3D3D5C",
+  // 배경 사진 위에 얹히므로 색이 옅으면 읽기 어렵다 — 본문은 검정으로 대비를 준다
+  bodyColor: "#000000",
   highlightColor: "#FFF3B0",
   fontScale: 1,
 };
@@ -183,11 +185,7 @@ export const DEFAULT_THEME: Theme = {
  * 붙여넣은 원문에 이미 괄호가 있으면 벗겨내고 다시 씌워 겹치지 않게 한다.
  */
 export function bracketTitle(title: string): string {
-  const bare = title
-    .trim()
-    .replace(/^[<〈《【[(]\s*/, "")
-    .replace(/\s*[>〉》】\])]$/, "")
-    .trim();
+  const bare = stripBrackets(title);
   return bare ? `<${bare}>` : "";
 }
 

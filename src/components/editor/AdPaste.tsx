@@ -2,13 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useAdSplit } from "@/lib/ai/useAdSplit";
-import { summarize } from "@/lib/parseAds";
+import {
+  KIND_LABEL,
+  parseScheduleItems,
+  parseSermon,
+  stripBrackets,
+  summarize,
+  type ParsedBlock,
+} from "@/lib/parseAds";
 import { newId } from "@/lib/store";
-import type { AdBlock } from "@/lib/types";
+import type { FlowBlock } from "@/lib/types";
 import { Btn, Hint } from "../ui";
 
 interface Props {
-  onApply: (blocks: AdBlock[], mode: "replace" | "append") => void;
+  onApply: (blocks: FlowBlock[], mode: "replace" | "append") => void;
   onClose: () => void;
 }
 
@@ -17,6 +24,7 @@ interface Props {
  * 목사님이 구글 문서로 올린 광고 전문을 통째로 붙여넣으면 블록으로 자동 변환한다.
  * 붙여넣고 잠시 기다리면 AI(Google AI Studio)가 제목과 내용을 갈라주고,
  * AI를 못 쓰는 상황이면 규칙 방식 결과가 그대로 남는다.
+ * 원문에 섞여 온 주요일정과 본문 말씀도 함께 가려내 제자리에 넣는다.
  */
 export function AdPaste({ onApply, onClose }: Props) {
   const [text, setText] = useState("");
@@ -30,13 +38,7 @@ export function AdPaste({ onApply, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const toBlocks = (): AdBlock[] =>
-    blocks.map((p) => ({
-      id: newId("ad"),
-      kind: "ad" as const,
-      title: p.title,
-      body: p.body,
-    }));
+  const toBlocks = (): FlowBlock[] => blocks.map(toFlowBlock);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(15,23,42,.45)" }}>
@@ -139,15 +141,22 @@ export function AdPaste({ onApply, onClose }: Props) {
                       <span className="text-[12px] font-bold">
                         {p.title || <span style={{ color: "#f08c00" }}>제목 없음</span>}
                       </span>
+                      {/* 광고가 아닌 것은 어느 자리로 들어가는지 알려준다 */}
+                      {p.kind !== "ad" && (
+                        <span
+                          className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                          style={{ background: "#e7f5ff", color: "#1971c2" }}
+                        >
+                          → {KIND_LABEL[p.kind]}
+                        </span>
+                      )}
                       {!p.confident && (
                         <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: "#fff4e6", color: "#b45309" }}>
                           확인 필요
                         </span>
                       )}
                     </div>
-                    <p className="whitespace-pre-wrap text-[11px] leading-relaxed" style={{ color: "var(--ui-muted)" }}>
-                      {p.body}
-                    </p>
+                    <BlockPreview block={p} />
                   </div>
                 ))
               )}
@@ -185,4 +194,64 @@ export function AdPaste({ onApply, onClose }: Props) {
       </div>
     </div>
   );
+}
+
+/** 광고가 아닌 덩어리는 실제로 어떤 항목으로 갈리는지 보여준다 */
+function BlockPreview({ block }: { block: ParsedBlock }) {
+  const muted = { color: "var(--ui-muted)" };
+
+  if (block.kind === "sermon") {
+    const { title, verse } = parseSermon(block.body);
+    return (
+      <div className="text-[11px] leading-relaxed" style={muted}>
+        <div>제목: {title || <span style={{ color: "#f08c00" }}>못 찾음</span>}</div>
+        <div>본문: {verse || <span style={{ color: "#f08c00" }}>못 찾음</span>}</div>
+      </div>
+    );
+  }
+
+  if (block.kind === "schedule") {
+    return (
+      <ul className="text-[11px] leading-relaxed" style={muted}>
+        {parseScheduleItems(block.body).map((it, i) => (
+          <li key={i}>
+            {it.name} <span style={{ color: "var(--ui-subtle)" }}>{it.date || "날짜 없음"}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <p className="whitespace-pre-wrap text-[11px] leading-relaxed" style={muted}>
+      {block.body}
+    </p>
+  );
+}
+
+/** 나뉜 덩어리를 주보 블록으로 만든다 */
+function toFlowBlock(p: ParsedBlock): FlowBlock {
+  const heading = stripBrackets(p.title);
+
+  if (p.kind === "sermon") {
+    const { title, verse } = parseSermon(p.body);
+    return {
+      id: newId("ser"),
+      kind: "sermon",
+      heading: heading || "본문 말씀",
+      title,
+      verse,
+    };
+  }
+
+  if (p.kind === "schedule") {
+    return {
+      id: newId("sch"),
+      kind: "schedule",
+      heading: heading || "주요일정",
+      items: parseScheduleItems(p.body).map((it) => ({ id: newId("i"), ...it })),
+    };
+  }
+
+  return { id: newId("ad"), kind: "ad", title: p.title, body: p.body };
 }
