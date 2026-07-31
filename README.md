@@ -89,6 +89,18 @@ http://localhost:3000 에서 열립니다.
 수정한 항목만 저장되므로 **↺ 기본값으로** 버튼으로 언제든 되돌릴 수 있고,
 수정된 항목에는 파란 점이 표시됩니다.
 
+### 공유 QR
+
+주보를 저장하면 공유 링크가 생기고, **전체 보기 > 공유 QR**에서 QR 코드를 받을 수 있습니다.
+
+- 찍으면 **로그인 없이** 주보 전체를 볼 수 있습니다 — 새가족부 QR에 그대로 씁니다
+- QR 이미지는 **256 · 512 · 1024 · 2048px** 중에 골라 PNG로 받습니다 (인쇄물은 1024px 이상 권장)
+- 주보 내용을 고쳐 다시 저장해도 **주소가 바뀌지 않아** 이미 배포한 QR을 다시 만들 필요가 없습니다
+- 공유 페이지에서는 보기와 이미지 받기만 되고 수정은 되지 않습니다
+
+> 링크 주소를 아는 사람은 누구나 볼 수 있습니다. 생일 명단·연락처가 들어가므로
+> 공개된 곳에 붙일 때는 그 점을 감안해주세요.
+
 ### 내보내기
 
 | 항목 | 값 |
@@ -173,7 +185,9 @@ public/
 ## 서버 연결하기 (로그인·승인 켜기)
 
 1. **Supabase 프로젝트 생성** — [supabase.com](https://supabase.com) 무료 플랜으로 충분합니다
-2. **스키마 만들기** — 대시보드 `SQL Editor`에 [`supabase/migrations/001_init.sql`](./supabase/migrations/001_init.sql)을 그대로 붙여넣고 실행
+2. **스키마 만들기** — 대시보드 `SQL Editor`에서 순서대로 실행
+   - [`supabase/migrations/001_init.sql`](./supabase/migrations/001_init.sql) — 테이블·권한
+   - [`supabase/migrations/002_share.sql`](./supabase/migrations/002_share.sql) — 공유 QR
 3. **이메일 확인 끄기** — `Authentication > Providers > Email`에서 **Confirm email**을 끕니다.
    가입 관문은 메일 확인이 아니라 **관리자 승인**이므로, 켜두면 단계만 늘어납니다
 4. **키 복사** — `Project Settings > API`에서 Project URL과 anon public key

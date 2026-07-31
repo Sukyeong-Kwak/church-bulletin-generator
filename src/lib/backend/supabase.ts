@@ -1,49 +1,11 @@
 "use client";
 
 import { supabaseBrowser } from "@/lib/supabase/client";
-import type { BulletinRow } from "@/lib/supabase/types";
-import {
-  makeDefaultSettings,
-  newDocId,
-  normalizeFixed,
-  normalizeSettings,
-  type Settings,
-} from "@/lib/settings";
-import type { BulletinDoc, ExportFormat, ExportScale } from "@/lib/types";
+import { docToRow, rowToDoc } from "./map";
+import { newDocId, normalizeSettings, type Settings } from "@/lib/settings";
 import type { Backend } from "./types";
 
 const BUCKET = "bulletin-images";
-
-function toDoc(row: BulletinRow): BulletinDoc {
-  const snap = row.snapshot ?? {};
-  const base = makeDefaultSettings();
-  return {
-    id: row.id,
-    serviceDate: row.service_date,
-    updatedAt: row.updated_at,
-    imageKeys: row.image_paths ?? [],
-    theme: snap.theme ?? base.theme,
-    church: snap.church ?? base.church,
-    fixed: normalizeFixed(snap.fixed ?? base.fixed),
-    blocks: row.blocks ?? [],
-    exportScale: (row.export_scale as ExportScale) ?? 3,
-    exportFormat: (row.export_format as ExportFormat) ?? "jpg",
-    distribution: row.distribution ?? { band: false, newFamily: false },
-  };
-}
-
-function toRow(doc: BulletinDoc) {
-  return {
-    id: doc.id,
-    service_date: doc.serviceDate,
-    blocks: doc.blocks,
-    snapshot: { theme: doc.theme, church: doc.church, fixed: doc.fixed },
-    distribution: doc.distribution,
-    export_scale: doc.exportScale,
-    export_format: doc.exportFormat,
-    image_paths: doc.imageKeys ?? [],
-  };
-}
 
 function extOf(blob: Blob): string {
   const sub = blob.type.split("/")[1];
@@ -86,7 +48,7 @@ export const supabaseBackend: Backend = {
       .select("*")
       .order("service_date", { ascending: false });
 
-    return (data ?? []).map(toDoc);
+    return (data ?? []).map(rowToDoc);
   },
 
   async saveBulletin(doc) {
@@ -102,12 +64,12 @@ export const supabaseBackend: Backend = {
 
     const { data, error } = await supabase
       .from("bulletins")
-      .upsert({ ...toRow({ ...doc, id }), created_by: user?.id ?? null })
+      .upsert({ ...docToRow({ ...doc, id }), created_by: user?.id ?? null })
       .select()
       .single();
 
     if (error || !data) throw new Error(error?.message ?? "주보를 저장하지 못했습니다.");
-    return toDoc(data);
+    return rowToDoc(data);
   },
 
   async deleteBulletin(id) {

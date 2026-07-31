@@ -3,8 +3,9 @@
 import { useMemo, useRef, useState } from "react";
 import { ExportLayer } from "@/components/ExportLayer";
 import { ExportPanel } from "@/components/editor/ExportPanel";
+import { ShareCard } from "@/components/editor/ShareCard";
 import { PreviewGrid } from "@/components/PreviewGrid";
-import { Hint } from "@/components/ui";
+import { Btn, Hint } from "@/components/ui";
 import { CANVAS, formatServiceDate } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { useDoc } from "@/lib/store";
@@ -19,6 +20,8 @@ export default function PreviewPage() {
   const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
   const nodes = useRef(new Map<number, HTMLDivElement | null>());
+  // 저장하면 공유 링크가 생기므로 QR을 바로 펼쳐 보여준다
+  const [showShare, setShowShare] = useState(false);
   const [zoom, setZoom] = useState(() => {
     if (typeof window === "undefined") return 0.42;
     const w = window.innerWidth;
@@ -62,6 +65,14 @@ export default function PreviewPage() {
             {overflowCount}개 페이지에서 내용이 넘칩니다
           </span>
         )}
+        <Btn
+          size="sm"
+          variant={showShare ? "primary" : "default"}
+          onClick={() => setShowShare((v) => !v)}
+        >
+          공유 QR
+        </Btn>
+
         <label
           className="ml-auto flex items-center gap-1.5 text-[11px]"
           style={{ color: "var(--ui-muted)" }}
@@ -79,6 +90,12 @@ export default function PreviewPage() {
           {Math.round(zoom * 100)}%
         </label>
       </div>
+
+      {showShare && (
+        <div className="border-b bg-white px-4 py-3" style={{ borderColor: "var(--ui-border)" }}>
+          <ShareCard shareToken={doc.shareToken} serviceDate={doc.serviceDate} />
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
         <PreviewGrid doc={doc} pages={pages} urls={urls} scale={zoom} />
