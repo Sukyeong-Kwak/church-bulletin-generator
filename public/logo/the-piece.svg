@@ -3,28 +3,40 @@
   <desc>네 조각이 서로 맞물려 하나를 이루는 퍼즐 — 우리는 하나님의 퍼즐의 한 조각</desc>
   <!--
     조각마다 이웃으로 뻗는 돌기(흰색 원)를 더하고, 이웃의 돌기가 들어올 자리(검은색 원)를 빼서 만든다.
-    돌기 반지름 15 < 홈 반지름 16.5 이라 조각 사이에 가는 흰 틈이 남는다.
+    돌기 반지름 17 < 홈 반지름 18.5 이라 조각 사이에 가는 흰 틈이 남는다.
+
+    바깥 테두리에도 볼록한 혹과 오목한 홈을 번갈아 붙여 실루엣이 울퉁불퉁하게 했다.
+    네 조각은 가운데를 축으로 90도씩 돌린 자리라 모양이 제각각이어도 균형은 맞는다.
+    모서리 굴림은 조각마다 조금씩 달라 손으로 오려낸 듯 보인다.
   -->
   <defs>
     <mask id="piece-a" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220">
-      <rect x="11.5" y="11.5" width="97" height="97" rx="17" fill="#fff" />
-      <circle cx="110" cy="60" r="15" fill="#fff" />
-      <circle cx="60" cy="110" r="16.5" fill="#000" />
+      <rect x="25.5" y="25.5" width="83" height="83" rx="24" fill="#fff" />
+      <circle cx="110" cy="67" r="17" fill="#fff" />
+      <circle cx="63" cy="25.5" r="13" fill="#fff" />
+      <circle cx="67" cy="110" r="18.5" fill="#000" />
+      <circle cx="25.5" cy="63" r="11" fill="#000" />
     </mask>
     <mask id="piece-b" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220">
-      <rect x="111.5" y="11.5" width="97" height="97" rx="17" fill="#fff" />
-      <circle cx="160" cy="110" r="15" fill="#fff" />
-      <circle cx="110" cy="60" r="16.5" fill="#000" />
+      <rect x="111.5" y="25.5" width="83" height="83" rx="27" fill="#fff" />
+      <circle cx="153" cy="110" r="17" fill="#fff" />
+      <circle cx="194.5" cy="63" r="13.5" fill="#fff" />
+      <circle cx="110" cy="67" r="18.5" fill="#000" />
+      <circle cx="157" cy="25.5" r="11" fill="#000" />
     </mask>
     <mask id="piece-c" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220">
-      <rect x="11.5" y="111.5" width="97" height="97" rx="17" fill="#fff" />
-      <circle cx="60" cy="110" r="15" fill="#fff" />
-      <circle cx="110" cy="160" r="16.5" fill="#000" />
+      <rect x="25.5" y="111.5" width="83" height="83" rx="22" fill="#fff" />
+      <circle cx="67" cy="110" r="17" fill="#fff" />
+      <circle cx="25.5" cy="157" r="13.5" fill="#fff" />
+      <circle cx="110" cy="153" r="18.5" fill="#000" />
+      <circle cx="63" cy="194.5" r="11" fill="#000" />
     </mask>
     <mask id="piece-d" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220">
-      <rect x="111.5" y="111.5" width="97" height="97" rx="17" fill="#fff" />
-      <circle cx="110" cy="160" r="15" fill="#fff" />
-      <circle cx="160" cy="110" r="16.5" fill="#000" />
+      <rect x="111.5" y="111.5" width="83" height="83" rx="26" fill="#fff" />
+      <circle cx="110" cy="153" r="17" fill="#fff" />
+      <circle cx="157" cy="194.5" r="13" fill="#fff" />
+      <circle cx="153" cy="110" r="18.5" fill="#000" />
+      <circle cx="194.5" cy="157" r="11" fill="#000" />
     </mask>
   </defs>
 
