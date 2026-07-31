@@ -1,0 +1,57 @@
+import { NextResponse } from "next/server";
+import { anchorBlocks } from "@/lib/ai/anchor";
+import { GeminiError, splitAdText } from "@/lib/ai/gemini";
+import { MAX_INPUT, type ParseErrorResponse, type ParseResponse } from "@/lib/ai/types";
+import { normalize, parseAdText } from "@/lib/parseAds";
+
+/**
+ * 붙여넣은 광고 원문을 제목·내용으로 나눠 돌려준다.
+ *
+ * API 키는 이 파일이 도는 서버에만 있고 브라우저로 나가지 않는다.
+ * AI 결과가 원문과 어긋나면 규칙 파서 결과로 되돌려 보낸다 —
+ * 화면에 원문에 없던 글자가 뜨는 일은 없다.
+ */
+export async function POST(request: Request): Promise<NextResponse<ParseResponse | ParseErrorResponse>> {
+  let text: unknown;
+  try {
+    ({ text } = (await request.json()) as { text?: unknown });
+  } catch {
+    return bad("보낸 내용을 읽지 못했습니다.");
+  }
+
+  if (typeof text !== "string" || !text.trim()) return bad("나눌 내용이 비어 있습니다.");
+  if (text.length > MAX_INPUT) {
+    return bad(`한 번에 ${MAX_INPUT.toLocaleString()}자까지 나눌 수 있습니다. 나눠서 붙여넣어 주세요.`);
+  }
+
+  const source = normalize(text);
+
+  let pairs;
+  try {
+    pairs = await splitAdText(source);
+  } catch (e) {
+    if (e instanceof GeminiError) {
+      return NextResponse.json<ParseErrorResponse>(
+        { error: e.code, message: e.message },
+        { status: e.code === "no-key" ? 503 : e.code === "quota" ? 429 : 502 },
+      );
+    }
+    throw e;
+  }
+
+  const { blocks, ok, reason } = anchorBlocks(source, pairs);
+
+  if (!ok) {
+    return NextResponse.json<ParseResponse>({
+      source: "rule",
+      blocks: parseAdText(source),
+      note: `${reason ?? "AI 결과가 원문과 어긋났습니다."} 규칙 방식으로 나눈 결과를 보여드립니다.`,
+    });
+  }
+
+  return NextResponse.json<ParseResponse>({ source: "ai", blocks });
+}
+
+function bad(message: string) {
+  return NextResponse.json<ParseErrorResponse>({ error: "bad-request", message }, { status: 400 });
+}

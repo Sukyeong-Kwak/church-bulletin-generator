@@ -20,7 +20,7 @@ const BRACKET_TITLE = /^[<〈《【[(]\s*.*\S.*\s*[>〉》】\])]$/;
 const BULLET = /^(?:\d+[.)]|[-*▶▷▪•·※◆◇○●])\s*\S/;
 
 /** 구글 문서에서 복사할 때 딸려오는 특수 공백·서식 정리 */
-function normalize(raw: string): string {
+export function normalize(raw: string): string {
   return raw
     .replace(/\r\n?/g, "\n")
     .replace(/[  -   　]/g, " ") // 줄바꿈 없는 공백류

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { parseAdText, summarize } from "@/lib/parseAds";
+import { useEffect, useState } from "react";
+import { useAdSplit } from "@/lib/ai/useAdSplit";
+import { summarize } from "@/lib/parseAds";
 import { newId } from "@/lib/store";
 import type { AdBlock } from "@/lib/types";
 import { Btn, Hint } from "../ui";
@@ -14,10 +15,12 @@ interface Props {
 /**
  * 광고 붙여넣기.
  * 목사님이 구글 문서로 올린 광고 전문을 통째로 붙여넣으면 블록으로 자동 변환한다.
+ * 붙여넣고 잠시 기다리면 AI(Google AI Studio)가 제목과 내용을 갈라주고,
+ * AI를 못 쓰는 상황이면 규칙 방식 결과가 그대로 남는다.
  */
 export function AdPaste({ onApply, onClose }: Props) {
   const [text, setText] = useState("");
-  const parsed = useMemo(() => parseAdText(text), [text]);
+  const { blocks, source, note, status, error, retry } = useAdSplit(text);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -28,7 +31,7 @@ export function AdPaste({ onApply, onClose }: Props) {
   }, [onClose]);
 
   const toBlocks = (): AdBlock[] =>
-    parsed.map((p) => ({
+    blocks.map((p) => ({
       id: newId("ad"),
       kind: "ad" as const,
       title: p.title,
@@ -44,7 +47,7 @@ export function AdPaste({ onApply, onClose }: Props) {
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--ui-border)" }}>
           <div>
             <h2 className="text-[14px] font-bold">광고 붙여넣기</h2>
-            <Hint>구글 문서의 광고 내용을 전부 복사해서 그대로 붙여넣으세요.</Hint>
+            <Hint>구글 문서의 광고 내용을 전부 복사해서 그대로 붙여넣으세요. 제목과 내용은 알아서 나뉩니다.</Hint>
           </div>
           <Btn variant="ghost" onClick={onClose}>
             닫기
@@ -67,16 +70,44 @@ export function AdPaste({ onApply, onClose }: Props) {
           </div>
 
           <div className="flex min-h-0 flex-col gap-2">
-            <span className="text-[11px] font-semibold" style={{ color: "var(--ui-muted)" }}>
-              변환 결과 {parsed.length > 0 && `(${parsed.length}개)`}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold" style={{ color: "var(--ui-muted)" }}>
+                변환 결과 {blocks.length > 0 && `(${blocks.length}개)`}
+              </span>
+
+              {status === "loading" ? (
+                <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: "#e7f5ff", color: "#1971c2" }}>
+                  AI가 나누는 중…
+                </span>
+              ) : (
+                blocks.length > 0 && (
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                    style={
+                      source === "ai"
+                        ? { background: "#ebfbee", color: "#2b8a3e" }
+                        : { background: "#f1f3f5", color: "var(--ui-muted)" }
+                    }
+                  >
+                    {source === "ai" ? "AI 구분" : "규칙 구분"}
+                  </span>
+                )
+              )}
+
+              {text.trim() !== "" && status !== "loading" && (
+                <Btn size="sm" variant="ghost" onClick={retry} style={{ marginLeft: "auto" }}>
+                  다시 나누기
+                </Btn>
+              )}
+            </div>
+
             <div className="min-h-[320px] flex-1 overflow-auto rounded-lg border p-2" style={{ borderColor: "var(--ui-border)", background: "#fafafa" }}>
-              {parsed.length === 0 ? (
+              {blocks.length === 0 ? (
                 <p className="p-3 text-[12px]" style={{ color: "var(--ui-muted)" }}>
                   왼쪽에 붙여넣으면 광고 블록으로 나뉜 결과가 여기에 표시됩니다.
                 </p>
               ) : (
-                parsed.map((p, i) => (
+                blocks.map((p, i) => (
                   <div
                     key={i}
                     className="mb-2 rounded-lg border bg-white p-2.5"
@@ -102,13 +133,25 @@ export function AdPaste({ onApply, onClose }: Props) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t px-4 py-3" style={{ borderColor: "var(--ui-border)" }}>
-          <Hint>{summarize(parsed)}</Hint>
+        <div className="flex items-center justify-between gap-3 border-t px-4 py-3" style={{ borderColor: "var(--ui-border)" }}>
+          <div className="min-w-0">
+            <Hint>{summarize(blocks)}</Hint>
+            {/* 키가 없는 건 고장이 아니라 '아직 안 켠 기능'이므로 조용히 안내한다 */}
+            {error?.code === "no-key" ? (
+              <Hint>AI 자동 구분은 꺼져 있습니다 (서버에 GEMINI_API_KEY 없음). 규칙 방식으로 나눴습니다.</Hint>
+            ) : (
+              (note || error) && (
+                <p className="mt-0.5 text-[11px] leading-relaxed" style={{ color: "#b45309" }}>
+                  {note ?? error?.message}
+                </p>
+              )
+            )}
+          </div>
           <div className="flex gap-2">
-            <Btn disabled={parsed.length === 0} onClick={() => onApply(toBlocks(), "append")}>
+            <Btn disabled={blocks.length === 0} onClick={() => onApply(toBlocks(), "append")}>
               뒤에 추가
             </Btn>
-            <Btn variant="primary" disabled={parsed.length === 0} onClick={() => onApply(toBlocks(), "replace")}>
+            <Btn variant="primary" disabled={blocks.length === 0} onClick={() => onApply(toBlocks(), "replace")}>
               광고 전체 교체
             </Btn>
           </div>

@@ -61,6 +61,29 @@ http://localhost:3000 에서 열립니다.
 
 변환 결과를 미리 보여주므로 확정 전에 확인할 수 있습니다.
 
+#### AI 자동 구분 (선택)
+
+`GEMINI_API_KEY`를 넣어두면, 붙여넣은 뒤 잠깐 기다리는 사이에 Google AI Studio(Gemini)가
+제목과 내용을 갈라 원문 순서 그대로 채워 넣습니다. 위 규칙에 맞지 않게 적힌 광고도 나뉩니다.
+
+**원문은 한 글자도 바뀌지 않습니다.** AI가 돌려준 글자를 그대로 쓰지 않고, 공백을 뺀 원문에서
+같은 자리를 찾아 *원문 조각*을 잘라 씁니다(`src/lib/ai/anchor.ts`). 자리를 못 찾거나 원문 일부를
+빠뜨렸으면 AI 결과를 버리고 규칙 방식 결과를 대신 보여줍니다.
+
+키를 넣는 곳은 프로젝트 최상위의 `.env.local` 입니다.
+
+```bash
+# .env.local  (git에 올라가지 않습니다)
+GEMINI_API_KEY=여기에_발급받은_키
+```
+
+키는 [aistudio.google.com/apikey](https://aistudio.google.com/apikey) 에서 발급합니다.
+`NEXT_PUBLIC_`을 붙이면 브라우저에 노출되니 붙이지 마세요. 키가 없으면 규칙 방식으로만 동작합니다.
+
+쓰는 모델은 `gemini-3.6-flash` 이며 `src/lib/ai/gemini.ts`의 `MODEL` 한 줄로 바꿉니다.
+(`gemini-2.5-flash`는 신규 사용자에게 닫혔습니다. 쓸 수 있는 모델은
+`curl "https://generativelanguage.googleapis.com/v1beta/models" -H "x-goog-api-key: 키"` 로 확인합니다.)
+
 ### 자동 페이지 분할
 
 화면 밖에서 블록을 실제 스타일 그대로 그려 높이를 재고, 카드 안쪽 높이에 맞춰 채웁니다.
