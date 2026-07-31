@@ -205,6 +205,14 @@ function normalizeFixed(fixed: FixedPages): FixedPages {
   };
 }
 
+/**
+ * 글자색은 화면 어디에서도 고를 수 없다 — 저장본에 남은 옛 색을 그대로 쓰면
+ * 기본값을 고쳐도 예전에 시작한 주보만 옛 색으로 남는다. 그래서 색은 항상 기본값을 따른다.
+ */
+function normalizeTheme(theme: Theme): Theme {
+  return { ...theme, titleColor: DEFAULT_THEME.titleColor, bodyColor: DEFAULT_THEME.bodyColor };
+}
+
 interface PersistedState {
   settings: Settings;
   draft: BulletinDoc;
@@ -249,11 +257,20 @@ export function DocProvider({ children }: { children: ReactNode }) {
       if (raw) {
         const p = JSON.parse(raw) as Partial<PersistedState>;
         const merged = { ...makeDefaultSettings(), ...(p.settings ?? {}) };
-        const s: Settings = { ...merged, fixed: normalizeFixed(merged.fixed) };
+        const s: Settings = {
+          ...merged,
+          fixed: normalizeFixed(merged.fixed),
+          theme: normalizeTheme(merged.theme),
+        };
         setSettingsState(s);
         setDocState(
           p.draft
-            ? { ...makeDraft(s), ...p.draft, fixed: normalizeFixed(p.draft.fixed ?? s.fixed) }
+            ? {
+                ...makeDraft(s),
+                ...p.draft,
+                fixed: normalizeFixed(p.draft.fixed ?? s.fixed),
+                theme: normalizeTheme(p.draft.theme ?? s.theme),
+              }
             : makeDraft(s),
         );
         setLibrary(p.library ?? []);
