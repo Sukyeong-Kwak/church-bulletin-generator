@@ -332,8 +332,11 @@ function WorshipEditor() {
   const setRows = (rows: WorshipRow[]) => setWorship({ rows });
   const names = w.birthdays[ym] ?? [];
 
+  /** 빈 줄은 간격용이라 사람 수에서 뺀다 */
+  const headcount = (list: string[] | undefined) => (list ?? []).filter((n) => n.trim()).length;
+
   const savedMonths = Object.keys(w.birthdays)
-    .filter((k) => k !== ym && (w.birthdays[k]?.length ?? 0) > 0)
+    .filter((k) => k !== ym && headcount(w.birthdays[k]) > 0)
     .sort()
     .reverse();
 
@@ -409,16 +412,16 @@ function WorshipEditor() {
               value={names.join("\n")}
               placeholder={"홍길동\n김철수"}
               style={{ resize: "vertical" }}
+              // 적은 그대로 둔다 — 다듬어 버리면 띄어쓰기도 빈 줄도 치는 즉시 사라져
+              // 이름 사이 간격을 손으로 맞출 수가 없다. 주보에도 적은 그대로 나간다.
               onChange={(e) =>
                 setWorship({
-                  birthdays: {
-                    ...w.birthdays,
-                    [ym]: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
-                  },
+                  birthdays: { ...w.birthdays, [ym]: e.target.value.split("\n") },
                 })
               }
             />
           </Field>
+          <Hint>띄어쓰기와 빈 줄은 적은 그대로 주보에 나옵니다.</Hint>
 
           {savedMonths.length > 0 && (
             <Field label="다른 달에서 명단 복사 (작년 같은 달을 그대로 쓸 때)">
@@ -433,7 +436,7 @@ function WorshipEditor() {
                 <option value="">선택하세요</option>
                 {savedMonths.map((m) => (
                   <option key={m} value={m}>
-                    {m} ({w.birthdays[m].length}명)
+                    {m} ({headcount(w.birthdays[m])}명)
                   </option>
                 ))}
               </select>
@@ -443,7 +446,7 @@ function WorshipEditor() {
           {yearMonth(doc.serviceDate) !== ym && (
             <Hint>
               작성 중인 주보는 {yearMonth(doc.serviceDate)} 명단(
-              {(w.birthdays[yearMonth(doc.serviceDate)] ?? []).length}명)을 사용합니다.
+              {headcount(w.birthdays[yearMonth(doc.serviceDate)])}명)을 사용합니다.
             </Hint>
           )}
         </div>

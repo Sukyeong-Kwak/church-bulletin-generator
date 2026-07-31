@@ -179,7 +179,7 @@ export function WorshipContent({ doc }: { doc: BulletinDoc }) {
           {w.birthdayHeading.replace("{month}", String(monthOf(serviceDate)))}
         </Txt>
       )}
-      {names.length > 0 ? (
+      {names.some((n) => n.trim()) ? (
         <Txt role="birthdayName" theme={theme} preserveLines>
           {names.join("\n")}
         </Txt>
