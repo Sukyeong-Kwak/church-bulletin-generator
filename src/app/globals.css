@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/*
+ * 주보 폰트 — public/fonts/ 에 포함되어 있다. (파일이 없으면 시스템 한글 폰트로 대체)
+ *   제목  HS새마을체         → HSSaemaul.woff
+ *   본문  ACC어린이마음고운체 → ACCKidsHeart.woff
+ * 두 폰트 모두 상업적 이용과 웹 임베딩이 허용된 무료 폰트다.
+ */
+@font-face {
+  font-family: "HSSaemaul";
+  src: url("/fonts/HSSaemaul.woff2") format("woff2"),
+    url("/fonts/HSSaemaul.woff") format("woff");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "ACCKidsHeart";
+  src: url("/fonts/ACCKidsHeart.woff2") format("woff2"),
+    url("/fonts/ACCKidsHeart.woff") format("woff");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+/*
+ * 표지 제목용 굵은 글꼴 후보 — 모두 상업 이용·웹 임베딩이 허용된 무료 폰트다.
+ * 원본 주보의 두툼하고 끝이 둥근 손글씨풍 글자에 가까운 순서로 골랐다.
+ */
+@font-face {
+  font-family: "Cafe24Ssurround";
+  src: url("/fonts/Cafe24Ssurround.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "BMJUA";
+  src: url("/fonts/BMJUA.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Jalnan";
+  src: url("/fonts/Jalnan.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* 화면 UI 폰트 */
+@font-face {
+  font-family: "Pretendard Variable";
+  src: url("/fonts/PretendardVariable.woff2") format("woff2-variations");
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-title: "HSSaemaul", "Malgun Gothic", "맑은 고딕", sans-serif;
+  --font-body: "ACCKidsHeart", "Malgun Gothic", "맑은 고딕", sans-serif;
+  --font-ssurround: "Cafe24Ssurround", "Malgun Gothic", sans-serif;
+  --font-jua: "BMJUA", "Malgun Gothic", sans-serif;
+  --font-jalnan: "Jalnan", "Malgun Gothic", sans-serif;
+  --font-ui: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+
+  --ui-bg: #f7f8fa;
+  --ui-panel: #ffffff;
+  --ui-border: #e6e8ec;
+  --ui-text: #16181d;
+  --ui-muted: #767c88;
+  --ui-subtle: #a2a8b3;
+  --ui-accent: #3d5afe;
+  --ui-accent-soft: #eef1ff;
+}
+
+html,
+body {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--font-ui);
+  font-feature-settings: "ss01", "tnum";
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 미리보기 축소 래퍼 */
+.page-scale {
+  transform-origin: top left;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="month"],
+input[type="number"],
+textarea,
+select {
+  background: #fff;
+  border: 1px solid var(--ui-border);
+  border-radius: 9px;
+  padding: 8px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+  color: var(--ui-text);
+  transition: border-color 0.12s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ui-subtle);
+}
+
+/* 슬라이더는 기본 폭이 고정이라 칸을 넘쳐 서로 겹친다 */
+input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--ui-accent);
+}
+
+input[type="color"] {
+  padding: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: 7px;
+  background: #fff;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px var(--ui-accent-soft);
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/*
+ * 터치 기기(태블릿·모바일)
+ * - 누르는 영역을 손가락에 맞게 키운다
+ * - 입력 글자를 16px로 키워 iOS에서 입력할 때 화면이 확대되는 것을 막는다
+ */
+@media (pointer: coarse) {
+  input[type="text"],
+  input[type="date"],
+  input[type="month"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+
+  button {
+    min-height: 38px;
+  }
+
+  input[type="range"] {
+    height: 28px;
+  }
+
+  input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* 가로로 넘치는 탭 줄은 스크롤되게 두고 스크롤바는 감춘다 */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}

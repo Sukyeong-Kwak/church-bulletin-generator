@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="220" height="220" role="img" aria-label="THE PIECE 퍼즐 조각 로고">
+  <title>THE PIECE</title>
+  <desc>네 조각이 서로 맞물려 하나를 이루는 퍼즐 — 우리는 하나님의 퍼즐의 한 조각</desc>
+  <!--
+    조각마다 이웃으로 뻗는 돌기(흰색 원)를 더하고, 이웃의 돌기가 들어올 자리(검은색 원)를 빼서 만든다.
+    돌기 반지름 15 < 홈 반지름 16.5 이라 조각 사이에 가는 흰 틈이 남는다.
+  -->
+  <defs>
+    <mask id="piece-a" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220">
+      <rect x="11.5" y="11.5" width="97" height="97" rx="17" fill="#fff" />
+      <circle cx="110" cy="60" r="15" fill="#fff" />
+      <circle cx="60" cy="110" r="16.5" fill="#000" />
+    </mask>
+    <mask id="piece-b" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220">
+      <rect x="111.5" y="11.5" width="97" height="97" rx="17" fill="#fff" />
+      <circle cx="160" cy="110" r="15" fill="#fff" />
+      <circle cx="110" cy="60" r="16.5" fill="#000" />
+    </mask>
+    <mask id="piece-c" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220">
+      <rect x="11.5" y="111.5" width="97" height="97" rx="17" fill="#fff" />
+      <circle cx="60" cy="110" r="15" fill="#fff" />
+      <circle cx="110" cy="160" r="16.5" fill="#000" />
+    </mask>
+    <mask id="piece-d" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220">
+      <rect x="111.5" y="111.5" width="97" height="97" rx="17" fill="#fff" />
+      <circle cx="110" cy="160" r="15" fill="#fff" />
+      <circle cx="160" cy="110" r="16.5" fill="#000" />
+    </mask>
+  </defs>
+
+  <g mask="url(#piece-a)"><rect width="220" height="220" fill="#41508F" /></g>
+  <g mask="url(#piece-b)"><rect width="220" height="220" fill="#4FA391" /></g>
+  <g mask="url(#piece-c)"><rect width="220" height="220" fill="#F0A94C" /></g>
+  <g mask="url(#piece-d)"><rect width="220" height="220" fill="#E56B4E" /></g>
+</svg>
