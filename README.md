@@ -1,36 +1,190 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# THE PIECE 주보
 
-## Getting Started
+포도나무교회 청년교구 주보를 만드는 도구입니다.
+배경 이미지를 올리고 광고 문서를 붙여넣으면 **페이지가 알아서 나뉘고**, 바로 이미지로 받아
+밴드에 올릴 수 있습니다. 매주 미리캔버스에서 손으로 하던 작업을 대체합니다.
 
-First, run the development server:
+## 무엇이 달라지나
+
+| 지금까지 | 이 도구 |
+|---|---|
+| 미리캔버스에서 광고를 하나씩 옮겨 배치 | 구글 문서 내용을 **통째로 붙여넣으면 자동 분할** |
+| 각 페이지 상단 날짜를 일일이 수정 | 날짜 **한 번만** 입력 → 전 페이지 자동 반영 |
+| 표지 더피스 로고가 유료(건당 약 1,100원) | 로고 **기본 포함**, 결제 불필요 |
+| 분량에 맞춰 사람이 페이지를 나눔 | 실제 높이를 재서 **자동으로 나눔** (제목·본문은 항상 붙어 있음) |
+| 매주 처음부터 다시 | 지난 주보 **복사해서 시작** |
+
+## 시작하기
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+http://localhost:3000 에서 열립니다.
+같은 와이파이의 폰이나 태블릿에서도 터미널에 표시되는 Network 주소로 접속할 수 있습니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 화면 구성
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+[ 주보 만들기 ]  [ 보관함 ]                       2026.08.02.주일  [저장]
+  전체 공통 | 고정 페이지 | 본문 작성 | 전체 보기
+```
 
-## Learn More
+| 탭 | 적용 범위 | 하는 일 |
+|---|---|---|
+| **전체 공통** | 모든 페이지 | 날짜 · 배경 이미지 · 교회 정보(하단 푸터) |
+| **고정 페이지** | 앞 2장 | ① 표지(글자·퍼즐 로고) ② 청년부 일정(예배 안내·월별 생일) |
+| **본문 작성** | 3장부터 | 광고 붙여넣기 · 블록 편집 · 주요일정 · 본문 말씀 |
+| **전체 보기** | 완성본 | 전체 페이지 확인 + **이미지 내보내기** |
+| **보관함** | — | 저장한 주보 열기·복사·삭제, 만들었던 이미지 다시 받기 |
 
-To learn more about Next.js, take a look at the following resources:
+## 매주 하는 일
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **전체 공통** — 날짜를 이번 주일로, 배경 이미지 교체 (밴드에 올라온 날짜 없는 버전)
+2. **본문 작성** — 목사님이 올린 광고 문서를 복사해서 `붙여넣기` 버튼에 그대로 붙여넣기
+3. **전체 보기** — 확인하고 `전체 N장 이미지 내보내기`
+4. 배포 체크리스트에서 밴드 업로드 / 새가족부 전달 확인
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+지난주 것을 그대로 쓰려면 **보관함 → 복사해서 새로**를 누르면 날짜가 다음 주일로 바뀐 사본이 생깁니다.
 
-## Deploy on Vercel
+## 주요 기능
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 광고 붙여넣기 파서
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+구글 문서 광고 전문을 붙여넣으면 블록으로 나눕니다. 우선순위는 다음과 같습니다.
+
+1. `<...>` `[...]` `【...】` 로 감싼 줄 → 블록 제목 (노란 형광펜 자동 적용)
+2. 빈 줄 → 블록 구분
+3. `1.` `-` `▶` 같은 글머리 기호로 시작하는 줄 → 제목 후보
+4. 어느 것도 안 맞으면 첫 줄을 제목으로 가정하고 **확인 필요** 표시
+
+변환 결과를 미리 보여주므로 확정 전에 확인할 수 있습니다.
+
+### 자동 페이지 분할
+
+화면 밖에서 블록을 실제 스타일 그대로 그려 높이를 재고, 카드 안쪽 높이에 맞춰 채웁니다.
+**제목과 본문은 한 덩어리**라 페이지 경계에서 절대 잘리지 않습니다.
+블록 하나가 한 페이지보다 크면 넘침 경고가 뜹니다 — 폰트 크기를 줄이거나 블록을 나누면 됩니다.
+
+특정 블록 앞에서 강제로 페이지를 나눌 수도 있습니다.
+
+### 표지 서식
+
+표지 글자는 이미지가 아니라 **편집 가능한 서식**입니다. 문구만 고쳐 쓰면 되고 줄 추가·삭제도 됩니다.
+
+- 곡선 글자(SVG `textPath`) — 휘어짐이 **양수면 ∩(위로), 음수면 ∪(아래로)**
+- 글자별로 글꼴 · 크기 · 세로 위치 · 자간 · 휘어짐 · 색 조절
+- 퍼즐 로고는 직접 그린 SVG가 기본 포함 (`public/logo/the-piece.svg`).
+  네 조각이 실제로 맞물리는 구조이며, 교회 로고가 따로 있으면 업로드해 교체합니다
+
+### 스타일 조절
+
+아무것도 건드리지 않아도 완성본이 나오고, 필요할 때만 손대면 됩니다.
+
+```
+테마 전역  →  페이지 타입 기본값  →  요소별 수정
+```
+
+수정한 항목만 저장되므로 **↺ 기본값으로** 버튼으로 언제든 되돌릴 수 있고,
+수정된 항목에는 파란 점이 표시됩니다.
+
+### 내보내기
+
+| 항목 | 값 |
+|---|---|
+| 캔버스 | 891 × 1260 (A4 세로 비율) |
+| 배율 | 2배 1782×2520 / **3배 2673×3780** / 4배 3564×5040 |
+| 형식 | **JPG**(용량 작아 공유에 유리) / PNG(무손실) |
+| 파일명 | `2026-08-02_1.jpg` … 순번 |
+
+만든 이미지는 보관함에 함께 저장되어 나중에 그대로 다시 받을 수 있습니다.
+
+> 사진 배경을 쓰면 PNG는 장당 10MB를 넘길 수 있습니다. 밴드·카톡 공유에는 JPG를 권합니다.
+
+## 규격
+
+| 항목 | 값 |
+|---|---|
+| 캔버스 | 891 × 1260 px |
+| 본문 카드 | x 88, y 105, 715 × 1025, 반지름 24, 흰색 72% |
+| 상단 날짜 | y 28, 가운데 |
+| 하단 푸터 | 좌측 30, 아래 22, 두 줄 |
+
+권장 배경 해상도는 1782 × 2520 이상입니다. 그보다 작으면 화면에서 경고가 뜹니다.
+
+## 폰트
+
+모두 상업 이용과 웹 임베딩이 허용된 무료 폰트이며 `public/fonts/`에 포함되어 있습니다.
+
+| 용도 | 폰트 |
+|---|---|
+| 주보 제목 | HS새마을체 |
+| 주보 본문 | ACC어린이마음고운체 |
+| 표지 글자 (기본) | 카페24 써라운드 |
+| 표지 글자 (대안) | 배민 주아 · 여기어때 잘난 |
+| 화면 UI | Pretendard |
+
+내보낼 때 폰트를 data URL로 직접 임베딩합니다.
+라이브러리에 맡기면 브라우저 확장이 주입한 스타일시트를 훑다가 멈추는 경우가 있어 그 과정을 건너뜁니다.
+
+## 폴더 구조
+
+```
+src/
+  app/
+    (make)/            주보 만들기 — 4개 탭이 같은 레이아웃을 공유
+      page.tsx           본문 작성
+      common/            전체 공통
+      fixed/             고정 페이지
+      preview/           전체 보기 + 내보내기
+    library/           보관함
+  components/
+    BulletinPage.tsx   891×1260 한 페이지 렌더러
+    CoverTextView.tsx  표지 곡선 글자
+    ExportLayer.tsx    화면 밖 원본 크기 캡처용 레이어
+    Inspector.tsx      스타일 오버라이드 조절기
+  lib/
+    paginate.tsx       높이 측정 + 페이지 분할 엔진
+    parseAds.ts        광고 텍스트 파서
+    layout.ts          규격·기본 스타일·스타일 병합
+    exportImages.ts    이미지 생성 · 폰트 임베딩 · ZIP
+    imageStore.ts      이미지 원본 보관 (IndexedDB)
+    store.tsx          문서 상태 · 저장 · 보관함
+public/
+  fonts/               폰트
+  logo/the-piece.svg   퍼즐 로고
+```
+
+## 데이터
+
+지금은 브라우저에 저장됩니다.
+
+- 문서·설정·보관함 → `localStorage`
+- 배경·표지·로고·내보낸 이미지 → `IndexedDB` (원본 화질 그대로)
+
+즉 **브라우저를 바꾸면 데이터가 따라오지 않습니다.** 2단계에서 Supabase로 옮겨
+로그인한 사람이 어느 기기에서나 같은 자료를 보도록 만들 예정입니다.
+
+## 개발
+
+```bash
+npm run dev     # 개발 서버
+npm run build   # 프로덕션 빌드
+npm run lint    # 검사
+```
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4
+
+데스크탑이 주 사용 환경이고, 태블릿·모바일에서는 편집과 미리보기를 전환해 쓰는 구조입니다.
+
+## 앞으로
+
+| 단계 | 내용 |
+|---|---|
+| 1단계 ✅ | 조판 엔진 · 표지 서식 · 내보내기 · 보관함 |
+| 2단계 | Supabase 로그인 · 24시간 초대코드 · 관리자 승인 · 서버 저장 |
+| 3단계 | 테마(배경 세트) 관리 · 배포 체크리스트 · 공유 링크 |
+| 4단계 | 블록 드래그 정렬 · 폰트 자동 축소 · 긴 블록 분할점 지정 |
+
+자세한 설계는 [PLAN.md](./PLAN.md)를 참고하세요.
