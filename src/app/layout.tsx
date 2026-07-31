@@ -21,9 +21,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // 크롬 확장들이 React가 붙기 전에 <html>·<body>에 제 속성을 끼워 넣는다
+  // (foxified, cz-shortcut-listen 등). 그 한 겹만 눈감아 주는 표시로,
+  // 안쪽에서 진짜 불일치가 나면 그대로 경고가 뜬다.
   return (
-    <html lang="ko" className="h-full antialiased">
-      <body className="h-full flex flex-col overflow-hidden">
+    <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
+      <body className="h-full flex flex-col overflow-hidden" suppressHydrationWarning>
         <DocProvider>
           <Nav />
           <main className="flex-1 min-h-0 overflow-auto">{children}</main>
