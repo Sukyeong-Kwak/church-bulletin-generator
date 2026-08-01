@@ -12,6 +12,8 @@ export interface TextStyle {
   bold?: boolean;
   color?: string;
   letterSpacing?: number;
+  /** 글꼴 (FONTS의 key). 비어 있으면 그 자리의 기본 글꼴을 쓴다 */
+  font?: string;
   marginTop?: number;
   marginBottom?: number;
   /** 블록 제목 노란 형광펜 배경 */

@@ -39,6 +39,14 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
   const bg = isCover ? (coverUrl ?? backgroundUrl) : backgroundUrl;
   const showCard = !isCover && theme.cardEnabled;
 
+  // 광고 페이지는 장마다 블록 수가 달라 아래 여백이 들쭉날쭉하므로 내용을 카드 가운데에 둔다.
+  // 넘칠 때는 safe 덕분에 위가 잘리지 않고 위에서부터 채워진다.
+  // 청년부 일정은 늘 같은 차림이라 원래대로 위에서부터 채운다.
+  const centerCard: CSSProperties =
+    page.kind === "worship"
+      ? {}
+      : { display: "flex", flexDirection: "column", justifyContent: "safe center" };
+
   return (
     <div style={{ ...canvas }} data-page={page.index}>
       {bg ? (
@@ -91,11 +99,7 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
             padding: `${CARD.padY}px ${CARD.padX}px`,
             boxSizing: "border-box",
             overflow: "hidden",
-            // 내용을 카드 한가운데에 둔다. 넘칠 때는 safe 덕분에 위가 잘리지 않고
-            // 지금처럼 위에서부터 채워진다.
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "safe center",
+            ...centerCard,
           }}
         >
           {page.kind === "worship" ? (

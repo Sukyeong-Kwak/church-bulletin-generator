@@ -83,6 +83,14 @@ const TITLE_FONT_ROLES = new Set<Role>([
   "scheduleHeading",
 ]);
 
+/** 글꼴을 따로 고르지 않았을 때 그 자리가 쓰는 글꼴 */
+export function roleFontKey(role: Role): FontKey {
+  return TITLE_FONT_ROLES.has(role) ? "title" : "body";
+}
+
+/** 글자 크기로 고를 수 있는 범위 — 인스펙터 슬라이더와 블록 줄의 −/+ 가 함께 쓴다 */
+export const FONT_SIZE = { min: 14, max: 72 } as const;
+
 function f(p: {
   fontSize: number;
   lineHeight: number;
@@ -100,6 +108,8 @@ function f(p: {
     bold: p.bold ?? false,
     color: "",
     letterSpacing: 0,
+    // 빈 값이면 roleFontKey가 정하는 그 자리의 기본 글꼴을 쓴다
+    font: "",
     marginTop: p.marginTop ?? 0,
     marginBottom: p.marginBottom ?? 0,
     highlight: p.highlight ?? false,
@@ -141,13 +151,14 @@ export function resolveStyle(
     letterSpacing: `${o.letterSpacing ?? base.letterSpacing}px`,
     marginTop: o.marginTop ?? base.marginTop,
     marginBottom: o.marginBottom ?? base.marginBottom,
-    fontFamily: TITLE_FONT_ROLES.has(role) ? "var(--font-title)" : "var(--font-body)",
+    // 고른 글꼴을 모르면(손댄 저장본 등) 그 자리의 기본 글꼴로 돌아간다
+    fontFamily: fontCss(o.font || base.font) ?? fontCss(roleFontKey(role)) ?? "var(--font-body)",
     highlight: o.highlight ?? base.highlight,
   };
 }
 
-/** 표지 글자에 쓸 수 있는 글꼴 */
-export const COVER_FONTS = [
+/** 주보에 쓸 수 있는 글꼴 — 표지 글자와 본문 요소가 같은 목록을 쓴다 */
+export const FONTS = [
   { key: "ssurround", label: "써라운드 (두툼·둥근)", css: "var(--font-ssurround)" },
   { key: "jua", label: "주아 (손글씨풍)", css: "var(--font-jua)" },
   { key: "jalnan", label: "잘난 (굵고 단단)", css: "var(--font-jalnan)" },
@@ -155,13 +166,16 @@ export const COVER_FONTS = [
   { key: "body", label: "어린이마음 (본문체)", css: "var(--font-body)" },
 ] as const;
 
-export type CoverFontKey = (typeof COVER_FONTS)[number]["key"];
+export type FontKey = (typeof FONTS)[number]["key"];
 
-export function coverFontCss(key: CoverFontKey | undefined, legacyTitleFont?: boolean): string {
-  const found = COVER_FONTS.find((f) => f.key === key);
-  if (found) return found.css;
+/** 글꼴 key → CSS. 고르지 않았거나 모르는 key면 undefined */
+export function fontCss(key: string | undefined): string | undefined {
+  return FONTS.find((f) => f.key === key)?.css;
+}
+
+export function coverFontCss(key: string | undefined, legacyTitleFont?: boolean): string {
   // 글꼴 선택이 생기기 전 저장본 호환
-  return legacyTitleFont ? "var(--font-title)" : "var(--font-body)";
+  return fontCss(key) ?? (legacyTitleFont ? "var(--font-title)" : "var(--font-body)");
 }
 
 /** 인스펙터에서 "수정됨" 표시에 사용 */

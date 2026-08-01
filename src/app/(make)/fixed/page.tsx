@@ -7,7 +7,7 @@ import { SplitView } from "@/components/SplitView";
 import { ImageUpload } from "@/components/editor/ImageUpload";
 import { Inspector } from "@/components/Inspector";
 import { Btn, Field, Hint, Section, Slider } from "@/components/ui";
-import { CANVAS, COVER_FONTS, monthOf, yearMonth } from "@/lib/layout";
+import { CANVAS, FONTS, monthOf, yearMonth } from "@/lib/layout";
 import { newId, useDoc } from "@/lib/store";
 import type { CoverText, LaidOutPage, WorshipRow } from "@/lib/types";
 
@@ -209,7 +209,7 @@ function CoverEditor() {
                   onChange={(e) => patchText(t.id, { font: e.target.value })}
                   style={{ width: "auto", flex: 1, minWidth: 150 }}
                 >
-                  {COVER_FONTS.map((f) => (
+                  {FONTS.map((f) => (
                     <option key={f.key} value={f.key}>
                       {f.label}
                     </option>

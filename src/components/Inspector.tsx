@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { DEFAULT_STYLES, resolveStyle, type Role } from "@/lib/layout";
+import type { CSSProperties, ReactNode } from "react";
+import { DEFAULT_STYLES, FONTS, FONT_SIZE, resolveStyle, roleFontKey, type Role } from "@/lib/layout";
 import type { Align, TextStyle, Theme } from "@/lib/types";
 import { Btn } from "./ui";
 
@@ -62,6 +62,15 @@ export function Inspector({ label, role, theme, value, onChange }: Props) {
         </div>
       </Row>
 
+      <Row label="글꼴" modified={has("font")} onReset={() => set("font", undefined)}>
+        <FontSelect
+          role={role}
+          value={value?.font}
+          current={cur.fontFamily}
+          onChange={(v) => set("font", v)}
+        />
+      </Row>
+
       <Row
         label={`폰트 크기 ${cur.fontSize}px`}
         modified={has("fontSize")}
@@ -69,8 +78,8 @@ export function Inspector({ label, role, theme, value, onChange }: Props) {
       >
         <input
           type="range"
-          min={14}
-          max={72}
+          min={FONT_SIZE.min}
+          max={FONT_SIZE.max}
           step={1}
           value={value?.fontSize ?? base.fontSize}
           onChange={(e) => set("fontSize", Number(e.target.value))}
@@ -170,6 +179,44 @@ export function Inspector({ label, role, theme, value, onChange }: Props) {
         </label>
       </div>
     </div>
+  );
+}
+
+/**
+ * 글꼴 고르기. 고르지 않으면 그 자리의 기본 글꼴을 쓴다.
+ * 인스펙터와 블록 줄의 빠른 조절이 함께 쓰므로 목록과 '기본' 표기가 한곳에서만 정해진다.
+ */
+export function FontSelect({
+  role,
+  value,
+  current,
+  onChange,
+  style,
+}: {
+  role: Role;
+  value: string | undefined;
+  /** 지금 적용된 글꼴 CSS — 고른 모양을 상자에서 바로 보여주려고 받는다 */
+  current: string;
+  onChange: (v: string | undefined) => void;
+  style?: CSSProperties;
+}) {
+  const fallback = FONTS.find((f) => f.key === roleFontKey(role))?.label;
+
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value || undefined)}
+      style={{ fontFamily: current, ...style }}
+    >
+      <option value="" style={{ fontFamily: "var(--font-ui)" }}>
+        기본 — {fallback}
+      </option>
+      {FONTS.map((f) => (
+        <option key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+          {f.label}
+        </option>
+      ))}
+    </select>
   );
 }
 

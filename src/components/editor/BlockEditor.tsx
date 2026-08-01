@@ -1,11 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Inspector } from "../Inspector";
+import { FontSelect, Inspector } from "../Inspector";
 import { Btn, Hint } from "../ui";
 import { blockLabel } from "../FlowBlocks";
+import { DEFAULT_STYLES, FONT_SIZE, resolveStyle, type Role } from "@/lib/layout";
 import { moveBlock, newId, updateBlock } from "@/lib/store";
-import type { AdBlock, BulletinDoc, FlowBlock, ScheduleBlock, SermonBlock, TextStyle } from "@/lib/types";
+import type {
+  AdBlock,
+  BulletinDoc,
+  FlowBlock,
+  ScheduleBlock,
+  SermonBlock,
+  TextStyle,
+  Theme,
+} from "@/lib/types";
 
 interface Props {
   doc: BulletinDoc;
@@ -97,6 +106,8 @@ export function BlockEditor({ doc, setDoc }: Props) {
                 <NudgeY offsetY={b.offsetY ?? 0} onChange={(v) => nudge(b.id, v)} />
               </div>
 
+              <QuickType block={b} theme={doc.theme} patch={patch} />
+
               {styleOpen && <StylePanels block={b} doc={doc} patch={patch} />}
             </div>
           </div>
@@ -144,6 +155,81 @@ function NudgeY({ offsetY, onChange }: { offsetY: number; onChange: (v: number) 
 
 function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
+}
+
+/** 블록에서 '본문'에 해당하는 자리 — 광고는 본문, 주요일정은 항목, 본문 말씀은 본문 줄 */
+function bodySlot(block: FlowBlock): {
+  key: "bodyStyle" | "itemStyle" | "lineStyle";
+  role: Role;
+  style?: TextStyle;
+} {
+  switch (block.kind) {
+    case "ad":
+      return { key: "bodyStyle", role: "blockBody", style: block.bodyStyle };
+    case "schedule":
+      return { key: "itemStyle", role: "scheduleItem", style: block.itemStyle };
+    case "sermon":
+      return { key: "lineStyle", role: "sermonLine", style: block.lineStyle };
+  }
+}
+
+/**
+ * 본문 글꼴과 크기 — 가장 자주 손대는 둘이라 '스타일'을 열지 않고도 바로 바꾼다.
+ * 나머지 세밀한 조절은 '스타일' 패널에 그대로 있고, 값은 같은 자리에 저장된다.
+ */
+function QuickType({ block, theme, patch }: { block: FlowBlock; theme: Theme; patch: Patch }) {
+  const { role, style } = bodySlot(block);
+  const cur = resolveStyle(role, theme, style);
+  const baseSize = DEFAULT_STYLES[role].fontSize;
+  const touched = style?.font !== undefined || style?.fontSize !== undefined;
+
+  // 고칠 값은 화면에 그려진 것이 아니라 그 순간의 블록에서 읽는다 — 연달아 눌러도 쌓인다
+  const edit = (change: (prev: TextStyle) => TextStyle) =>
+    patch(block.id, (b) => {
+      const slot = bodySlot(b);
+      const next = change(slot.style ?? {});
+      for (const k of Object.keys(next) as (keyof TextStyle)[]) {
+        if (next[k] === undefined) delete next[k];
+      }
+      return { ...b, [slot.key]: Object.keys(next).length ? next : undefined } as FlowBlock;
+    });
+
+  const resize = (dir: -1 | 1) =>
+    edit((prev) => ({
+      ...prev,
+      fontSize: clamp((prev.fontSize ?? baseSize) + dir, FONT_SIZE.min, FONT_SIZE.max),
+    }));
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 text-[11px]" style={{ color: "var(--ui-muted)" }}>
+      <span>글꼴</span>
+      <FontSelect
+        role={role}
+        value={style?.font}
+        current={cur.fontFamily}
+        onChange={(v) => edit((prev) => ({ ...prev, font: v }))}
+        // 옆 작은 버튼들과 키를 맞춘다
+        style={{ width: "auto", flex: "0 1 auto", padding: "4px 8px", fontSize: 12 }}
+      />
+
+      <span className="ml-1.5">크기</span>
+      <Btn size="sm" variant="ghost" onClick={() => resize(-1)} title="1px 작게">
+        −
+      </Btn>
+      <span style={{ fontVariantNumeric: "tabular-nums" }}>{cur.fontSize}px</span>
+      <Btn size="sm" variant="ghost" onClick={() => resize(1)} title="1px 크게">
+        +
+      </Btn>
+      {touched && (
+        <button
+          onClick={() => edit((prev) => ({ ...prev, font: undefined, fontSize: undefined }))}
+          title="기본 글꼴·크기로"
+        >
+          ↺
+        </button>
+      )}
+    </div>
+  );
 }
 
 type Patch = (id: string, fn: (b: FlowBlock) => FlowBlock) => void;
