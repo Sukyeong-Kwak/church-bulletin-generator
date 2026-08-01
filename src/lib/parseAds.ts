@@ -105,6 +105,31 @@ export function normalize(raw: string): string {
     .trim();
 }
 
+/**
+ * 광고 본문을 되도록 한 줄로 이어 붙인다.
+ *
+ * 원문은 문장 중간에도 줄이 끊겨 오는 일이 많은데, 그대로 두면 짧은 줄이 겹겹이 쌓여
+ * 한 페이지에 넉넉히 들어갈 광고가 다음 장으로 넘어가고 페이지마다 여백이 들쭉날쭉해진다.
+ * 뜻이 담긴 줄바꿈 — 빈 줄(문단 구분)과 글머리 기호로 시작하는 줄(목록) — 만 남긴다.
+ */
+export function flowBody(body: string): string {
+  return body
+    .split(/\n\s*\n/)
+    .map((para) => {
+      const out: string[] = [];
+      for (const raw of para.split("\n")) {
+        const line = raw.trim();
+        if (!line) continue;
+        // 목록 항목은 제 줄을 지키고, 나머지는 앞줄에 이어 붙인다
+        if (out.length === 0 || BULLET.test(line)) out.push(line);
+        else out[out.length - 1] += ` ${line}`;
+      }
+      return out.join("\n");
+    })
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function tidyBody(lines: string[]): string {
   return lines
     .join("\n")

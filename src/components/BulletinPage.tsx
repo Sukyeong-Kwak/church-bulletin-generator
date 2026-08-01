@@ -91,6 +91,11 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
             padding: `${CARD.padY}px ${CARD.padX}px`,
             boxSizing: "border-box",
             overflow: "hidden",
+            // 내용을 카드 한가운데에 둔다. 넘칠 때는 safe 덕분에 위가 잘리지 않고
+            // 지금처럼 위에서부터 채워진다.
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "safe center",
           }}
         >
           {page.kind === "worship" ? (
@@ -127,7 +132,14 @@ function FlowContent({ doc, page }: { doc: BulletinDoc; page: LaidOutPage }) {
         </div>
       )}
       {page.blocks.map((b, i) => (
-        <div key={b.id} style={{ marginTop: i === 0 ? 0 : BLOCK_GAP }}>
+        <div
+          key={b.id}
+          style={{
+            marginTop: i === 0 ? 0 : BLOCK_GAP,
+            // 자리 자체는 그대로 두고 그려지는 위치만 옮긴다 — 페이지 나눔이 흔들리지 않는다
+            transform: b.offsetY ? `translateY(${b.offsetY}px)` : undefined,
+          }}
+        >
           <FlowBlockView block={b} theme={doc.theme} />
         </div>
       ))}

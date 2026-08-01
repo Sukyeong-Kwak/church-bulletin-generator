@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAdSplit } from "@/lib/ai/useAdSplit";
 import {
   KIND_LABEL,
+  flowBody,
   parseScheduleItems,
   parseSermon,
   stripBrackets,
@@ -222,9 +223,10 @@ function BlockPreview({ block }: { block: ParsedBlock }) {
     );
   }
 
+  // 주보에 들어갈 모양 그대로 — 이어 붙인 뒤의 본문을 보여준다
   return (
     <p className="whitespace-pre-wrap text-[11px] leading-relaxed" style={muted}>
-      {block.body}
+      {flowBody(block.body)}
     </p>
   );
 }
@@ -253,5 +255,5 @@ function toFlowBlock(p: ParsedBlock): FlowBlock {
     };
   }
 
-  return { id: newId("ad"), kind: "ad", title: p.title, body: p.body };
+  return { id: newId("ad"), kind: "ad", title: p.title, body: flowBody(p.body) };
 }

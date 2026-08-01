@@ -24,6 +24,8 @@ export interface AdBlock {
   title: string;
   body: string;
   pageBreakBefore?: boolean;
+  /** 기본 위치에서 위(−)·아래(+)로 미세 조정. 조판(페이지 나눔)에는 영향을 주지 않는다. */
+  offsetY?: number;
   titleStyle?: TextStyle;
   bodyStyle?: TextStyle;
 }
@@ -40,6 +42,8 @@ export interface ScheduleBlock {
   heading: string;
   items: ScheduleItem[];
   pageBreakBefore?: boolean;
+  /** 기본 위치에서 위(−)·아래(+)로 미세 조정. 조판(페이지 나눔)에는 영향을 주지 않는다. */
+  offsetY?: number;
   headingStyle?: TextStyle;
   itemStyle?: TextStyle;
 }
@@ -51,6 +55,8 @@ export interface SermonBlock {
   title: string;
   verse: string;
   pageBreakBefore?: boolean;
+  /** 기본 위치에서 위(−)·아래(+)로 미세 조정. 조판(페이지 나눔)에는 영향을 주지 않는다. */
+  offsetY?: number;
   headingStyle?: TextStyle;
   lineStyle?: TextStyle;
 }
