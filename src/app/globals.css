@@ -75,6 +75,18 @@
   --ui-accent-soft: #eef1ff;
 }
 
+/*
+ * 폰·태블릿 브라우저는 주소창이 접혔다 펴지며 보이는 높이가 달라진다.
+ * 100%는 접히기 전의 큰 높이라 화면 아래가 주소창에 가려 저장 버튼 같은 것이 잘린다.
+ * 실제로 보이는 높이(dvh)를 쓰면 어느 상태에서도 한 화면에 딱 맞는다.
+ */
+@supports (height: 100dvh) {
+  html,
+  body {
+    height: 100dvh;
+  }
+}
+
 html,
 body {
   background: var(--ui-bg);
@@ -155,8 +167,10 @@ button {
     padding: 10px 12px;
   }
 
+  /* ↑ ↓ − ↺ 처럼 글자 한 자짜리 버튼도 손가락으로 짚을 만한 크기가 되게 한다 */
   button {
     min-height: 38px;
+    min-width: 38px;
   }
 
   input[type="range"] {

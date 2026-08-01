@@ -267,11 +267,13 @@ function ScheduleFields({ block, patch }: { block: ScheduleBlock; patch: Patch }
         onChange={(e) => patch(block.id, (b) => ({ ...(b as ScheduleBlock), heading: e.target.value }))}
       />
       {block.items.map((it, i) => (
-        <div key={it.id} className="flex gap-1.5">
+        // 좁은 화면에서는 행사명과 날짜가 한 줄에 다 못 들어가 짜부라진다 — 넘치면 줄을 바꾼다
+        <div key={it.id} className="flex flex-wrap gap-1.5">
           <input
             type="text"
             value={it.name}
             placeholder="행사명"
+            className="min-w-0 grow basis-[140px]"
             onChange={(e) =>
               setItems(block.items.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
             }
@@ -280,6 +282,7 @@ function ScheduleFields({ block, patch }: { block: ScheduleBlock; patch: Patch }
             type="text"
             value={it.date}
             placeholder="6월 3일(수)"
+            className="min-w-0 grow basis-[110px]"
             onChange={(e) =>
               setItems(block.items.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)))
             }

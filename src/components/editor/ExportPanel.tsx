@@ -13,7 +13,10 @@ import { putImage } from "@/lib/imageStore";
 import { newId } from "@/lib/store";
 import type { BulletinDoc, ExportScale } from "@/lib/types";
 import { Btn } from "../ui";
-import { SharePanel } from "./SharePanel";
+// QR 공유는 잠시 내려둔다 — 이미지를 이 컴퓨터의 .shares 폴더에 두는 방식이라
+// 서버가 꺼지면 QR도 죽는다. DB(또는 저장소)를 붙인 뒤에야 쓸모가 있다.
+// 되살릴 때는 아래 import와 SharePanel 블록의 주석만 풀면 된다.
+// import { SharePanel } from "./SharePanel";
 
 interface Props {
   doc: BulletinDoc;
@@ -146,9 +149,11 @@ export function ExportPanel({ doc, setDoc, getNodes, onImagesReady, pageCount }:
         </div>
       )}
 
+      {/*
       <div className="border-t" style={{ borderColor: "var(--ui-border)" }}>
         <SharePanel doc={doc} />
       </div>
+      */}
     </div>
   );
 }

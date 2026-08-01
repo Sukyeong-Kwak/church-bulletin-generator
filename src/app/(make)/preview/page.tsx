@@ -5,9 +5,10 @@ import { ExportLayer } from "@/components/ExportLayer";
 import { ExportPanel } from "@/components/editor/ExportPanel";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { Hint } from "@/components/ui";
-import { CANVAS, formatServiceDate } from "@/lib/layout";
+import { formatServiceDate } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { useDoc } from "@/lib/store";
+import { useFitScale } from "@/lib/useFitScale";
 
 /**
  * 주보 전체 보기 — 표지부터 마지막 장까지 순서대로 확인하고 이미지로 내보낸다.
@@ -19,11 +20,10 @@ export default function PreviewPage() {
   const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
   const nodes = useRef(new Map<number, HTMLDivElement | null>());
-  const [zoom, setZoom] = useState(() => {
-    if (typeof window === "undefined") return 0.42;
-    const w = window.innerWidth;
-    return w < 1024 ? Math.min(0.55, (w - 48) / CANVAS.w) : 0.42;
-  });
+  // 화면 폭에 맞춰 두다가, 사용자가 손대는 순간부터 그 값을 지킨다
+  const fit = useFitScale(0.42);
+  const [picked, setPicked] = useState<number | null>(null);
+  const zoom = picked ?? fit;
 
   const getNodes = (): HTMLElement[] =>
     pages.map((p) => nodes.current.get(p.index)).filter((el): el is HTMLDivElement => !!el);
@@ -73,7 +73,7 @@ export default function PreviewPage() {
             max={0.9}
             step={0.05}
             value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
+            onChange={(e) => setPicked(Number(e.target.value))}
             style={{ width: 110 }}
           />
           {Math.round(zoom * 100)}%

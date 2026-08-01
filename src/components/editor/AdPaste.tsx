@@ -42,9 +42,13 @@ export function AdPaste({ onApply, onClose }: Props) {
   const toBlocks = (): FlowBlock[] => blocks.map(toFlowBlock);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(15,23,42,.45)" }}>
+    // 폰에서는 화면을 통째로 쓴다 — 좁은 화면에 창을 띄우면 정작 글 넣을 자리가 남지 않는다
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6"
+      style={{ background: "rgba(15,23,42,.45)" }}
+    >
       <div
-        className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white"
+        className="flex h-full max-h-full w-full flex-col overflow-hidden bg-white sm:h-auto sm:max-w-4xl sm:rounded-2xl"
         style={{ boxShadow: "0 20px 50px rgba(0,0,0,.25)" }}
       >
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--ui-border)" }}>
@@ -60,7 +64,8 @@ export function AdPaste({ onApply, onClose }: Props) {
         {/* 대기 중임을 창 전체에서 한눈에 알 수 있게 머리말 바로 아래에 둔다 */}
         {status === "loading" && <div className="ai-bar" />}
 
-        <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 p-4">
+        {/* 좁은 화면에서는 원문과 결과를 위아래로 놓고 통째로 굴려 본다 */}
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-2 lg:overflow-hidden lg:p-4">
           <div className="flex min-h-0 flex-col gap-2">
             <span className="text-[11px] font-semibold" style={{ color: "var(--ui-muted)" }}>
               원문
@@ -70,7 +75,7 @@ export function AdPaste({ onApply, onClose }: Props) {
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={"<주중 기도회>\n수요기도회와 목요이사야62에 적극적으로\n참여해주시기 바랍니다.\n\n<결혼>\n..."}
-              className="min-h-[320px] flex-1 resize-none font-mono"
+              className="min-h-[200px] flex-1 resize-none font-mono lg:min-h-[320px]"
               style={{ fontSize: 12, lineHeight: 1.6 }}
             />
           </div>
@@ -112,7 +117,7 @@ export function AdPaste({ onApply, onClose }: Props) {
             </div>
 
             <div
-              className="min-h-[320px] flex-1 overflow-auto rounded-lg border p-2"
+              className="min-h-[200px] flex-1 overflow-auto rounded-lg border p-2 lg:min-h-[320px]"
               style={{
                 borderColor: "var(--ui-border)",
                 background: "#fafafa",
@@ -165,7 +170,10 @@ export function AdPaste({ onApply, onClose }: Props) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t px-4 py-3" style={{ borderColor: "var(--ui-border)" }}>
+        <div
+          className="flex shrink-0 flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+          style={{ borderColor: "var(--ui-border)" }}
+        >
           <div className="min-w-0">
             <Hint>
               {status === "loading"
@@ -183,11 +191,20 @@ export function AdPaste({ onApply, onClose }: Props) {
               )
             )}
           </div>
-          <div className="flex gap-2">
-            <Btn disabled={blocks.length === 0} onClick={() => onApply(toBlocks(), "append")}>
+          <div className="flex shrink-0 gap-2">
+            <Btn
+              disabled={blocks.length === 0}
+              onClick={() => onApply(toBlocks(), "append")}
+              className="flex-1 sm:flex-none"
+            >
               뒤에 추가
             </Btn>
-            <Btn variant="primary" disabled={blocks.length === 0} onClick={() => onApply(toBlocks(), "replace")}>
+            <Btn
+              variant="primary"
+              disabled={blocks.length === 0}
+              onClick={() => onApply(toBlocks(), "replace")}
+              className="flex-1 sm:flex-none"
+            >
               광고 전체 교체
             </Btn>
           </div>

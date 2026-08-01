@@ -7,8 +7,9 @@ import { SplitView } from "@/components/SplitView";
 import { ImageUpload } from "@/components/editor/ImageUpload";
 import { Inspector } from "@/components/Inspector";
 import { Btn, Field, Hint, Section, Slider } from "@/components/ui";
-import { CANVAS, FONTS, monthOf, yearMonth } from "@/lib/layout";
+import { FONTS, monthOf, yearMonth } from "@/lib/layout";
 import { newId, useDoc } from "@/lib/store";
+import { useFitScale } from "@/lib/useFitScale";
 import type { CoverText, LaidOutPage, WorshipRow } from "@/lib/types";
 
 type Tab = "cover" | "worship";
@@ -26,11 +27,7 @@ export default function FixedPagesPage() {
   const { doc, urls, loaded } = useDoc();
   const [tab, setTab] = useState<Tab>("cover");
   // 좁은 화면에서는 미리보기를 화면 폭에 맞춘다
-  const [previewScale] = useState(() => {
-    if (typeof window === "undefined") return 0.4;
-    const w = window.innerWidth;
-    return w < 1024 ? Math.min(0.5, (w - 60) / CANVAS.w) : 0.4;
-  });
+  const previewScale = useFitScale(0.4, 0.5, 60);
 
   if (!loaded) return null;
 
@@ -161,27 +158,30 @@ function CoverEditor() {
               className="rounded-lg border p-2.5"
               style={{ borderColor: "var(--ui-border)" }}
             >
-              <div className="mb-1.5 flex items-center gap-1">
+              <div className="mb-1.5 flex flex-wrap items-center gap-1">
                 <input
                   type="text"
                   value={t.text}
                   placeholder="문구"
+                  className="min-w-0 grow basis-[160px]"
                   onChange={(e) => patchText(t.id, { text: e.target.value })}
                 />
-                <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => moveText(i, -1)}>
-                  ↑
-                </Btn>
-                <Btn
-                  size="sm"
-                  variant="ghost"
-                  disabled={i === texts.length - 1}
-                  onClick={() => moveText(i, 1)}
-                >
-                  ↓
-                </Btn>
-                <Btn size="sm" variant="danger" onClick={() => removeText(t.id)}>
-                  −
-                </Btn>
+                <div className="flex shrink-0 gap-1">
+                  <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => moveText(i, -1)}>
+                    ↑
+                  </Btn>
+                  <Btn
+                    size="sm"
+                    variant="ghost"
+                    disabled={i === texts.length - 1}
+                    onClick={() => moveText(i, 1)}
+                  >
+                    ↓
+                  </Btn>
+                  <Btn size="sm" variant="danger" onClick={() => removeText(t.id)}>
+                    −
+                  </Btn>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
@@ -352,12 +352,14 @@ function WorshipEditor() {
             />
           </Field>
 
+          {/* 좁은 화면에서는 두 칸이 한 줄에 다 들어가지 않아 짜부라진다 — 넘치면 줄을 바꾼다 */}
           {w.rows.map((r, i) => (
-            <div key={r.id} className="flex items-center gap-1.5">
+            <div key={r.id} className="flex flex-wrap items-center gap-1.5">
               <input
                 type="text"
                 value={r.label}
                 placeholder="항목"
+                className="min-w-0 grow basis-[120px]"
                 onChange={(e) =>
                   setRows(w.rows.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))
                 }
@@ -366,19 +368,22 @@ function WorshipEditor() {
                 type="text"
                 value={r.value}
                 placeholder="시간 / 장소"
+                className="min-w-0 grow basis-[140px]"
                 onChange={(e) =>
                   setRows(w.rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))
                 }
               />
-              <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => swap(i, -1)}>
-                ↑
-              </Btn>
-              <Btn size="sm" variant="ghost" disabled={i === w.rows.length - 1} onClick={() => swap(i, 1)}>
-                ↓
-              </Btn>
-              <Btn size="sm" variant="danger" onClick={() => setRows(w.rows.filter((_, j) => j !== i))}>
-                −
-              </Btn>
+              <div className="flex shrink-0 gap-1">
+                <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => swap(i, -1)}>
+                  ↑
+                </Btn>
+                <Btn size="sm" variant="ghost" disabled={i === w.rows.length - 1} onClick={() => swap(i, 1)}>
+                  ↓
+                </Btn>
+                <Btn size="sm" variant="danger" onClick={() => setRows(w.rows.filter((_, j) => j !== i))}>
+                  −
+                </Btn>
+              </div>
             </div>
           ))}
 

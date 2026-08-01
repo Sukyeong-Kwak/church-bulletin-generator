@@ -7,9 +7,9 @@ import { AdPaste } from "@/components/editor/AdPaste";
 import { BlockEditor } from "@/components/editor/BlockEditor";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { Btn, Hint, Section } from "@/components/ui";
-import { CANVAS } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { useDoc } from "@/lib/store";
+import { useFitScale } from "@/lib/useFitScale";
 import type { FlowBlock, ScheduleBlock, SermonBlock } from "@/lib/types";
 
 export default function EditorPage() {
@@ -18,13 +18,11 @@ export default function EditorPage() {
   const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
   const [pasteOpen, setPasteOpen] = useState(false);
-  // 좁은 화면에서는 한 장이 화면 폭에 맞게 보이도록 시작 배율을 조정한다.
-  // 미리보기는 loaded 이후(클라이언트)에만 그려지므로 초기값에서 창 크기를 읽어도 안전하다.
-  const [zoom, setZoom] = useState(() => {
-    if (typeof window === "undefined") return 0.3;
-    const w = window.innerWidth;
-    return w < 1024 ? Math.min(0.55, (w - 48) / CANVAS.w) : 0.3;
-  });
+  // 확대는 화면 폭에 맞춰 두다가, 사용자가 손대는 순간부터 그 값을 지킨다.
+  // 그래야 태블릿을 돌려도 알아서 맞으면서 직접 맞춘 배율이 되돌아가지 않는다.
+  const fit = useFitScale(0.3);
+  const [picked, setPicked] = useState<number | null>(null);
+  const zoom = picked ?? fit;
 
   /**
    * 붙여넣기 결과를 문서에 얹는다.
@@ -139,7 +137,7 @@ export default function EditorPage() {
                 max={0.9}
                 step={0.05}
                 value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
+                onChange={(e) => setPicked(Number(e.target.value))}
                 style={{ width: 110 }}
               />
               {Math.round(zoom * 100)}%
