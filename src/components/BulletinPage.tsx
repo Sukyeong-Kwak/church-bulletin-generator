@@ -39,13 +39,10 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
   const bg = isCover ? (coverUrl ?? backgroundUrl) : backgroundUrl;
   const showCard = !isCover && theme.cardEnabled;
 
-  // 광고 페이지는 장마다 블록 수가 달라 아래 여백이 들쭉날쭉하므로 내용을 카드 가운데에 둔다.
-  // 넘칠 때는 safe 덕분에 위가 잘리지 않고 위에서부터 채워진다.
+  // 광고 페이지는 머리말을 맨 위에 붙이고 남은 자리에 블록을 가운데로 두려고 세로 flex로 짠다.
   // 청년부 일정은 늘 같은 차림이라 원래대로 위에서부터 채운다.
-  const centerCard: CSSProperties =
-    page.kind === "worship"
-      ? {}
-      : { display: "flex", flexDirection: "column", justifyContent: "safe center" };
+  const cardLayout: CSSProperties =
+    page.kind === "worship" ? {} : { display: "flex", flexDirection: "column" };
 
   return (
     <div style={{ ...canvas }} data-page={page.index}>
@@ -99,7 +96,7 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
             padding: `${CARD.padY}px ${CARD.padX}px`,
             boxSizing: "border-box",
             overflow: "hidden",
-            ...centerCard,
+            ...cardLayout,
           }}
         >
           {page.kind === "worship" ? (
@@ -127,26 +124,38 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
 
 function FlowContent({ doc, page }: { doc: BulletinDoc; page: LaidOutPage }) {
   return (
-    <div>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      {/* '청년교구 소식'은 무슨 일이 있어도 카드 맨 위에 붙는다 */}
       {page.showAdsHeader && (
-        <div style={{ marginBottom: HEADER_GAP }}>
+        <div style={{ marginBottom: HEADER_GAP, flexShrink: 0 }}>
           <Txt role="adsHeader" theme={doc.theme}>
             청년교구 소식
           </Txt>
         </div>
       )}
-      {page.blocks.map((b, i) => (
-        <div
-          key={b.id}
-          style={{
-            marginTop: i === 0 ? 0 : BLOCK_GAP,
-            // 자리 자체는 그대로 두고 그려지는 위치만 옮긴다 — 페이지 나눔이 흔들리지 않는다
-            transform: b.offsetY ? `translateY(${b.offsetY}px)` : undefined,
-          }}
-        >
-          <FlowBlockView block={b} theme={doc.theme} />
+
+      {/*
+        머리말을 뺀 남은 자리에서 블록을 가운데로 둔다. 장마다 블록 수가 달라
+        아래 여백이 들쭉날쭉하기 때문이다. 넘칠 때는 safe 덕분에 위가 잘리지 않고
+        위에서부터 채워진다. 블록들은 이 칸의 자식이 아니라 한 겹 안에 두어,
+        블록 사이 여백이 겹쳐지는 방식(마진 상쇄)이 지금과 똑같이 유지된다.
+      */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "safe center" }}>
+        <div>
+          {page.blocks.map((b, i) => (
+            <div
+              key={b.id}
+              style={{
+                marginTop: i === 0 ? 0 : BLOCK_GAP,
+                // 자리 자체는 그대로 두고 그려지는 위치만 옮긴다 — 페이지 나눔이 흔들리지 않는다
+                transform: b.offsetY ? `translateY(${b.offsetY}px)` : undefined,
+              }}
+            >
+              <FlowBlockView block={b} theme={doc.theme} />
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
