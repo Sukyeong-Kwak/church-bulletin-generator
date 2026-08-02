@@ -12,6 +12,8 @@ export interface TextStyle {
   bold?: boolean;
   color?: string;
   letterSpacing?: number;
+  /** 글꼴 (FONTS의 key). 비어 있으면 그 자리의 기본 글꼴을 쓴다 */
+  font?: string;
   marginTop?: number;
   marginBottom?: number;
   /** 블록 제목 노란 형광펜 배경 */
@@ -24,6 +26,8 @@ export interface AdBlock {
   title: string;
   body: string;
   pageBreakBefore?: boolean;
+  /** 기본 위치에서 위(−)·아래(+)로 미세 조정. 조판(페이지 나눔)에는 영향을 주지 않는다. */
+  offsetY?: number;
   titleStyle?: TextStyle;
   bodyStyle?: TextStyle;
 }
@@ -40,6 +44,8 @@ export interface ScheduleBlock {
   heading: string;
   items: ScheduleItem[];
   pageBreakBefore?: boolean;
+  /** 기본 위치에서 위(−)·아래(+)로 미세 조정. 조판(페이지 나눔)에는 영향을 주지 않는다. */
+  offsetY?: number;
   headingStyle?: TextStyle;
   itemStyle?: TextStyle;
 }
@@ -51,6 +57,8 @@ export interface SermonBlock {
   title: string;
   verse: string;
   pageBreakBefore?: boolean;
+  /** 기본 위치에서 위(−)·아래(+)로 미세 조정. 조판(페이지 나눔)에는 영향을 주지 않는다. */
+  offsetY?: number;
   headingStyle?: TextStyle;
   lineStyle?: TextStyle;
 }
@@ -154,8 +162,6 @@ export interface BulletinDoc {
   blocks: FlowBlock[];
   exportScale: ExportScale;
   exportFormat: ExportFormat;
-  /** 배포 체크리스트 */
-  distribution: { band: boolean; newFamily: boolean };
 }
 
 /** 조판 결과 한 페이지 */

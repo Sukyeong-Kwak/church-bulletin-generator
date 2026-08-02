@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getBackend } from "@/lib/backend";
 import { fileNameFor, saveBlob, saveZip } from "@/lib/exportImages";
-import { CANVAS, formatServiceDate } from "@/lib/layout";
+import { formatServiceDate } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
+import { useFitScale } from "@/lib/useFitScale";
 import type { BulletinDoc } from "@/lib/types";
 import { PreviewGrid } from "./PreviewGrid";
 import { Btn } from "./ui";
@@ -21,11 +22,10 @@ export function SharedBulletin({ doc }: { doc: BulletinDoc }) {
   const [busy, setBusy] = useState(false);
   const created = useRef<string[]>([]);
 
-  const [zoom, setZoom] = useState(() => {
-    if (typeof window === "undefined") return 0.42;
-    const w = window.innerWidth;
-    return w < 1024 ? Math.min(0.6, (w - 32) / CANVAS.w) : 0.42;
-  });
+  // 폰에서는 주보 한 장이 화면 폭에 통째로 들어오게 맞추고, 손대면 그 값을 지킨다
+  const fit = useFitScale(0.42, 0.6, 32);
+  const [picked, setPicked] = useState<number | null>(null);
+  const zoom = picked ?? fit;
 
   const keys = `${doc.theme.backgroundUrl ?? ""}|${doc.theme.coverUrl ?? ""}|${doc.theme.logoUrl ?? ""}`;
 
@@ -115,7 +115,7 @@ export function SharedBulletin({ doc }: { doc: BulletinDoc }) {
               max={0.9}
               step={0.05}
               value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
+              onChange={(e) => setPicked(Number(e.target.value))}
               style={{ width: 90 }}
             />
           </label>

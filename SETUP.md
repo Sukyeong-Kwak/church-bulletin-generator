@@ -101,6 +101,10 @@ users   invite_codes   settings   bulletins
    |---|---|
    | `NEXT_PUBLIC_SUPABASE_URL` | 4단계에서 복사한 Project URL |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 4단계에서 복사한 anon public |
+   | `GEMINI_API_KEY` (선택) | 광고 AI 자동 구분을 쓸 때만 |
+
+   > `GEMINI_API_KEY`에는 `NEXT_PUBLIC_`을 **붙이지 마세요.** 붙이면 브라우저에 그대로 노출됩니다.
+   > 이 키는 서버에서만 쓰이고, 서버 모드에서는 **승인된 사람만** 그 기능을 부를 수 있습니다.
 
 3. **Environment**는 **Production · Preview · Development 모두 체크**
 4. **Save**
@@ -118,6 +122,9 @@ users   invite_codes   settings   bulletins
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+# 선택 — 광고 AI 자동 구분 (없으면 규칙 방식으로만 나눕니다)
+GEMINI_API_KEY=여기에_발급받은_키
 ```
 
 저장 후 개발 서버를 껐다 켜야 반영됩니다.

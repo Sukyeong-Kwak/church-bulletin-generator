@@ -1,4 +1,4 @@
-import { makeDefaultSettings, normalizeFixed } from "@/lib/settings";
+import { makeDefaultSettings, normalizeFixed, normalizeTheme } from "@/lib/settings";
 import type { BulletinRow } from "@/lib/supabase/types";
 import type { BulletinDoc, ExportFormat, ExportScale } from "@/lib/types";
 
@@ -13,13 +13,12 @@ export function rowToDoc(row: BulletinRow): BulletinDoc {
     updatedAt: row.updated_at,
     imageKeys: row.image_paths ?? [],
     shareToken: row.share_token ?? undefined,
-    theme: snap.theme ?? base.theme,
+    theme: normalizeTheme(snap.theme ?? base.theme),
     church: snap.church ?? base.church,
     fixed: normalizeFixed(snap.fixed ?? base.fixed),
     blocks: row.blocks ?? [],
     exportScale: (row.export_scale as ExportScale) ?? 3,
     exportFormat: (row.export_format as ExportFormat) ?? "jpg",
-    distribution: row.distribution ?? { band: false, newFamily: false },
   };
 }
 
@@ -30,7 +29,6 @@ export function docToRow(doc: BulletinDoc) {
     service_date: doc.serviceDate,
     blocks: doc.blocks,
     snapshot: { theme: doc.theme, church: doc.church, fixed: doc.fixed },
-    distribution: doc.distribution,
     export_scale: doc.exportScale,
     export_format: doc.exportFormat,
     image_paths: doc.imageKeys ?? [],

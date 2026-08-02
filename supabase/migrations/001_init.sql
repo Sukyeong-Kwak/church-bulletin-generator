@@ -176,7 +176,6 @@ create table if not exists public.bulletins (
   blocks        jsonb not null default '[]'::jsonb,
   -- 작성 시점의 고정 페이지·교회정보·테마. 나중에 설정이 바뀌어도 과거 주보는 그대로 보인다.
   snapshot      jsonb not null default '{}'::jsonb,
-  distribution  jsonb not null default '{}'::jsonb,
   export_scale  int  not null default 3,
   export_format text not null default 'jpg',
   -- 내보낸 이미지의 storage 경로

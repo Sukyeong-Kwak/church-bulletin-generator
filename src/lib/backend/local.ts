@@ -1,7 +1,13 @@
 "use client";
 
 import { deleteImage, getImage, putImage } from "@/lib/imageStore";
-import { newId, normalizeFixed, normalizeSettings, type Settings } from "@/lib/settings";
+import {
+  newId,
+  normalizeFixed,
+  normalizeSettings,
+  normalizeTheme,
+  type Settings,
+} from "@/lib/settings";
 import type { BulletinDoc } from "@/lib/types";
 import type { Backend } from "./types";
 
@@ -19,7 +25,11 @@ function read(): Stored {
     const p = JSON.parse(raw) as Partial<Stored>;
     return {
       settings: normalizeSettings(p.settings),
-      library: (p.library ?? []).map((b) => ({ ...b, fixed: normalizeFixed(b.fixed) })),
+      library: (p.library ?? []).map((b) => ({
+        ...b,
+        fixed: normalizeFixed(b.fixed),
+        theme: normalizeTheme(b.theme),
+      })),
     };
   } catch {
     return { settings: normalizeSettings(null), library: [] };

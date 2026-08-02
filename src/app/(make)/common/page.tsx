@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { ImageUpload } from "@/components/editor/ImageUpload";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { SplitView } from "@/components/SplitView";
 import { Field, Hint, Section, Warn } from "@/components/ui";
-import { CANVAS } from "@/lib/layout";
 import { useDoc } from "@/lib/store";
+import { useFitScale } from "@/lib/useFitScale";
 import type { LaidOutPage } from "@/lib/types";
 
 /**
@@ -17,11 +16,7 @@ import type { LaidOutPage } from "@/lib/types";
 export default function CommonPage() {
   const { doc, setDoc, settings, setSettings, urls, loaded } = useDoc();
 
-  const [previewScale] = useState(() => {
-    if (typeof window === "undefined") return 0.4;
-    const w = window.innerWidth;
-    return w < 1024 ? Math.min(0.5, (w - 60) / CANVAS.w) : 0.4;
-  });
+  const previewScale = useFitScale(0.4, 0.5, 60);
 
   if (!loaded) return null;
 

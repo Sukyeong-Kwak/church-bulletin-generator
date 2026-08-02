@@ -7,8 +7,9 @@ import { SplitView } from "@/components/SplitView";
 import { ImageUpload } from "@/components/editor/ImageUpload";
 import { Inspector } from "@/components/Inspector";
 import { Btn, Field, Hint, Section, Slider } from "@/components/ui";
-import { CANVAS, COVER_FONTS, monthOf, yearMonth } from "@/lib/layout";
+import { FONTS, monthOf, yearMonth } from "@/lib/layout";
 import { newId, useDoc } from "@/lib/store";
+import { useFitScale } from "@/lib/useFitScale";
 import type { CoverText, LaidOutPage, WorshipRow } from "@/lib/types";
 
 type Tab = "cover" | "worship";
@@ -26,11 +27,7 @@ export default function FixedPagesPage() {
   const { doc, urls, loaded } = useDoc();
   const [tab, setTab] = useState<Tab>("cover");
   // 좁은 화면에서는 미리보기를 화면 폭에 맞춘다
-  const [previewScale] = useState(() => {
-    if (typeof window === "undefined") return 0.4;
-    const w = window.innerWidth;
-    return w < 1024 ? Math.min(0.5, (w - 60) / CANVAS.w) : 0.4;
-  });
+  const previewScale = useFitScale(0.4, 0.5, 60);
 
   if (!loaded) return null;
 
@@ -161,27 +158,30 @@ function CoverEditor() {
               className="rounded-lg border p-2.5"
               style={{ borderColor: "var(--ui-border)" }}
             >
-              <div className="mb-1.5 flex items-center gap-1">
+              <div className="mb-1.5 flex flex-wrap items-center gap-1">
                 <input
                   type="text"
                   value={t.text}
                   placeholder="문구"
+                  className="min-w-0 grow basis-[160px]"
                   onChange={(e) => patchText(t.id, { text: e.target.value })}
                 />
-                <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => moveText(i, -1)}>
-                  ↑
-                </Btn>
-                <Btn
-                  size="sm"
-                  variant="ghost"
-                  disabled={i === texts.length - 1}
-                  onClick={() => moveText(i, 1)}
-                >
-                  ↓
-                </Btn>
-                <Btn size="sm" variant="danger" onClick={() => removeText(t.id)}>
-                  −
-                </Btn>
+                <div className="flex shrink-0 gap-1">
+                  <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => moveText(i, -1)}>
+                    ↑
+                  </Btn>
+                  <Btn
+                    size="sm"
+                    variant="ghost"
+                    disabled={i === texts.length - 1}
+                    onClick={() => moveText(i, 1)}
+                  >
+                    ↓
+                  </Btn>
+                  <Btn size="sm" variant="danger" onClick={() => removeText(t.id)}>
+                    −
+                  </Btn>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
@@ -209,7 +209,7 @@ function CoverEditor() {
                   onChange={(e) => patchText(t.id, { font: e.target.value })}
                   style={{ width: "auto", flex: 1, minWidth: 150 }}
                 >
-                  {COVER_FONTS.map((f) => (
+                  {FONTS.map((f) => (
                     <option key={f.key} value={f.key}>
                       {f.label}
                     </option>
@@ -332,8 +332,11 @@ function WorshipEditor() {
   const setRows = (rows: WorshipRow[]) => setWorship({ rows });
   const names = w.birthdays[ym] ?? [];
 
+  /** 빈 줄은 간격용이라 사람 수에서 뺀다 */
+  const headcount = (list: string[] | undefined) => (list ?? []).filter((n) => n.trim()).length;
+
   const savedMonths = Object.keys(w.birthdays)
-    .filter((k) => k !== ym && (w.birthdays[k]?.length ?? 0) > 0)
+    .filter((k) => k !== ym && headcount(w.birthdays[k]) > 0)
     .sort()
     .reverse();
 
@@ -349,12 +352,14 @@ function WorshipEditor() {
             />
           </Field>
 
+          {/* 좁은 화면에서는 두 칸이 한 줄에 다 들어가지 않아 짜부라진다 — 넘치면 줄을 바꾼다 */}
           {w.rows.map((r, i) => (
-            <div key={r.id} className="flex items-center gap-1.5">
+            <div key={r.id} className="flex flex-wrap items-center gap-1.5">
               <input
                 type="text"
                 value={r.label}
                 placeholder="항목"
+                className="min-w-0 grow basis-[120px]"
                 onChange={(e) =>
                   setRows(w.rows.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))
                 }
@@ -363,19 +368,22 @@ function WorshipEditor() {
                 type="text"
                 value={r.value}
                 placeholder="시간 / 장소"
+                className="min-w-0 grow basis-[140px]"
                 onChange={(e) =>
                   setRows(w.rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))
                 }
               />
-              <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => swap(i, -1)}>
-                ↑
-              </Btn>
-              <Btn size="sm" variant="ghost" disabled={i === w.rows.length - 1} onClick={() => swap(i, 1)}>
-                ↓
-              </Btn>
-              <Btn size="sm" variant="danger" onClick={() => setRows(w.rows.filter((_, j) => j !== i))}>
-                −
-              </Btn>
+              <div className="flex shrink-0 gap-1">
+                <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => swap(i, -1)}>
+                  ↑
+                </Btn>
+                <Btn size="sm" variant="ghost" disabled={i === w.rows.length - 1} onClick={() => swap(i, 1)}>
+                  ↓
+                </Btn>
+                <Btn size="sm" variant="danger" onClick={() => setRows(w.rows.filter((_, j) => j !== i))}>
+                  −
+                </Btn>
+              </div>
             </div>
           ))}
 
@@ -409,16 +417,16 @@ function WorshipEditor() {
               value={names.join("\n")}
               placeholder={"홍길동\n김철수"}
               style={{ resize: "vertical" }}
+              // 적은 그대로 둔다 — 다듬어 버리면 띄어쓰기도 빈 줄도 치는 즉시 사라져
+              // 이름 사이 간격을 손으로 맞출 수가 없다. 주보에도 적은 그대로 나간다.
               onChange={(e) =>
                 setWorship({
-                  birthdays: {
-                    ...w.birthdays,
-                    [ym]: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
-                  },
+                  birthdays: { ...w.birthdays, [ym]: e.target.value.split("\n") },
                 })
               }
             />
           </Field>
+          <Hint>띄어쓰기와 빈 줄은 적은 그대로 주보에 나옵니다.</Hint>
 
           {savedMonths.length > 0 && (
             <Field label="다른 달에서 명단 복사 (작년 같은 달을 그대로 쓸 때)">
@@ -433,7 +441,7 @@ function WorshipEditor() {
                 <option value="">선택하세요</option>
                 {savedMonths.map((m) => (
                   <option key={m} value={m}>
-                    {m} ({w.birthdays[m].length}명)
+                    {m} ({headcount(w.birthdays[m])}명)
                   </option>
                 ))}
               </select>
@@ -443,7 +451,7 @@ function WorshipEditor() {
           {yearMonth(doc.serviceDate) !== ym && (
             <Hint>
               작성 중인 주보는 {yearMonth(doc.serviceDate)} 명단(
-              {(w.birthdays[yearMonth(doc.serviceDate)] ?? []).length}명)을 사용합니다.
+              {headcount(w.birthdays[yearMonth(doc.serviceDate)])}명)을 사용합니다.
             </Hint>
           )}
         </div>

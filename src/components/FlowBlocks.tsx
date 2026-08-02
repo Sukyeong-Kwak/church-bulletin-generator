@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { Txt } from "./Txt";
+import { bracketTitle } from "@/lib/layout";
 import type { AdBlock, FlowBlock, ScheduleBlock, SermonBlock, Theme } from "@/lib/types";
 
 interface Props {
@@ -26,7 +27,7 @@ function AdBlockView({ block, theme }: { block: AdBlock; theme: Theme }) {
     <div style={wrap}>
       {block.title ? (
         <Txt role="blockTitle" theme={theme} override={block.titleStyle}>
-          {block.title}
+          {bracketTitle(block.title)}
         </Txt>
       ) : null}
       {block.body ? (
@@ -43,7 +44,7 @@ function ScheduleBlockView({ block, theme }: { block: ScheduleBlock; theme: Them
     <div style={wrap}>
       {block.heading ? (
         <Txt role="scheduleHeading" theme={theme} override={block.headingStyle}>
-          {block.heading}
+          {bracketTitle(block.heading)}
         </Txt>
       ) : null}
       {block.items.map((it) => (

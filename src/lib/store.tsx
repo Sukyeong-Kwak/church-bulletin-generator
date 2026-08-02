@@ -16,6 +16,8 @@ import {
   makeDefaultSettings,
   makeDraft,
   newDocId,
+  normalizeFixed,
+  normalizeTheme,
   toISO,
   type Settings,
 } from "./settings";
@@ -78,7 +80,16 @@ export function DocProvider({ children }: { children: ReactNode }) {
 
         const raw = localStorage.getItem(DRAFT_KEY);
         const draft = raw ? (JSON.parse(raw) as BulletinDoc) : null;
-        setDocState(draft ? { ...makeDraft(next), ...draft } : makeDraft(next));
+        setDocState(
+          draft
+            ? {
+                ...makeDraft(next),
+                ...draft,
+                fixed: normalizeFixed(draft.fixed ?? next.fixed),
+                theme: normalizeTheme(draft.theme ?? next.theme),
+              }
+            : makeDraft(next),
+        );
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "불러오지 못했습니다.");
       } finally {
@@ -207,8 +218,6 @@ export function DocProvider({ children }: { children: ReactNode }) {
       copy.id = newDocId();
       copy.updatedAt = undefined;
       copy.imageKeys = undefined;
-      copy.distribution = { band: false, newFamily: false };
-
       const d = new Date(found.serviceDate);
       d.setDate(d.getDate() + 7);
       copy.serviceDate = toISO(d);

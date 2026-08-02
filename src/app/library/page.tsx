@@ -164,10 +164,6 @@ function Row({
           {imageCount > 0 && ` · 이미지 ${imageCount}장 보관`}
           {bulletin.updatedAt && ` · ${new Date(bulletin.updatedAt).toLocaleString("ko-KR")}`}
         </p>
-        <p className="text-[11px]" style={{ color: "var(--ui-muted)" }}>
-          배포 {bulletin.distribution.band ? "☑" : "☐"} 밴드 {" "}
-          {bulletin.distribution.newFamily ? "☑" : "☐"} 새가족부
-        </p>
       </div>
 
       <div className="flex shrink-0 flex-wrap gap-1.5">

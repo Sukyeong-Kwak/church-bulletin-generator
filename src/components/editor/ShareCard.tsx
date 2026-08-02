@@ -5,9 +5,18 @@ import QRCode from "qrcode";
 import { saveBlob } from "@/lib/exportImages";
 import { Btn, Hint, Section } from "../ui";
 
-/** 내려받을 수 있는 QR 크기 */
-const SIZES = [256, 512, 1024, 2048] as const;
-type Size = (typeof SIZES)[number];
+/**
+ * 내려받을 수 있는 QR 크기.
+ * 2480px는 300dpi로 뽑은 A4 짧은 변이라 A4에 꽉 차게 인쇄된다.
+ */
+const SIZES = [
+  { px: 256, label: "256px", desc: "화면·게시글용" },
+  { px: 512, label: "512px", desc: "밴드 게시글에 얹기" },
+  { px: 1024, label: "1024px", desc: "주보에 얹기" },
+  { px: 2048, label: "2048px", desc: "A4 절반 인쇄" },
+  { px: 2480, label: "A4 2480px", desc: "A4 가득 채워 인쇄 (300dpi)" },
+] as const;
+type Size = (typeof SIZES)[number]["px"];
 
 interface Props {
   shareToken?: string;
@@ -51,10 +60,13 @@ export function ShareCard({ shareToken, serviceDate }: Props) {
   }
 
   const download = async () => {
+    // 늘려 키우는 것이 아니라 그 크기로 새로 그리므로 선이 또렷하다.
+    // 인쇄용이라 여백까지 흰색으로 채운다.
     const dataUrl = await QRCode.toDataURL(url, {
       width: size,
       margin: 2,
       errorCorrectionLevel: "M",
+      color: { dark: "#000000", light: "#FFFFFF" },
     });
     const blob = await (await fetch(dataUrl)).blob();
     saveBlob(blob, `주보QR_${serviceDate}_${size}px.png`);
@@ -90,12 +102,13 @@ export function ShareCard({ shareToken, serviceDate }: Props) {
             </span>
             {SIZES.map((s) => (
               <Btn
-                key={s}
+                key={s.px}
                 size="sm"
-                variant={size === s ? "primary" : "default"}
-                onClick={() => setSize(s)}
+                variant={size === s.px ? "primary" : "default"}
+                onClick={() => setSize(s.px)}
+                title={s.desc}
               >
-                {s}px
+                {s.label}
               </Btn>
             ))}
           </div>

@@ -49,7 +49,6 @@ export type BulletinRow = {
   service_date: string;
   blocks: FlowBlock[];
   snapshot: Pick<BulletinDoc, "theme" | "church" | "fixed">;
-  distribution: BulletinDoc["distribution"];
   export_scale: number;
   export_format: string;
   image_paths: string[];

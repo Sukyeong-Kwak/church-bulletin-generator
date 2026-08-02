@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { CANVAS, coverFontCss, type CoverFontKey } from "@/lib/layout";
+import { CANVAS, coverFontCss } from "@/lib/layout";
 import type { CoverText } from "@/lib/types";
 
 const SIDE_PAD = 44;
@@ -44,7 +44,7 @@ export function CoverTextView({ item }: { item: CoverText }) {
       <text
         textAnchor="middle"
         style={{
-          fontFamily: coverFontCss(item.font as CoverFontKey | undefined, item.titleFont),
+          fontFamily: coverFontCss(item.font, item.titleFont),
           fontSize: item.size,
           letterSpacing: item.letterSpacing ?? 0,
           fill: item.color,

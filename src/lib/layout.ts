@@ -1,3 +1,4 @@
+import { stripBrackets } from "./parseAds";
 import type { Align, TextStyle, Theme } from "./types";
 
 /** 캔버스 규격 — A4 세로 비율(1:1.414). 미리캔버스 원본과 동일. */
@@ -53,27 +54,42 @@ type FullStyle = Required<Omit<TextStyle, "highlight">> & { highlight: boolean }
 export const DEFAULT_STYLES: Record<Role, FullStyle> = {
   date: f({ fontSize: 26, lineHeight: 1.4, align: "center" }),
   adsHeader: f({ fontSize: 52, lineHeight: 1.3, align: "center", bold: true, title: true, marginBottom: 0 }),
-  blockTitle: f({ fontSize: 28, lineHeight: 1.4, align: "center", highlight: true, marginBottom: 10 }),
+  blockTitle: f({ fontSize: 28, lineHeight: 1.4, align: "center", title: true, highlight: true, marginBottom: 10 }),
   blockBody: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
   worshipHeading: f({ fontSize: 52, lineHeight: 1.3, align: "center", bold: true, title: true, marginBottom: 24 }),
   worshipLabel: f({ fontSize: 27, lineHeight: 1.5, align: "right" }),
   worshipValue: f({ fontSize: 27, lineHeight: 1.5, align: "left" }),
   birthdayHeading: f({ fontSize: 46, lineHeight: 1.3, align: "center", bold: true, title: true, marginTop: 40, marginBottom: 20 }),
   birthdayName: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
-  scheduleHeading: f({ fontSize: 30, lineHeight: 1.4, align: "center", highlight: true, marginBottom: 12 }),
+  scheduleHeading: f({ fontSize: 30, lineHeight: 1.4, align: "center", title: true, highlight: true, marginBottom: 12 }),
   scheduleItem: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
   sermonHeading: f({ fontSize: 46, lineHeight: 1.3, align: "center", bold: true, title: true, marginTop: 24, marginBottom: 14 }),
   sermonLine: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
   footer: f({ fontSize: 24, lineHeight: 1.4, align: "left" }),
 };
 
-/** 제목용 폰트를 쓰는 역할 */
-const TITLE_ROLES = new Set<Role>([
+/** 페이지 대제목 — 제목 색을 쓴다 */
+const TITLE_COLOR_ROLES = new Set<Role>([
   "adsHeader",
   "worshipHeading",
   "birthdayHeading",
   "sermonHeading",
 ]);
+
+/** 제목용 폰트를 쓰는 역할. 블록 제목도 본문과 구분되도록 제목체를 쓴다. */
+const TITLE_FONT_ROLES = new Set<Role>([
+  ...TITLE_COLOR_ROLES,
+  "blockTitle",
+  "scheduleHeading",
+]);
+
+/** 글꼴을 따로 고르지 않았을 때 그 자리가 쓰는 글꼴 */
+export function roleFontKey(role: Role): FontKey {
+  return TITLE_FONT_ROLES.has(role) ? "title" : "body";
+}
+
+/** 글자 크기로 고를 수 있는 범위 — 인스펙터 슬라이더와 블록 줄의 −/+ 가 함께 쓴다 */
+export const FONT_SIZE = { min: 14, max: 72 } as const;
 
 function f(p: {
   fontSize: number;
@@ -92,6 +108,8 @@ function f(p: {
     bold: p.bold ?? false,
     color: "",
     letterSpacing: 0,
+    // 빈 값이면 roleFontKey가 정하는 그 자리의 기본 글꼴을 쓴다
+    font: "",
     marginTop: p.marginTop ?? 0,
     marginBottom: p.marginBottom ?? 0,
     highlight: p.highlight ?? false,
@@ -122,8 +140,7 @@ export function resolveStyle(
 ): ResolvedStyle {
   const base = DEFAULT_STYLES[role];
   const o = override ?? {};
-  const isTitle = TITLE_ROLES.has(role);
-  const defaultColor = isTitle ? theme.titleColor : theme.bodyColor;
+  const defaultColor = TITLE_COLOR_ROLES.has(role) ? theme.titleColor : theme.bodyColor;
 
   return {
     fontSize: Math.round((o.fontSize ?? base.fontSize) * theme.fontScale),
@@ -134,13 +151,14 @@ export function resolveStyle(
     letterSpacing: `${o.letterSpacing ?? base.letterSpacing}px`,
     marginTop: o.marginTop ?? base.marginTop,
     marginBottom: o.marginBottom ?? base.marginBottom,
-    fontFamily: isTitle ? "var(--font-title)" : "var(--font-body)",
+    // 고른 글꼴을 모르면(손댄 저장본 등) 그 자리의 기본 글꼴로 돌아간다
+    fontFamily: fontCss(o.font || base.font) ?? fontCss(roleFontKey(role)) ?? "var(--font-body)",
     highlight: o.highlight ?? base.highlight,
   };
 }
 
-/** 표지 글자에 쓸 수 있는 글꼴 */
-export const COVER_FONTS = [
+/** 주보에 쓸 수 있는 글꼴 — 표지 글자와 본문 요소가 같은 목록을 쓴다 */
+export const FONTS = [
   { key: "ssurround", label: "써라운드 (두툼·둥근)", css: "var(--font-ssurround)" },
   { key: "jua", label: "주아 (손글씨풍)", css: "var(--font-jua)" },
   { key: "jalnan", label: "잘난 (굵고 단단)", css: "var(--font-jalnan)" },
@@ -148,13 +166,16 @@ export const COVER_FONTS = [
   { key: "body", label: "어린이마음 (본문체)", css: "var(--font-body)" },
 ] as const;
 
-export type CoverFontKey = (typeof COVER_FONTS)[number]["key"];
+export type FontKey = (typeof FONTS)[number]["key"];
 
-export function coverFontCss(key: CoverFontKey | undefined, legacyTitleFont?: boolean): string {
-  const found = COVER_FONTS.find((f) => f.key === key);
-  if (found) return found.css;
+/** 글꼴 key → CSS. 고르지 않았거나 모르는 key면 undefined */
+export function fontCss(key: string | undefined): string | undefined {
+  return FONTS.find((f) => f.key === key)?.css;
+}
+
+export function coverFontCss(key: string | undefined, legacyTitleFont?: boolean): string {
   // 글꼴 선택이 생기기 전 저장본 호환
-  return legacyTitleFont ? "var(--font-title)" : "var(--font-body)";
+  return fontCss(key) ?? (legacyTitleFont ? "var(--font-title)" : "var(--font-body)");
 }
 
 /** 인스펙터에서 "수정됨" 표시에 사용 */
@@ -167,10 +188,20 @@ export const DEFAULT_THEME: Theme = {
   cardOpacity: 0.72,
   cardEnabled: true,
   titleColor: "#3B3B98",
-  bodyColor: "#3D3D5C",
+  // 배경 사진 위에 얹히므로 색이 옅으면 읽기 어렵다 — 본문은 검정으로 대비를 준다
+  bodyColor: "#000000",
   highlightColor: "#FFF3B0",
   fontScale: 1,
 };
+
+/**
+ * 블록 제목은 항상 <> 로 감싸 보여준다.
+ * 붙여넣은 원문에 이미 괄호가 있으면 벗겨내고 다시 씌워 겹치지 않게 한다.
+ */
+export function bracketTitle(title: string): string {
+  const bare = stripBrackets(title);
+  return bare ? `<${bare}>` : "";
+}
 
 /** '2026-07-19' → '2026.07.19.주일' */
 export function formatServiceDate(iso: string): string {

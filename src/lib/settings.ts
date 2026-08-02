@@ -159,7 +159,6 @@ export function makeDraft(settings: Settings, serviceDate = upcomingSunday()): B
     ],
     exportScale: 3,
     exportFormat: "jpg",
-    distribution: { band: false, newFamily: false },
   };
 }
 
@@ -188,12 +187,25 @@ export function normalizeFixed(fixed: FixedPages): FixedPages {
   };
 }
 
+/**
+ * 글자색은 화면 어디에서도 고를 수 없다 — 저장본에 남은 옛 색을 그대로 쓰면
+ * 기본값을 고쳐도 예전에 시작한 주보만 옛 색으로 남는다. 그래서 색은 항상 기본값을 따른다.
+ */
+export function normalizeTheme(theme: Theme | null | undefined): Theme {
+  return {
+    ...DEFAULT_THEME,
+    ...theme,
+    titleColor: DEFAULT_THEME.titleColor,
+    bodyColor: DEFAULT_THEME.bodyColor,
+  };
+}
+
 export function normalizeSettings(s: Partial<Settings> | null | undefined): Settings {
   const base = makeDefaultSettings();
   if (!s) return base;
   return {
     church: { ...base.church, ...s.church },
-    theme: { ...base.theme, ...s.theme },
+    theme: normalizeTheme(s.theme),
     fixed: normalizeFixed({ ...base.fixed, ...s.fixed }),
   };
 }

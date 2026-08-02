@@ -19,7 +19,7 @@ export function Section({
       style={{ borderColor: "var(--ui-border)" }}
     >
       <div className="mb-2.5 flex items-center justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-[13px] font-bold">{title}</h2>
           {desc && (
             <p className="mt-0.5 text-[11px]" style={{ color: "var(--ui-muted)" }}>
@@ -27,7 +27,8 @@ export function Section({
             </p>
           )}
         </div>
-        {right}
+        {/* 설명이 길어도 버튼이 눌리지 않게 제 폭은 지킨다 */}
+        {right && <div className="shrink-0">{right}</div>}
       </div>
       {children}
     </section>
