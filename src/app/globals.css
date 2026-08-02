@@ -102,10 +102,22 @@ body {
   transform-origin: top left;
 }
 
-input[type="text"],
-input[type="date"],
-input[type="month"],
-input[type="number"],
+/*
+ * 글자를 넣는 칸은 모두 같은 모양으로 둔다.
+ *
+ * 타입을 하나씩 적어두면 새로 쓰는 타입이 조용히 빠진다 — 실제로 email·password가 빠져
+ * 로그인 화면의 칸이 테두리도 너비도 없이 보이지 않았다(Tailwind가 테두리를 0으로 지운다).
+ * 그래서 '칸이 아닌 것'만 덜어내는 쪽으로 적는다.
+ */
+input:not(
+    [type="range"],
+    [type="color"],
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="submit"],
+    [type="button"]
+  ),
 textarea,
 select {
   background: #fff;
@@ -157,10 +169,15 @@ button {
  * - 입력 글자를 16px로 키워 iOS에서 입력할 때 화면이 확대되는 것을 막는다
  */
 @media (pointer: coarse) {
-  input[type="text"],
-  input[type="date"],
-  input[type="month"],
-  input[type="number"],
+  input:not(
+      [type="range"],
+      [type="color"],
+      [type="checkbox"],
+      [type="radio"],
+      [type="file"],
+      [type="submit"],
+      [type="button"]
+    ),
   textarea,
   select {
     font-size: 16px;
