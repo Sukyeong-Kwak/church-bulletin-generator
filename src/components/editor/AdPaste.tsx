@@ -11,6 +11,7 @@ import {
   summarize,
   type ParsedBlock,
 } from "@/lib/parseAds";
+import { SERMON_HEADING } from "@/lib/settings";
 import { newId } from "@/lib/store";
 import type { FlowBlock } from "@/lib/types";
 import { Btn, Hint } from "../ui";
@@ -252,15 +253,10 @@ function BlockPreview({ block }: { block: ParsedBlock }) {
 function toFlowBlock(p: ParsedBlock): FlowBlock {
   const heading = stripBrackets(p.title);
 
+  // 소제목은 늘 '본문 말씀'이다. 원문 제목(`<8월 3일 말씀>`)은 버리고 제목·본문만 가져온다.
   if (p.kind === "sermon") {
     const { title, verse } = parseSermon(p.body);
-    return {
-      id: newId("ser"),
-      kind: "sermon",
-      heading: heading || "본문 말씀",
-      title,
-      verse,
-    };
+    return { id: newId("ser"), kind: "sermon", heading: SERMON_HEADING, title, verse };
   }
 
   if (p.kind === "schedule") {

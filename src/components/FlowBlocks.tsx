@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { Txt } from "./Txt";
 import { bracketTitle } from "@/lib/layout";
+import { SERMON_HEADING } from "@/lib/settings";
 import type { AdBlock, FlowBlock, ScheduleBlock, SermonBlock, Theme } from "@/lib/types";
 
 interface Props {
@@ -59,11 +60,10 @@ function ScheduleBlockView({ block, theme }: { block: ScheduleBlock; theme: Them
 function SermonBlockView({ block, theme }: { block: SermonBlock; theme: Theme }) {
   return (
     <div style={wrap}>
-      {block.heading ? (
-        <Txt role="sermonHeading" theme={theme} override={block.headingStyle}>
-          {block.heading}
-        </Txt>
-      ) : null}
+      {/* 소제목은 고정값이다. 옛 저장본에 그 주 제목이 박혀 있어도 이 자리에는 늘 같은 말이 온다. */}
+      <Txt role="sermonHeading" theme={theme} override={block.headingStyle}>
+        {SERMON_HEADING}
+      </Txt>
       {block.title ? (
         <Txt role="sermonLine" theme={theme} override={block.lineStyle}>
           {`제목: ${block.title}`}
@@ -88,6 +88,6 @@ export function blockLabel(block: FlowBlock): string {
     case "schedule":
       return block.heading || "주요일정";
     case "sermon":
-      return block.heading || "본문 말씀";
+      return SERMON_HEADING;
   }
 }

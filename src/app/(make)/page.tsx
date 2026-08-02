@@ -8,6 +8,7 @@ import { BlockEditor } from "@/components/editor/BlockEditor";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { Btn, Hint, Section } from "@/components/ui";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
+import { SERMON_HEADING } from "@/lib/settings";
 import { useDoc } from "@/lib/store";
 import { useFitScale } from "@/lib/useFitScale";
 import type { FlowBlock, ScheduleBlock, SermonBlock } from "@/lib/types";
@@ -55,9 +56,16 @@ export default function EditorPage() {
               items: mode === "replace" ? newSchedule.items : [...b.items, ...newSchedule.items],
             };
           }
+          // 소제목은 늘 '본문 말씀'으로 두고 제목·본문만 채운다.
+          // 옛 문서에 그 주 제목이 소제목으로 박혀 있어도 여기서 제자리로 돌아온다.
           if (b.kind === "sermon" && newSermon) {
             filled.add("sermon");
-            return { ...b, heading: newSermon.heading || b.heading, title: newSermon.title, verse: newSermon.verse };
+            return {
+              ...b,
+              heading: SERMON_HEADING,
+              title: newSermon.title,
+              verse: newSermon.verse,
+            };
           }
           return b;
         });

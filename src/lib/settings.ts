@@ -1,6 +1,15 @@
 import { DEFAULT_THEME } from "./layout";
 import type { BulletinDoc, ChurchInfo, CoverText, FixedPages, Theme } from "./types";
 
+/**
+ * 본문 말씀 블록의 소제목.
+ *
+ * 원문에는 `<8월 3일 말씀>` 처럼 그 주에만 맞는 제목이 붙어 오지만, 주보에서는
+ * 자리 이름이라 매주 같아야 한다. 그래서 소제목은 이 값으로 고정하고 붙여넣기는
+ * 설교 제목과 성경 본문만 찾아 채운다.
+ */
+export const SERMON_HEADING = "본문 말씀";
+
 /** 다음 주보에 상속되는 기본값. 고정 페이지·교회 정보·테마. */
 export interface Settings {
   church: ChurchInfo;
@@ -155,7 +164,7 @@ export function makeDraft(settings: Settings, serviceDate = upcomingSunday()): B
     fixed: deepCopy(settings.fixed),
     blocks: [
       { id: newId("sch"), kind: "schedule", heading: "주요일정", items: [] },
-      { id: newId("ser"), kind: "sermon", heading: "본문 말씀", title: "", verse: "" },
+      { id: newId("ser"), kind: "sermon", heading: SERMON_HEADING, title: "", verse: "" },
     ],
     exportScale: 3,
     exportFormat: "jpg",

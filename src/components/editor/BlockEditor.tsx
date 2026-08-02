@@ -5,6 +5,7 @@ import { FontSelect, Inspector } from "../Inspector";
 import { Btn, Hint } from "../ui";
 import { blockLabel } from "../FlowBlocks";
 import { DEFAULT_STYLES, FONT_SIZE, resolveStyle, type Role } from "@/lib/layout";
+import { SERMON_HEADING } from "@/lib/settings";
 import { moveBlock, newId, updateBlock } from "@/lib/store";
 import type {
   AdBlock,
@@ -302,12 +303,10 @@ function ScheduleFields({ block, patch }: { block: ScheduleBlock; patch: Patch }
 function SermonFields({ block, patch }: { block: SermonBlock; patch: Patch }) {
   return (
     <>
-      <input
-        type="text"
-        value={block.heading}
-        placeholder="본문 말씀"
-        onChange={(e) => patch(block.id, (b) => ({ ...(b as SermonBlock), heading: e.target.value }))}
-      />
+      {/* 소제목은 매주 같은 자리 이름이라 고치지 않는다 — 제목과 본문만 채운다 */}
+      <span className="text-[11px] font-semibold" style={{ color: "var(--ui-muted)" }}>
+        소제목 · {SERMON_HEADING} (고정)
+      </span>
       <input
         type="text"
         value={block.title}
