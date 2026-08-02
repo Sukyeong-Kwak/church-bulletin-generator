@@ -98,6 +98,10 @@ users   invite_codes   settings   bulletins
 | **Project URL** | `https://xxxxxxxx.supabase.co` | `NEXT_PUBLIC_SUPABASE_URL` |
 | **anon public** | `eyJ...` 로 시작하는 긴 문자열 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
 
+> ⚠ 같은 화면에 **RESTful endpoint**(`https://xxxxxxxx.supabase.co/rest/v1`)도 함께 적혀 있습니다.
+> 뒤에 `/rest/v1`이 붙은 쪽이 아니라 **`.supabase.co`에서 끝나는 주소**를 넣으세요.
+> (잘못 넣어도 앱이 알아서 잘라내지만, 화면에 그대로 보여야 헷갈리지 않습니다.)
+
 > ⚠ 같은 화면에 **service_role** 키도 있습니다. **이건 절대 쓰지 마세요.**
 > 모든 권한을 우회하는 키이고, `NEXT_PUBLIC_`으로 시작하는 값은 브라우저에 그대로 노출됩니다.
 > 실수로 어딘가 올렸다면 그 화면에서 바로 **Reset**하세요.
@@ -210,6 +214,7 @@ GEMINI_API_KEY=여기에_발급받은_키
 | 증상 | 원인과 해결 |
 |---|---|
 | 로그인 화면이 안 뜨고 바로 편집 화면 | 환경변수가 반영되지 않음. Vercel에서 **Redeploy** |
+| 가입할 때 404 · `Invalid path specified in request URL` | `NEXT_PUBLIC_SUPABASE_URL`에 `/rest/v1`이 붙은 주소를 넣은 것입니다. `.supabase.co`까지만 남기고 **Redeploy** |
 | 가입했는데 계속 승인 대기 화면 | 정상입니다. 관리자가 승인해야 합니다. 첫 사용자라면 `users` 표에 이미 다른 행이 있는지 확인하세요 |
 | 첫 가입인데 관리자가 안 됨 | 이미 누가 먼저 가입한 것입니다. Table Editor > `users`에서 본인 행의 `role`을 `admin`, `status`를 `approved`로 바꾸면 됩니다 |
 | 저장이 안 되고 오류가 뜸 | 2단계 SQL을 안 돌렸거나 일부만 돌아간 경우입니다. `001` → `002` → `003` 순서로 다시 실행하세요 |
