@@ -70,8 +70,25 @@ $$;
 -- approved 이용 중
 -- rejected 신청을 받지 않음
 -- blocked  쓰던 사람을 관리자가 막음 (로그인해도 아무것도 못 한다)
-alter table public.users
-  drop constraint if exists users_status_check;
+-- status에 걸린 옛 제약을 이름과 상관없이 찾아 지운다.
+-- 이름을 찍어서 지우면, 그 이름이 아닐 때 아무 일도 없이 넘어가 버린다 —
+-- 그러면 새 제약은 붙었는데 옛 제약이 'blocked'를 계속 막아 차단 버튼만 조용히 실패한다.
+do $$
+declare c record;
+begin
+  for c in
+    select con.conname
+      from pg_constraint con
+      join pg_class     rel on rel.oid = con.conrelid
+      join pg_namespace ns  on ns.oid  = rel.relnamespace
+     where ns.nspname = 'public'
+       and rel.relname = 'users'
+       and con.contype = 'c'
+       and pg_get_constraintdef(con.oid) ilike '%status%'
+  loop
+    execute format('alter table public.users drop constraint %I', c.conname);
+  end loop;
+end $$;
 
 alter table public.users
   add constraint users_status_check
