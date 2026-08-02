@@ -23,6 +23,9 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  /** 메일 인증 전이라 못 들어온 경우 — 확인 메일을 다시 보낼 수 있게 한다 */
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resent, setResent] = useState(false);
 
   if (!supabaseConfigured) return <NotConfigured />;
 
@@ -30,22 +33,56 @@ function LoginForm() {
     e.preventDefault();
     setBusy(true);
     setError(undefined);
+    setUnconfirmed(false);
 
-    const supabase = supabaseBrowser();
-    const { error } = await supabase!.auth.signInWithPassword({ email, password });
+    const supabase = supabaseBrowser()!;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError(
-        error.message.includes("Invalid login")
-          ? "이메일 또는 비밀번호가 맞지 않습니다."
-          : error.message,
-      );
+      // 메일 인증을 안 했으면 Supabase가 아예 들여보내지 않는다
+      if (error.message.toLowerCase().includes("not confirmed")) {
+        setUnconfirmed(true);
+        setError("아직 메일 주소를 확인하지 않았습니다. 메일함의 링크를 눌러주세요.");
+      } else {
+        setError(
+          error.message.includes("Invalid login")
+            ? "이메일 또는 비밀번호가 맞지 않습니다."
+            : error.message,
+        );
+      }
+      setBusy(false);
+      return;
+    }
+
+    // 차단된 계정은 들어오자마자 되돌려 보낸다.
+    // 데이터는 어차피 정책에 막혀 있지만, 막힌 화면을 헤매게 두지 않는다.
+    const { data: me } = await supabase
+      .from("users")
+      .select("status")
+      .eq("id", data.user.id)
+      .single();
+
+    if (me?.status === "blocked") {
+      await supabase.auth.signOut();
+      setError("관리자가 이 계정의 이용을 중지했습니다. 담당자에게 문의해주세요.");
       setBusy(false);
       return;
     }
 
     router.replace(params.get("next") || "/");
     router.refresh();
+  };
+
+  const resend = async () => {
+    setBusy(true);
+    const { error } = await supabaseBrowser()!.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/pending` },
+    });
+    if (error) setError(error.message);
+    else setResent(true);
+    setBusy(false);
   };
 
   return (
@@ -81,6 +118,12 @@ function LoginForm() {
         </Field>
 
         <AuthError message={error} />
+
+        {unconfirmed && (
+          <Btn onClick={resend} disabled={busy || resent}>
+            {resent ? "확인 메일을 다시 보냈습니다" : "확인 메일 다시 보내기"}
+          </Btn>
+        )}
 
         <Btn type="submit" variant="primary" disabled={busy} style={{ padding: "10px 12px" }}>
           {busy ? "확인 중…" : "로그인"}

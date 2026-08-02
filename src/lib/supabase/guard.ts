@@ -12,6 +12,8 @@ export async function requireApproved(): Promise<AppUser | null> {
 
   const user = await currentUser();
   if (!user) redirect("/login");
+  // 차단은 '아직 승인 안 됨'과 다르다 — 기다린다고 풀리지 않으므로 따로 알려준다
+  if (user.status === "blocked") redirect("/blocked");
   if (user.status !== "approved") redirect("/pending");
   return user;
 }

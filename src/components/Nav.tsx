@@ -99,14 +99,15 @@ export function Nav() {
         )}
 
         {enabled && user && (
-          <button
-            onClick={handleSignOut}
-            className="text-[12px]"
-            style={{ color: "var(--ui-muted)" }}
-            title={user.email}
-          >
-            로그아웃
-          </button>
+          <>
+            {/* 누구로 들어와 있는지 — 여럿이 같은 컴퓨터를 쓰는 자리라 이름이 보여야 한다 */}
+            <span className="text-[12px] font-semibold" title={user.email}>
+              {user.name || user.email}
+            </span>
+            <button onClick={handleSignOut} className="text-[12px]" style={{ color: "var(--ui-muted)" }}>
+              로그아웃
+            </button>
+          </>
         )}
       </div>
     </header>

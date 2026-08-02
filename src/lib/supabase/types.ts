@@ -1,7 +1,7 @@
 import type { BulletinDoc, ChurchInfo, FixedPages, FlowBlock, Theme } from "@/lib/types";
 
 export type UserRole = "admin" | "editor";
-export type UserStatus = "pending" | "approved" | "rejected";
+export type UserStatus = "pending" | "approved" | "rejected" | "blocked";
 
 /**
  * 테이블 행 타입은 반드시 `type`으로 둔다.
@@ -16,6 +16,8 @@ export type AppUser = {
   status: UserStatus;
   approved_by: string | null;
   approved_at: string | null;
+  /** 메일 인증을 마친 시각. 아직이면 null (auth.users에서 따라 붙는다) */
+  email_confirmed_at: string | null;
   created_at: string;
 };
 

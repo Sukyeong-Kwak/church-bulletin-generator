@@ -17,6 +17,38 @@ function makeCode(): string {
   ).join("");
 }
 
+const STATUS_LABEL: Record<AppUser["status"], string> = {
+  pending: "승인 대기",
+  approved: "이용 중",
+  rejected: "거절됨",
+  blocked: "이용 중지됨",
+};
+
+/**
+ * 메일 인증 여부.
+ * 승인 버튼을 누르기 전에 '이 메일 주소가 정말 이 사람 것인지'를 여기서 확인한다.
+ *
+ * 003 마이그레이션을 아직 안 돌렸으면 이 값 자체가 없다(undefined). 그때는 아무 말도 하지 않는다 —
+ * 모두를 '인증 전'으로 보고 승인 버튼을 잠그면 관리자가 아무도 들이지 못하게 된다.
+ */
+function MailBadge({ at }: { at: string | null | undefined }) {
+  if (at === undefined) return null;
+  const ok = !!at;
+  return (
+    <span
+      className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+      style={
+        ok
+          ? { background: "#ebfbee", color: "#2b8a3e" }
+          : { background: "#fff4e6", color: "#b45309" }
+      }
+      title={ok ? `${new Date(at).toLocaleString("ko-KR")} 확인` : "아직 메일 링크를 누르지 않았습니다"}
+    >
+      {ok ? "메일 인증됨" : "메일 인증 전"}
+    </span>
+  );
+}
+
 export function AdminPanel({ meId }: { meId: string }) {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [codes, setCodes] = useState<InviteCode[]>([]);
@@ -116,12 +148,23 @@ export function AdminPanel({ meId }: { meId: string }) {
                 style={{ borderColor: "var(--ui-border)" }}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-bold">{u.name || "(이름 없음)"}</p>
+                  <p className="flex items-center gap-1.5 text-[13px] font-bold">
+                    {u.name || "(이름 없음)"}
+                    <MailBadge at={u.email_confirmed_at} />
+                  </p>
                   <p className="truncate text-[11px]" style={{ color: "var(--ui-muted)" }}>
                     {u.email} · {new Date(u.created_at).toLocaleString("ko-KR")}
                   </p>
                 </div>
-                <Btn size="sm" variant="primary" disabled={busy} onClick={() => setStatus(u.id, "approved")}>
+                <Btn
+                  size="sm"
+                  variant="primary"
+                  disabled={busy || u.email_confirmed_at === null}
+                  title={
+                    u.email_confirmed_at === null ? "메일 인증을 마쳐야 승인할 수 있습니다" : undefined
+                  }
+                  onClick={() => setStatus(u.id, "approved")}
+                >
                   승인
                 </Btn>
                 <Btn size="sm" variant="danger" disabled={busy} onClick={() => setStatus(u.id, "rejected")}>
@@ -186,7 +229,10 @@ export function AdminPanel({ meId }: { meId: string }) {
         )}
       </Section>
 
-      <Section title={`구성원 ${others.length}명`}>
+      <Section
+        title={`구성원 ${others.length}명`}
+        desc="차단하면 로그인해도 주보를 열거나 고칠 수 없습니다. 계정과 만들어둔 주보는 남습니다."
+      >
         <div className="flex flex-col gap-1.5">
           {others.map((u) => (
             <div
@@ -195,16 +241,17 @@ export function AdminPanel({ meId }: { meId: string }) {
               style={{ borderColor: "var(--ui-border)" }}
             >
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-bold">
+                <p className="flex items-center gap-1.5 text-[13px] font-bold">
                   {u.name || "(이름 없음)"}
                   {u.id === meId && (
-                    <span className="ml-1.5 text-[11px]" style={{ color: "var(--ui-accent)" }}>
+                    <span className="text-[11px]" style={{ color: "var(--ui-accent)" }}>
                       나
                     </span>
                   )}
+                  <MailBadge at={u.email_confirmed_at} />
                 </p>
                 <p className="truncate text-[11px]" style={{ color: "var(--ui-muted)" }}>
-                  {u.email} · {u.status === "approved" ? "이용 중" : "거절됨"}
+                  {u.email} · {STATUS_LABEL[u.status]}
                 </p>
               </div>
 
@@ -218,17 +265,30 @@ export function AdminPanel({ meId }: { meId: string }) {
                 <option value="admin">관리자</option>
               </select>
 
-              {u.status === "approved" ? (
-                u.id !== meId && (
-                  <Btn size="sm" variant="danger" disabled={busy} onClick={() => setStatus(u.id, "rejected")}>
-                    이용 중지
+              {/* 자기 자신은 막지 못한다 — 마지막 관리자가 스스로를 잠그면 되살릴 사람이 없다 */}
+              {u.id !== meId &&
+                (u.status === "blocked" ? (
+                  <Btn size="sm" variant="primary" disabled={busy} onClick={() => setStatus(u.id, "approved")}>
+                    차단 해제
                   </Btn>
-                )
-              ) : (
-                <Btn size="sm" variant="primary" disabled={busy} onClick={() => setStatus(u.id, "approved")}>
-                  다시 승인
-                </Btn>
-              )}
+                ) : (
+                  <>
+                    {u.status !== "approved" && (
+                      <Btn size="sm" variant="primary" disabled={busy} onClick={() => setStatus(u.id, "approved")}>
+                        다시 승인
+                      </Btn>
+                    )}
+                    <Btn
+                      size="sm"
+                      variant="danger"
+                      disabled={busy}
+                      title="로그인해도 아무것도 할 수 없게 막습니다. 계정과 주보는 지워지지 않습니다."
+                      onClick={() => setStatus(u.id, "blocked")}
+                    >
+                      로그인 차단
+                    </Btn>
+                  </>
+                ))}
             </div>
           ))}
         </div>
