@@ -114,10 +114,26 @@ users   invite_codes   settings   bulletins
 
 ---
 
-## 6단계 · 내 컴퓨터에도 등록 (선택)
+## 6단계 · 배포 주소를 Supabase에 알려주기
+
+비밀번호 재설정 메일의 링크는 **Supabase가 허락한 주소로만** 돌아옵니다.
+배포 주소를 적어두지 않으면 링크를 눌러도 로그인 화면으로 튕깁니다.
+
+Supabase → **Authentication** → **URL Configuration**
+
+| 칸 | 넣을 값 |
+|---|---|
+| **Site URL** | `https://내-프로젝트.vercel.app` |
+| **Redirect URLs** | `https://내-프로젝트.vercel.app/**` 그리고 `http://localhost:3000/**` |
+
+`/**`는 그 주소 아래 모든 경로를 뜻합니다. 로컬에서도 재설정 메일을 시험하려면
+`localhost` 줄까지 함께 넣어두세요.
+
+---
+
+## 7단계 · 내 컴퓨터에도 등록 (선택)
 
 로컬에서도 서버 모드로 쓰려면 프로젝트 폴더에 `.env.local` 파일을 만듭니다.
-(`.env.example`을 복사해서 값만 채우면 됩니다)
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
@@ -133,7 +149,7 @@ GEMINI_API_KEY=여기에_발급받은_키
 
 ---
 
-## 7단계 · 첫 가입 = 관리자
+## 8단계 · 첫 가입 = 관리자
 
 배포된 주소로 들어가면 로그인 화면이 뜹니다.
 
@@ -187,6 +203,8 @@ GEMINI_API_KEY=여기에_발급받은_키
 | 저장이 안 되고 오류가 뜸 | 2단계 SQL을 안 돌렸거나 일부만 돌아간 경우입니다. `001` → `002` 순서로 다시 실행하세요 |
 | 공유 QR 링크에서 배경이 안 보임 | `002_share.sql`을 안 돌린 경우입니다 |
 | 메일 확인 링크를 눌러야 로그인됨 | 3단계 **Confirm email** 끄기를 안 한 것입니다 |
+| 비밀번호 재설정 메일의 링크를 눌러도 로그인 화면으로 돌아옴 | 6단계 **Redirect URLs**에 배포 주소를 안 넣은 것입니다 |
+| 광고 AI 자동 구분이 안 됨 | `GEMINI_API_KEY`가 없거나(규칙 방식으로 나뉩니다), 로그인·승인 전입니다 |
 
 ---
 
