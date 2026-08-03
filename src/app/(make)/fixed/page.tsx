@@ -6,8 +6,9 @@ import { PreviewGrid } from "@/components/PreviewGrid";
 import { SplitView } from "@/components/SplitView";
 import { ImageUpload } from "@/components/editor/ImageUpload";
 import { Inspector } from "@/components/Inspector";
-import { Btn, Field, Hint, Section, Slider } from "@/components/ui";
+import { Btn, Field, Hint, Section, Slider, Warn } from "@/components/ui";
 import { FONTS, monthOf, yearMonth } from "@/lib/layout";
+import { formatMonth, groupByMonth, parseBirthdays } from "@/lib/parseBirthdays";
 import { newId, useDoc } from "@/lib/store";
 import { useFitScale } from "@/lib/useFitScale";
 import type { CoverText, LaidOutPage, WorshipRow } from "@/lib/types";
@@ -318,6 +319,134 @@ function CoverEditor() {
   );
 }
 
+/**
+ * 받은 명단을 그대로 붙여넣어 정리한다.
+ *
+ * 명단은 해마다, 적는 사람마다 모양이 달라 손으로 옮겨 적기 번거롭다.
+ * 붙여넣으면 '홍길동 3월 17일' 꼴로 세워 날짜순으로 한 줄에 담는다.
+ *
+ * 태어난 해는 읽는 자리에서 버린다(parseBirthdays). 주보에 쓰이지 않고,
+ * 나이를 특정할 수 있는 값이라 주보 파일에 남기지 않는 편이 안전하다.
+ */
+function BirthdayPaste({
+  ym,
+  filledMonths,
+  onFill,
+}: {
+  ym: string;
+  /** 이미 명단이 적혀 있는 달들 — 갈아 끼우기 전에 알려주기 위함이다 */
+  filledMonths: string[];
+  onFill: (lines: Record<string, string[]>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [raw, setRaw] = useState("");
+
+  if (!open) {
+    return (
+      <Btn size="sm" onClick={() => setOpen(true)}>
+        받은 명단 붙여넣어 정리하기
+      </Btn>
+    );
+  }
+
+  const parsed = raw.trim() ? parseBirthdays(raw) : null;
+  const groups = parsed ? groupByMonth(parsed.entries, ym) : {};
+  const months = Object.keys(groups).sort();
+  const others = months.filter((m) => m !== ym);
+
+  const fill = () => {
+    const lines: Record<string, string[]> = {};
+    for (const m of months) lines[m] = formatMonth(groups[m]);
+    onFill(lines);
+    setRaw("");
+    setOpen(false);
+  };
+
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border p-2.5"
+      style={{ borderColor: "var(--ui-border)" }}
+    >
+      <Field label="받은 그대로 붙여넣으세요 — 이름과 날짜만 찾아냅니다">
+        <textarea
+          rows={5}
+          value={raw}
+          autoFocus
+          placeholder={"홍길동   3월 17일\n김철수   3월 21일"}
+          style={{ resize: "vertical" }}
+          onChange={(e) => setRaw(e.target.value)}
+        />
+      </Field>
+
+      {parsed && (
+        <>
+          <p className="text-[11px]" style={{ color: "var(--ui-muted)" }}>
+            {months.length === 0
+              ? "아직 읽어낸 사람이 없습니다."
+              : months
+                  .map((m) => `${monthOf(`${m}-01`)}월 ${groups[m].length}명`)
+                  .join(" · ")}
+          </p>
+
+          {months.includes(ym) && (
+            <p className="text-[12px] leading-relaxed" style={{ whiteSpace: "pre-wrap" }}>
+              {formatMonth(groups[ym]).join("\n")}
+            </p>
+          )}
+
+          {others.length > 0 && (
+            <Hint>
+              {others.map((m) => `${monthOf(`${m}-01`)}월`).join("·")} 명단도 함께 왔습니다. 그 달
+              칸에도 각각 넣어 둡니다.
+            </Hint>
+          )}
+
+          {parsed.unread.length > 0 && (
+            <Warn>
+              날짜를 못 찾은 줄 {parsed.unread.length}개는 넣지 않았습니다. 아래 줄을 확인해
+              주세요.
+              <br />
+              {parsed.unread.slice(0, 5).map((line, i) => (
+                <span key={i} style={{ display: "block" }}>
+                  · {line}
+                </span>
+              ))}
+              {parsed.unread.length > 5 && <span>· 외 {parsed.unread.length - 5}줄</span>}
+            </Warn>
+          )}
+
+          {months.some((m) => filledMonths.includes(m)) && (
+            <Hint>
+              지금 적혀 있는{" "}
+              {months
+                .filter((m) => filledMonths.includes(m))
+                .map((m) => `${monthOf(`${m}-01`)}월`)
+                .join("·")}{" "}
+              명단은 새 명단으로 바뀝니다.
+            </Hint>
+          )}
+        </>
+      )}
+
+      <div className="flex gap-1.5">
+        <Btn size="sm" variant="primary" disabled={months.length === 0} onClick={fill}>
+          명단에 넣기
+        </Btn>
+        <Btn
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setRaw("");
+            setOpen(false);
+          }}
+        >
+          닫기
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 function WorshipEditor() {
   const { doc, settings, setSettings } = useDoc();
   const w = settings.fixed.worship;
@@ -332,8 +461,9 @@ function WorshipEditor() {
   const setRows = (rows: WorshipRow[]) => setWorship({ rows });
   const names = w.birthdays[ym] ?? [];
 
-  /** 빈 줄은 간격용이라 사람 수에서 뺀다 */
-  const headcount = (list: string[] | undefined) => (list ?? []).filter((n) => n.trim()).length;
+  /** 빈 줄은 간격용이라 사람 수에서 뺀다. 한 줄에 여러 명이 '|'로 이어 붙기도 한다. */
+  const headcount = (list: string[] | undefined) =>
+    (list ?? []).flatMap((line) => line.split("|")).filter((n) => n.trim()).length;
 
   const savedMonths = Object.keys(w.birthdays)
     .filter((k) => k !== ym && headcount(w.birthdays[k]) > 0)
@@ -411,11 +541,20 @@ function WorshipEditor() {
             <input type="month" value={ym} onChange={(e) => setYm(e.target.value)} />
           </Field>
 
-          <Field label={`${monthOf(`${ym}-01`)}월 명단 — 한 줄에 한 명`}>
+          <BirthdayPaste
+            ym={ym}
+            filledMonths={Object.keys(w.birthdays).filter((m) => headcount(w.birthdays[m]) > 0)}
+            onFill={(lines) => {
+              // 정리한 달만 갈아 끼운다. 손대지 않은 달은 그대로 둔다.
+              setWorship({ birthdays: { ...w.birthdays, ...lines } });
+            }}
+          />
+
+          <Field label={`${monthOf(`${ym}-01`)}월 명단`}>
             <textarea
               rows={6}
               value={names.join("\n")}
-              placeholder={"홍길동\n김철수"}
+              placeholder={"홍길동 3월 7일 | 김철수 3월 12일"}
               style={{ resize: "vertical" }}
               // 적은 그대로 둔다 — 다듬어 버리면 띄어쓰기도 빈 줄도 치는 즉시 사라져
               // 이름 사이 간격을 손으로 맞출 수가 없다. 주보에도 적은 그대로 나간다.
