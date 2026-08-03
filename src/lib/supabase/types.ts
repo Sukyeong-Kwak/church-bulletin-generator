@@ -37,6 +37,14 @@ export type InviteCode = {
   created_at: string;
 };
 
+/** QR 주소가 지금 보여주는 주보. 한 줄만 있다. */
+export type PublishedRow = {
+  id: number;
+  bulletin_id: string | null;
+  published_at: string | null;
+  published_by: string | null;
+};
+
 /** settings.data — 고정 페이지·교회 정보·테마 */
 export type SettingsData = {
   church: ChurchInfo;
@@ -95,6 +103,12 @@ export type Database = {
         Update: Partial<BulletinRow>;
         Relationships: [];
       };
+      published: {
+        Row: PublishedRow;
+        Insert: Partial<PublishedRow>;
+        Update: Partial<PublishedRow>;
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -104,6 +118,11 @@ export type Database = {
       /** 초대코드가 있어야 가입할 수 있는 상태인가 (아무도 없는 새 DB에서만 false) */
       invite_required: { Args: Record<string, never>; Returns: boolean };
       get_shared_bulletin: { Args: { p_token: string }; Returns: BulletinRow[] };
+      /** QR 주소(/now)가 지금 보여주는 주보. 올린 것이 없으면 빈 배열 */
+      get_current_bulletin: { Args: Record<string, never>; Returns: BulletinRow[] };
+      /** 이 주보를 QR 주소에 올린다. 올린 시각을 돌려준다 */
+      publish_bulletin: { Args: { p_id: string }; Returns: string };
+      unpublish_bulletin: { Args: Record<string, never>; Returns: void };
       is_admin: { Args: Record<string, never>; Returns: boolean };
       is_approved: { Args: Record<string, never>; Returns: boolean };
       is_owner: { Args: Record<string, never>; Returns: boolean };

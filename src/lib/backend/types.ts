@@ -20,4 +20,6 @@ export interface Backend {
   /** 이미지를 저장하고 다시 찾을 수 있는 키를 돌려준다 */
   putImage(blob: Blob, prefix: string): Promise<string>;
   getImage(key: string): Promise<Blob | undefined>;
+  /** 쓸모없어진 이미지를 지운다. 실패해도 하던 일을 멈추지 않는다. */
+  removeImages(keys: string[]): Promise<void>;
 }

@@ -91,4 +91,8 @@ export const localBackend: Backend = {
   async getImage(key) {
     return getImage(key);
   },
+
+  async removeImages(keys) {
+    for (const k of keys) await deleteImage(k).catch(() => {});
+  },
 };

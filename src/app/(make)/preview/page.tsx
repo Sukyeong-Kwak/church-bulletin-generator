@@ -71,7 +71,7 @@ export default function PreviewPage() {
           variant={showShare ? "primary" : "default"}
           onClick={() => setShowShare((v) => !v)}
         >
-          공유 QR
+          교회 QR
         </Btn>
 
         <label
@@ -94,7 +94,7 @@ export default function PreviewPage() {
 
       {showShare && (
         <div className="border-b bg-white px-4 py-3" style={{ borderColor: "var(--ui-border)" }}>
-          <ShareCard shareToken={doc.shareToken} serviceDate={doc.serviceDate} />
+          <ShareCard getNodes={getNodes} />
         </div>
       )}
 

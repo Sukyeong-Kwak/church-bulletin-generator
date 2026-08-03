@@ -11,8 +11,19 @@ import type { BulletinDoc } from "@/lib/types";
 
 /** 보관함 — 저장한 주보를 다시 열거나, 만들었던 이미지를 그대로 다시 받는다. */
 export default function LibraryPage() {
-  const { library, openSaved, duplicateSaved, removeSaved, startNew, saveCurrent, doc, dirty, loaded } =
-    useDoc();
+  const {
+    library,
+    openSaved,
+    duplicateSaved,
+    removeSaved,
+    startNew,
+    saveCurrent,
+    doc,
+    dirty,
+    loaded,
+    published,
+    publishSaved,
+  } = useDoc();
   const router = useRouter();
 
   if (!loaded) return null;
@@ -55,6 +66,9 @@ export default function LibraryPage() {
                 key={b.id}
                 bulletin={b}
                 current={b.id === doc.id}
+                live={!!published?.publishedAt && published.bulletinId === b.id}
+                canPublish={!!published}
+                onPublish={() => publishSaved(b.id)}
                 onOpen={() => {
                   openSaved(b.id);
                   router.push("/");
@@ -63,7 +77,7 @@ export default function LibraryPage() {
                   duplicateSaved(b.id);
                   router.push("/");
                 }}
-                onRemove={() => removeSaved(b.id)}
+                onRemove={() => void removeSaved(b.id)}
               />
             ))}
           </div>
@@ -76,12 +90,19 @@ export default function LibraryPage() {
 function Row({
   bulletin,
   current,
+  live,
+  canPublish,
+  onPublish,
   onOpen,
   onDuplicate,
   onRemove,
 }: {
   bulletin: BulletinDoc;
   current: boolean;
+  /** 지금 교회 QR에 올라가 있는 주보인지 */
+  live: boolean;
+  canPublish: boolean;
+  onPublish: () => void;
   onOpen: () => void;
   onDuplicate: () => void;
   onRemove: () => void;
@@ -158,6 +179,16 @@ function Row({
               작성 중
             </span>
           )}
+          {/* 교회 QR을 찍으면 지금 이것이 보인다 */}
+          {live && (
+            <span
+              className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+              style={{ background: "#ebfbee", color: "#2b8a3e" }}
+              title="입구에 붙인 QR을 찍으면 이 주보가 보입니다"
+            >
+              QR에 올라감
+            </span>
+          )}
         </div>
         <p className="text-[11px]" style={{ color: "var(--ui-muted)" }}>
           광고 {adCount}개
@@ -173,6 +204,19 @@ function Row({
         <Btn size="sm" onClick={onDuplicate} title="이 주보를 복사해 다음 주 날짜로 새로 만듭니다">
           복사해서 새로
         </Btn>
+        {canPublish && !live && (
+          <Btn
+            size="sm"
+            onClick={onPublish}
+            title={
+              imageCount
+                ? "교회 QR이 이 주보를 보여주게 바꿉니다"
+                : "이 주보에는 보관된 이미지가 없어 폰에서 화면으로 다시 그려집니다"
+            }
+          >
+            QR에 올리기
+          </Btn>
+        )}
         <Btn size="sm" disabled={!imageCount || busy} onClick={downloadImages}>
           {busy ? "준비 중…" : "이미지 받기"}
         </Btn>

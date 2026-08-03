@@ -103,4 +103,12 @@ export const supabaseBackend: Backend = {
     const { data } = await supabase.storage.from(BUCKET).download(key);
     return data ?? undefined;
   },
+
+  async removeImages(keys) {
+    const supabase = supabaseBrowser();
+    if (!supabase || keys.length === 0) return;
+
+    // 지우지 못해도 그냥 둔다. 새 이미지는 이미 올라갔고, 남은 파일은 용량만 차지한다.
+    await supabase.storage.from(BUCKET).remove(keys);
+  },
 };

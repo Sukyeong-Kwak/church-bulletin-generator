@@ -12,6 +12,12 @@ import {
 } from "react";
 import { getBackend } from "./backend";
 import {
+  loadPublished,
+  publishBulletin,
+  unpublishBulletin,
+  type PublishState,
+} from "./publish";
+import {
   deepCopy,
   makeDefaultSettings,
   makeDraft,
@@ -43,6 +49,17 @@ interface DocContextValue {
   removeSaved: (id: string) => Promise<void>;
   startNew: () => void;
   attachImages: (docId: string, keys: string[]) => void;
+  /**
+   * QR 주소에 지금 올라가 있는 주보. 서버 모드가 아니면 null.
+   * 저장과 다르다 — 저장은 우리끼리 보관, 올리기는 남에게 공개다.
+   */
+  published: PublishState | null;
+  /** 작성 중인 주보를 저장하고 QR 주소에 올린다. 페이지 이미지가 없으면 만들어 함께 올린다. */
+  publishCurrent: (makeImages: () => Promise<Blob[]>) => Promise<void>;
+  /** 보관함에 있는 주보로 갈아 끼운다 */
+  publishSaved: (id: string) => Promise<void>;
+  /** QR 주소를 다시 닫는다 */
+  unpublish: () => Promise<void>;
   urls: { background?: string; cover?: string; logo?: string };
   loaded: boolean;
   dirty: boolean;
@@ -63,6 +80,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [urls, setUrls] = useState<DocContextValue["urls"]>({});
+  const [published, setPublished] = useState<PublishState | null>(null);
 
   // 저장소를 읽는 일은 첫 렌더 뒤에만 가능하다.
   // 초기값에서 바로 읽으면 서버 렌더 결과와 달라져 하이드레이션이 깨진다.
@@ -71,12 +89,17 @@ export function DocProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const [s, list] = await Promise.all([backend.loadSettings(), backend.listBulletins()]);
+        const [s, list, pub] = await Promise.all([
+          backend.loadSettings(),
+          backend.listBulletins(),
+          backend.kind === "supabase" ? loadPublished() : Promise.resolve(null),
+        ]);
         if (!alive) return;
 
         const next = s ?? makeDefaultSettings();
         setSettingsState(next);
         setLibrary(list);
+        setPublished(pub);
 
         const raw = localStorage.getItem(DRAFT_KEY);
         const draft = raw ? (JSON.parse(raw) as BulletinDoc) : null;
@@ -232,6 +255,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       await backend.deleteBulletin(id).catch(() => setError("삭제하지 못했습니다."));
       setLibrary((lib) => lib.filter((b) => b.id !== id));
+      // 올라가 있던 주보를 지웠으면 QR도 함께 비워진다 (DB에서 연결이 끊긴다)
+      setPublished((p) => (p?.bulletinId === id ? { bulletinId: null, publishedAt: null } : p));
     },
     [backend],
   );
@@ -247,6 +272,74 @@ export function DocProvider({ children }: { children: ReactNode }) {
     setLibrary((lib) => lib.map((b) => (b.id === docId ? { ...b, imageKeys: keys } : b)));
   }, []);
 
+  /**
+   * 작성 중인 주보를 QR 주소에 올린다.
+   *
+   * 올리기 전에 저장부터 한다 — 올린 주보를 남이 여는 사이에 서버에 없는 상태가 되면 안 된다.
+   * 폰에서 보여줄 페이지 이미지는 올릴 때마다 새로 만든다. 있던 것을 그대로 쓰면,
+   * 오타를 고치고 다시 올렸는데 고치기 전 그림이 그대로 걸려 있는 일이 생긴다.
+   * 갈아 끼운 뒤 옛 이미지는 지운다 — 남겨두면 매주 쌓여 저장 공간만 먹는다.
+   */
+  const publishCurrent = useCallback(
+    async (makeImages: () => Promise<Blob[]>) => {
+      if (backend.kind !== "supabase") {
+        setError("서버에 연결해야 QR로 공유할 수 있습니다.");
+        return;
+      }
+
+      setSaving(true);
+      setError(undefined);
+      try {
+        const old = doc.imageKeys ?? [];
+
+        const blobs = await makeImages();
+        const keys: string[] = [];
+        for (const b of blobs) keys.push(await backend.putImage(b, "export"));
+
+        const saved = await backend.saveBulletin({ ...doc, imageKeys: keys });
+        const at = await publishBulletin(saved.id);
+
+        // 새 이미지가 무사히 자리 잡은 뒤에 옛 것을 지운다
+        void backend.removeImages(old.filter((k) => !keys.includes(k))).catch(() => {});
+
+        setDocState(saved);
+        setLibrary((lib) =>
+          [saved, ...lib.filter((b) => b.id !== saved.id)].sort((a, b) =>
+            b.serviceDate.localeCompare(a.serviceDate),
+          ),
+        );
+        setDirty(false);
+        setPublished({ bulletinId: saved.id, publishedAt: at });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "QR에 올리지 못했습니다.");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [doc, backend],
+  );
+
+  /** 보관함에 있는 주보로 갈아 끼운다 */
+  const publishSaved = useCallback(async (id: string) => {
+    setError(undefined);
+    try {
+      const at = await publishBulletin(id);
+      setPublished({ bulletinId: id, publishedAt: at });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "QR에 올리지 못했습니다.");
+    }
+  }, []);
+
+  const unpublish = useCallback(async () => {
+    setError(undefined);
+    try {
+      await unpublishBulletin();
+      setPublished({ bulletinId: null, publishedAt: null });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "QR에서 내리지 못했습니다.");
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       doc,
@@ -260,6 +353,10 @@ export function DocProvider({ children }: { children: ReactNode }) {
       removeSaved,
       startNew,
       attachImages,
+      published,
+      publishCurrent,
+      publishSaved,
+      unpublish,
       urls,
       loaded,
       dirty,
@@ -278,6 +375,10 @@ export function DocProvider({ children }: { children: ReactNode }) {
       removeSaved,
       startNew,
       attachImages,
+      published,
+      publishCurrent,
+      publishSaved,
+      unpublish,
       urls,
       loaded,
       dirty,
