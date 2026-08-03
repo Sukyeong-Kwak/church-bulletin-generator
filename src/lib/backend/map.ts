@@ -12,7 +12,6 @@ export function rowToDoc(row: BulletinRow): BulletinDoc {
     serviceDate: row.service_date,
     updatedAt: row.updated_at,
     imageKeys: row.image_paths ?? [],
-    shareToken: row.share_token ?? undefined,
     theme: normalizeTheme(snap.theme ?? base.theme),
     church: snap.church ?? base.church,
     fixed: normalizeFixed(snap.fixed ?? base.fixed),

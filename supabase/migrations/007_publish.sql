@@ -51,23 +51,13 @@ as $$
    limit 1;
 $$;
 
--- 주보별 링크도 적용된 것만 열린다.
--- 지난주 링크를 받아 둔 사람이 계속 들여다보는 일이 없게 한다.
-create or replace function public.get_shared_bulletin(p_token text)
-returns setof public.bulletins
-language sql stable security definer set search_path = public
-as $$
-  select b.*
-    from public.bulletins b
-    join public.published p on p.bulletin_id = b.id
-   where b.share_token = p_token
-     and p.id = 1
-     and p.published_at is not null
-   limit 1;
-$$;
+grant execute on function public.get_current_bulletin() to anon, authenticated;
 
-grant execute on function public.get_current_bulletin()      to anon, authenticated;
-grant execute on function public.get_shared_bulletin(text)   to anon, authenticated;
+-- 주보마다 따로 있던 링크는 없앤다.
+-- QR 주소가 /now 하나로 모였으니 쓰이지 않는데, 남겨두면 토큰을 아는 사람에게
+-- 열리는 문이 하나 더 있는 셈이 된다.
+-- (share_token 칸은 그대로 둔다. 지우는 것은 되돌릴 수 없고, 두어도 새어 나가지 않는다)
+drop function if exists public.get_shared_bulletin(text);
 
 -- ---------------------------------------------------------------- 올리기·내리기
 

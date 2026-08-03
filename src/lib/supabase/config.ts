@@ -30,17 +30,9 @@ export const supabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
  * 로그인 없이 열 수 있는 경로.
  *
  *   /now    교회 QR이 가리키는 자리. 교인이 폰으로 찍어 들어오므로 반드시 열려 있어야 한다.
- *   /share  주보별 링크 (예전에 나간 것)
  *   /auth   메일 링크가 돌아오는 자리. 여기서 막으면 비밀번호 재설정이 끊긴다.
  */
-export const PUBLIC_PATHS = [
-  "/login",
-  "/signup",
-  "/reset-password",
-  "/share",
-  "/now",
-  "/auth",
-];
+export const PUBLIC_PATHS = ["/login", "/signup", "/reset-password", "/now", "/auth"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

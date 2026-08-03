@@ -154,8 +154,6 @@ export interface BulletinDoc {
   updatedAt?: string;
   /** 내보낸 PNG 보관 키 — 과거 주보를 다시 열어 이미지 그대로 받을 수 있다 */
   imageKeys?: string[];
-  /** 공유 링크(QR) 주소에 쓰이는 토큰. 서버에 저장해야 생긴다. */
-  shareToken?: string;
   theme: Theme;
   church: ChurchInfo;
   fixed: FixedPages;

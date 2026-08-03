@@ -67,7 +67,6 @@ export type BulletinRow = {
   export_scale: number;
   export_format: string;
   image_paths: string[];
-  share_token: string | null;
   created_by: string | null;
   updated_at: string;
 };
@@ -117,7 +116,6 @@ export type Database = {
       check_invite_code: { Args: { p_code: string }; Returns: boolean };
       /** 초대코드가 있어야 가입할 수 있는 상태인가 (아무도 없는 새 DB에서만 false) */
       invite_required: { Args: Record<string, never>; Returns: boolean };
-      get_shared_bulletin: { Args: { p_token: string }; Returns: BulletinRow[] };
       /** QR 주소(/now)가 지금 보여주는 주보. 올린 것이 없으면 빈 배열 */
       get_current_bulletin: { Args: Record<string, never>; Returns: BulletinRow[] };
       /** 이 주보를 QR 주소에 올린다. 올린 시각을 돌려준다 */
