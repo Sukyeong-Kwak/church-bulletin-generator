@@ -14,6 +14,13 @@ interface Props {
   registerRef?: (index: number, el: HTMLDivElement | null) => void;
   onSelectPage?: (page: LaidOutPage) => void;
   selectedIndex?: number;
+  /**
+   * 쪽 아래 설명줄('1 표지 고정')을 보일지.
+   *
+   * 만드는 쪽에서는 어디를 고쳐야 하는지 알려주는 표지판이지만, 보는 쪽에서는
+   * 읽을 것도 누를 것도 아닌 군더더기다. 순서대로 이어지기만 하면 된다.
+   */
+  showCaption?: boolean;
 }
 
 export function PreviewGrid({
@@ -24,6 +31,7 @@ export function PreviewGrid({
   registerRef,
   onSelectPage,
   selectedIndex,
+  showCaption = true,
 }: Props) {
   return (
     <div className="flex flex-wrap gap-4">
@@ -58,28 +66,33 @@ export function PreviewGrid({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--ui-muted)" }}>
-            <span className="font-semibold">{page.index + 1}</span>
-            <span>{pageLabel(page)}</span>
-            {(page.kind === "cover" || page.kind === "worship") && (
-              <span
-                className="rounded px-1.5 py-0.5"
-                style={{ background: "#f1f3f5", color: "#868e96" }}
-                title="고정 페이지 관리에서 수정합니다"
-              >
-                고정
-              </span>
-            )}
-            {page.overflow && (
-              <span
-                className="rounded px-1.5 py-0.5 font-semibold"
-                style={{ background: "#fff4e6", color: "#b45309" }}
-                title="블록 하나가 한 페이지보다 큽니다. 폰트 크기를 줄이거나 내용을 나눠주세요."
-              >
-                넘침
-              </span>
-            )}
-          </div>
+          {showCaption && (
+            <div
+              className="flex items-center gap-1.5 text-[11px]"
+              style={{ color: "var(--ui-muted)" }}
+            >
+              <span className="font-semibold">{page.index + 1}</span>
+              <span>{pageLabel(page)}</span>
+              {(page.kind === "cover" || page.kind === "worship") && (
+                <span
+                  className="rounded px-1.5 py-0.5"
+                  style={{ background: "#f1f3f5", color: "#868e96" }}
+                  title="고정 페이지 관리에서 수정합니다"
+                >
+                  고정
+                </span>
+              )}
+              {page.overflow && (
+                <span
+                  className="rounded px-1.5 py-0.5 font-semibold"
+                  style={{ background: "#fff4e6", color: "#b45309" }}
+                  title="블록 하나가 한 페이지보다 큽니다. 폰트 크기를 줄이거나 내용을 나눠주세요."
+                >
+                  넘침
+                </span>
+              )}
+            </div>
+          )}
         </div>
       ))}
     </div>

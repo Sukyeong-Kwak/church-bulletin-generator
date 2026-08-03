@@ -123,7 +123,7 @@ export function SharedBulletin({ doc }: { doc: BulletinDoc }) {
       </header>
 
       <div className="flex-1 p-4">
-        <PreviewGrid doc={doc} pages={pages} urls={urls} scale={zoom} />
+        <PreviewGrid doc={doc} pages={pages} urls={urls} scale={zoom} showCaption={false} />
       </div>
 
       {measurer}
