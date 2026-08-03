@@ -1,0 +1,88 @@
+<!--
+  가입 인증번호 메일.
+  Supabase > Authentication > Emails > Confirm signup 에 넣는다.
+
+    제목(Subject)      THE PIECE 주보 가입 인증번호
+    본문(Message body) 이 파일에서 아래 주석을 뺀 나머지 전부 (주석째 붙여넣어도 상관없다)
+
+  {{ .Token }} 이 6자리 인증번호로 바뀐다. 이것을 빼고 {{ .ConfirmationURL }} 을 넣으면
+  다시 링크 방식으로 돌아가므로, 가입 화면의 인증번호 입력칸이 무용지물이 된다.
+
+  로그인·가입 화면(AuthShell)과 같은 차림새다 — 로고, 이름, 흰 카드 순.
+
+  메일 프로그램은 CSS 파일도, SVG도 읽지 못한다.
+  그래서 칸은 표(table)로 잡고 색은 태그마다 직접 적었으며,
+  퍼즐 로고는 네 조각을 색칸 네 개로 다시 그렸다(각 조각의 바깥 모서리만 크게 굴린다).
+  모서리 굴림을 못 읽는 옛 아웃룩에서는 네모 넷으로 보이는데, 그래도 로고로 읽힌다.
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f6f8;margin:0;padding:28px 12px;">
+  <tr>
+    <td align="center">
+
+      <!-- 퍼즐 조각 넷 -->
+      <table role="presentation" cellpadding="0" cellspacing="3" border="0" style="margin:0 auto;">
+        <tr>
+          <td width="21" height="21" style="width:21px;height:21px;background-color:#41508F;border-radius:9px 3px 3px 3px;font-size:0;line-height:0;">&nbsp;</td>
+          <td width="21" height="21" style="width:21px;height:21px;background-color:#4FA391;border-radius:3px 9px 3px 3px;font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
+        <tr>
+          <td width="21" height="21" style="width:21px;height:21px;background-color:#F0A94C;border-radius:3px 3px 3px 9px;font-size:0;line-height:0;">&nbsp;</td>
+          <td width="21" height="21" style="width:21px;height:21px;background-color:#E56B4E;border-radius:3px 3px 9px 3px;font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
+      </table>
+
+      <div style="margin:10px 0 18px 0;font-family:'Apple SD Gothic Neo','Malgun Gothic',Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#16181d;letter-spacing:-0.2px;">
+        THE&nbsp;PIECE <span style="color:#767c88;font-weight:600;">주보</span>
+      </div>
+
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:480px;background-color:#ffffff;border:1px solid #e6e8ec;border-radius:16px;">
+        <tr>
+          <td style="padding:32px 32px 0 32px;text-align:center;font-family:'Apple SD Gothic Neo','Malgun Gothic',Helvetica,Arial,sans-serif;">
+            <div style="font-size:20px;font-weight:700;color:#16181d;">가입 인증번호</div>
+            <div style="margin-top:8px;font-size:14px;line-height:1.7;color:#767c88;">
+              아래 6자리 숫자를<br>가입 화면에 입력해주세요.
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:24px 32px 0 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef1ff;border:1px solid #dbe1ff;border-radius:12px;">
+              <tr>
+                <td align="center" style="padding:20px 12px;font-family:'Apple SD Gothic Neo',Helvetica,Arial,sans-serif;font-size:34px;font-weight:700;color:#3d5afe;letter-spacing:10px;text-indent:10px;">
+                  {{ .Token }}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:16px 32px 0 32px;text-align:center;font-family:'Apple SD Gothic Neo','Malgun Gothic',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.7;color:#767c88;">
+            이 번호는 <strong style="color:#16181d;">1시간</strong> 동안만 쓸 수 있습니다.<br>
+            시간이 지났다면 가입 화면에서 다시 받으실 수 있습니다.
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:24px 32px 0 32px;">
+            <div style="height:1px;background-color:#e6e8ec;font-size:0;line-height:0;">&nbsp;</div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:16px 32px 30px 32px;text-align:center;font-family:'Apple SD Gothic Neo','Malgun Gothic',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.7;color:#9aa0ab;">
+            본인이 신청한 것이 아니라면 이 메일은 무시해주세요.<br>
+            번호를 다른 사람에게 알려주지 마세요.
+          </td>
+        </tr>
+      </table>
+
+      <div style="margin-top:14px;font-family:'Apple SD Gothic Neo','Malgun Gothic',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.7;color:#9aa0ab;">
+        우리는 하나님의 퍼즐의 한 조각<br>
+        THE PIECE 주보 · 발신 전용 메일입니다
+      </div>
+
+    </td>
+  </tr>
+</table>

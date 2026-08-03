@@ -49,6 +49,19 @@ function MailBadge({ at }: { at: string | null | undefined }) {
   );
 }
 
+/** 관리자를 임명하고 내릴 수 있는 단 한 사람 */
+function OwnerBadge() {
+  return (
+    <span
+      className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+      style={{ background: "#eef2ff", color: "#4338ca" }}
+      title="관리자를 세우고 내릴 수 있는 계정입니다. 다른 관리자는 이 계정을 고칠 수 없습니다."
+    >
+      최고 관리자
+    </span>
+  );
+}
+
 export function AdminPanel({ meId }: { meId: string }) {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [codes, setCodes] = useState<InviteCode[]>([]);
@@ -127,6 +140,13 @@ export function AdminPanel({ meId }: { meId: string }) {
 
   const pending = users.filter((u) => u.status === "pending");
   const others = users.filter((u) => u.status !== "pending");
+
+  /**
+   * 관리자를 임명하고 내리는 것은 최고 관리자만 한다.
+   * 005 마이그레이션 전에는 최고 관리자라는 것이 없으므로(undefined) 예전처럼 둔다 —
+   * 여기서 잠가버리면 아무도 관리자를 세울 수 없게 된다.
+   */
+  const canSetRole = users.find((u) => u.id === meId)?.is_owner !== false;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-3 p-4 sm:p-5">
@@ -231,8 +251,15 @@ export function AdminPanel({ meId }: { meId: string }) {
 
       <Section
         title={`구성원 ${others.length}명`}
-        desc="차단하면 로그인해도 주보를 열거나 고칠 수 없습니다. 계정과 만들어둔 주보는 남습니다."
+        desc={
+          canSetRole
+            ? "관리자로 올리면 가입 승인과 초대코드 발급을 맡길 수 있습니다. 차단하면 로그인해도 주보를 열거나 고칠 수 없습니다."
+            : "차단하면 로그인해도 주보를 열거나 고칠 수 없습니다. 계정과 만들어둔 주보는 남습니다."
+        }
       >
+        {!canSetRole && (
+          <Hint>역할(관리자·편집자)은 최고 관리자만 바꿀 수 있습니다.</Hint>
+        )}
         <div className="flex flex-col gap-1.5">
           {others.map((u) => (
             <div
@@ -248,6 +275,7 @@ export function AdminPanel({ meId }: { meId: string }) {
                       나
                     </span>
                   )}
+                  {u.is_owner && <OwnerBadge />}
                   <MailBadge at={u.email_confirmed_at} />
                 </p>
                 <p className="truncate text-[11px]" style={{ color: "var(--ui-muted)" }}>
@@ -257,7 +285,8 @@ export function AdminPanel({ meId }: { meId: string }) {
 
               <select
                 value={u.role}
-                disabled={busy || u.id === meId}
+                disabled={busy || u.id === meId || !canSetRole || u.is_owner}
+                title={!canSetRole ? "역할은 최고 관리자만 바꿀 수 있습니다" : undefined}
                 onChange={(e) => setRole(u.id, e.target.value as AppUser["role"])}
                 style={{ width: "auto" }}
               >
@@ -265,8 +294,12 @@ export function AdminPanel({ meId }: { meId: string }) {
                 <option value="admin">관리자</option>
               </select>
 
-              {/* 자기 자신은 막지 못한다 — 마지막 관리자가 스스로를 잠그면 되살릴 사람이 없다 */}
+              {/*
+                자기 자신은 막지 못한다 — 마지막 관리자가 스스로를 잠그면 되살릴 사람이 없다.
+                최고 관리자도 마찬가지다 — 관리자끼리 서로 내리는 일이 생기지 않게 한다.
+              */}
               {u.id !== meId &&
+                !u.is_owner &&
                 (u.status === "blocked" ? (
                   <Btn size="sm" variant="primary" disabled={busy} onClick={() => setStatus(u.id, "approved")}>
                     차단 해제

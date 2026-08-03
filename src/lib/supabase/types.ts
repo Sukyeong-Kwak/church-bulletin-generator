@@ -18,6 +18,11 @@ export type AppUser = {
   approved_at: string | null;
   /** 메일 인증을 마친 시각. 아직이면 null (auth.users에서 따라 붙는다) */
   email_confirmed_at: string | null;
+  /**
+   * 최고 관리자. 관리자를 임명하고 내릴 수 있는 단 한 사람이다.
+   * 005 마이그레이션 전에는 이 값 자체가 없다(undefined).
+   */
+  is_owner?: boolean;
   created_at: string;
 };
 
@@ -94,9 +99,14 @@ export type Database = {
     Views: Record<never, never>;
     Functions: {
       redeem_invite_code: { Args: { p_code: string }; Returns: boolean };
+      /** 코드가 살아 있는지 확인만 한다. 계정을 만들기 전에 물어보는 용도라 로그인 없이도 부른다. */
+      check_invite_code: { Args: { p_code: string }; Returns: boolean };
+      /** 초대코드가 있어야 가입할 수 있는 상태인가 (아무도 없는 새 DB에서만 false) */
+      invite_required: { Args: Record<string, never>; Returns: boolean };
       get_shared_bulletin: { Args: { p_token: string }; Returns: BulletinRow[] };
       is_admin: { Args: Record<string, never>; Returns: boolean };
       is_approved: { Args: Record<string, never>; Returns: boolean };
+      is_owner: { Args: Record<string, never>; Returns: boolean };
     };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;

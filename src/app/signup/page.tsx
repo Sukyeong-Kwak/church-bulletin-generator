@@ -1,55 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthError, AuthShell } from "@/components/auth/AuthShell";
+import { VerifyCode } from "@/components/auth/VerifyCode";
 import { Btn, Field, Hint } from "@/components/ui";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { supabaseConfigured } from "@/lib/supabase/config";
 import { NotConfigured } from "../login/page";
 
 /**
- * 확인 메일을 보낸 뒤 보여주는 화면.
- * 여기서 링크를 누르기 전까지는 로그인할 수 없다 — 남의 메일 주소로 가입하는 것을 막는다.
+ * 가입에는 세 가지가 모두 있어야 한다.
+ *   1. 이름과 비밀번호
+ *   2. 살아 있는 초대코드
+ *   3. 메일로 받은 인증번호
+ *
+ * 순서가 중요하다. 코드부터 확인하고 나서 계정을 만든다 —
+ * 반대로 하면 코드가 틀렸을 때 쓸 수 없는 계정만 남는다.
  */
-function CheckMailbox({ email }: { email: string }) {
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string>();
-  const [busy, setBusy] = useState(false);
-
-  const resend = async () => {
-    setBusy(true);
-    setError(undefined);
-    const { error } = await supabaseBrowser()!.auth.resend({
-      type: "signup",
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/pending` },
-    });
-    if (error) setError(error.message);
-    else setSent(true);
-    setBusy(false);
-  };
-
-  return (
-    <AuthShell
-      title="메일함을 확인해주세요"
-      desc={`${email} 로 확인 메일을 보냈습니다. 링크를 누르면 가입이 끝나고, 그다음 관리자 승인을 기다립니다.`}
-      footer={
-        <Link href="/login" style={{ color: "var(--ui-accent)", fontWeight: 700 }}>
-          로그인 화면으로
-        </Link>
-      }
-    >
-      <Hint>메일이 안 보이면 스팸함도 확인해보세요. 도착까지 1~2분 걸릴 수 있습니다.</Hint>
-      <AuthError message={error} />
-      <Btn onClick={resend} disabled={busy || sent} style={{ padding: "10px 12px" }}>
-        {sent ? "다시 보냈습니다" : busy ? "보내는 중…" : "확인 메일 다시 보내기"}
-      </Btn>
-    </AuthShell>
-  );
-}
-
 export default function SignupPage() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -58,11 +27,57 @@ export default function SignupPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
-  /** 확인 메일을 보냈고 링크를 누르기를 기다리는 중 */
+  /** 인증번호를 보냈고 입력을 기다리는 중 */
   const [sent, setSent] = useState(false);
+  /**
+   * 초대코드가 있어야 하는가.
+   * 아무도 없는 새 DB의 첫 사람만 예외다 — 코드를 줄 관리자가 아직 없기 때문이다.
+   */
+  const [needCode, setNeedCode] = useState(true);
+
+  // 로그인 전에도 답을 받을 수 있는 물음이라 화면을 그린 뒤에 물어본다
+  useEffect(() => {
+    const supabase = supabaseBrowser();
+    if (!supabase) return;
+    let alive = true;
+
+    (async () => {
+      const { data, error } = await supabase.rpc("invite_required");
+      if (!alive) return;
+      // 004 마이그레이션 전이면 이 함수가 없다. 그때는 DB도 코드를 요구하지 않으므로 맞춰준다.
+      setNeedCode(error ? false : data !== false);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   if (!supabaseConfigured) return <NotConfigured />;
-  if (sent) return <CheckMailbox email={email} />;
+
+  /** 메일 주소 확인이 끝난 뒤 — 이제 로그인 상태다. 코드를 실제로 쓴다. */
+  const finish = async () => {
+    const supabase = supabaseBrowser()!;
+    const entered = code.trim();
+
+    if (entered) {
+      const { data: ok } = await supabase.rpc("redeem_invite_code", { p_code: entered });
+      if (ok) {
+        // 한 번 쓴 코드는 지운다 — 승인 대기 화면이 다시 시도하지 않게
+        await supabase.auth.updateUser({ data: { invite_code: null } });
+        router.replace("/");
+        router.refresh();
+        return;
+      }
+      // 가입하고 인증하는 사이에 코드가 만료됐다. 관리자 승인으로 돌린다.
+      router.replace("/pending?code=invalid");
+      router.refresh();
+      return;
+    }
+
+    router.replace("/pending");
+    router.refresh();
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,52 +89,77 @@ export default function SignupPage() {
     setBusy(true);
     setError(undefined);
     const supabase = supabaseBrowser()!;
+    const entered = code.trim();
 
-    // 초대코드는 계정에 실어 보낸다. 메일 인증을 켜두면 지금은 로그인 상태가 아니라
-    // 코드를 쓸 수 없어서, 링크를 눌러 들어온 뒤 승인 대기 화면에서 자동으로 쓰인다.
+    // 계정을 만들기 전에 코드부터 본다. 여기서는 쓰지 않고 살아 있는지만 확인한다.
+    if (needCode) {
+      const { data: valid, error: checkError } = await supabase.rpc("check_invite_code", {
+        p_code: entered,
+      });
+      if (checkError || !valid) {
+        setError("초대코드가 유효하지 않거나 24시간이 지났습니다. 발급한 분께 다시 받아주세요.");
+        setBusy(false);
+        return;
+      }
+    }
+
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { name, invite_code: code.trim() || null },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/pending`,
-      },
+      options: { data: { name: name.trim(), invite_code: entered || null } },
     });
 
     if (signUpError) {
       setError(
         signUpError.message.includes("already registered")
           ? "이미 가입된 이메일입니다. 로그인해주세요."
-          : signUpError.message,
+          : // 가입 조건은 DB에서도 막는다. 걸리면 이 뭉뚱그린 메시지로 돌아온다.
+            signUpError.message.toLowerCase().includes("database error")
+            ? "이름과 초대코드를 다시 확인해주세요."
+            : signUpError.message,
       );
       setBusy(false);
       return;
     }
 
-    // 메일 인증이 켜져 있으면 아직 로그인 전이다 — 메일함 안내로 넘어간다
-    if (!data.session) {
-      setSent(true);
+    // 이미 가입을 마친 주소로 다시 신청하면 Supabase는 빈 계정을 돌려준다.
+    // (있는 주소인지 아닌지를 아무나 알아내지 못하게 하려는 것이다)
+    if (data.user && data.user.identities?.length === 0) {
+      setError("이미 가입된 이메일입니다. 로그인해주세요.");
       setBusy(false);
       return;
     }
 
-    // 초대코드가 있으면 바로 승인된다. 없으면 관리자 승인을 기다린다.
-    if (code.trim()) {
-      const { data: ok } = await supabase.rpc("redeem_invite_code", { p_code: code.trim() });
-      if (!ok) {
-        router.replace("/pending?code=invalid");
-        return;
-      }
+    // 메일 확인이 꺼져 있으면 이 자리에서 바로 로그인된다
+    if (data.session) {
+      await finish();
+      return;
     }
 
-    router.replace(code.trim() ? "/" : "/pending");
-    router.refresh();
+    setSent(true);
+    setBusy(false);
   };
+
+  if (sent) {
+    return (
+      <AuthShell
+        title="인증번호를 보냈습니다"
+        desc={`${email} 로 6자리 숫자를 보냈습니다. 번호를 넣어야 가입이 끝납니다.`}
+        footer={
+          <Link href="/login" style={{ color: "var(--ui-accent)", fontWeight: 700 }}>
+            로그인 화면으로
+          </Link>
+        }
+      >
+        <VerifyCode email={email} onVerified={finish} onBack={() => setSent(false)} />
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell
       title="가입 신청"
-      desc="가입 후 관리자 승인을 받아야 주보를 만들 수 있습니다. 초대코드가 있으면 바로 시작합니다."
+      desc="초대코드와 메일 인증이 모두 있어야 가입됩니다. 코드는 관리자에게 받으세요."
       footer={
         <span style={{ color: "var(--ui-muted)" }}>
           이미 계정이 있나요?{" "}
@@ -158,18 +198,19 @@ export default function SignupPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </Field>
-        <Field label="초대코드 (없으면 비워두세요)">
+        <Field label={needCode ? "초대코드" : "초대코드 (첫 관리자는 비워두세요)"}>
           <input
             type="text"
             value={code}
-            placeholder="단톡방에 공유된 코드"
+            required={needCode}
+            placeholder="관리자에게 받은 코드"
             onChange={(e) => setCode(e.target.value.toUpperCase())}
           />
         </Field>
 
         <Hint>
-          신청하면 이 주소로 확인 메일이 갑니다. 링크를 눌러 메일 주소를 확인한 뒤 관리자 승인을
-          받으면 시작할 수 있습니다. 초대코드는 발급 후 24시간 동안만 쓸 수 있습니다.
+          신청하면 이 주소로 6자리 인증번호가 갑니다. 번호까지 넣어야 가입이 끝납니다. 초대코드는
+          발급 후 24시간 동안만 쓸 수 있습니다.
         </Hint>
         <AuthError message={error} />
 
