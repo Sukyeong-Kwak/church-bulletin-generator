@@ -20,6 +20,11 @@ export interface ParsedBlock {
   body: string;
   /** 규칙에 확실히 들어맞아 파싱했는지. false면 UI에서 확인을 권한다. */
   confident: boolean;
+  /**
+   * 긴 줄글이라 AI가 읽기 좋게 다듬은 본문 (lib/ai/tidy.ts).
+   * 원문 `body`는 그대로 두고 여기에만 담는다 — 사람이 승인해야 쓰인다.
+   */
+  tidy?: string;
 }
 
 const BRACKET_TITLE = /^[<〈《【[(]\s*.*\S.*\s*[>〉》】\])]$/;

@@ -4,6 +4,8 @@
  * 하는 일은 하나. 붙여넣은 광고 원문을 "제목 / 내용" 쌍으로 나누는 것.
  * 글자를 고치는 일은 절대 시키지 않으며, 실제로 고쳐 왔는지는
  * anchor.ts 가 원문과 대조해 걸러낸다. (모델 말을 믿지 않는다)
+ *
+ * 나눈 뒤 긴 줄글을 읽기 좋게 다듬는 일은 tidy.ts 가 따로 맡는다.
  */
 
 import { classify, type ParsedKind } from "@/lib/parseAds";
@@ -66,8 +68,11 @@ interface GeminiResponse {
   error?: { message?: string };
 }
 
-/** 원문을 제목·내용 쌍으로 나눈다. 실패하면 GeminiError를 던진다. */
-export async function splitAdText(text: string): Promise<AdPair[]> {
+/**
+ * 시킨 일을 JSON으로 받아 온다. 실패하면 GeminiError를 던진다.
+ * 나누기(splitAdText)와 다듬기(tidy.ts)가 같은 통로를 쓴다.
+ */
+export async function generateJson(system: string, user: string, schema: unknown): Promise<unknown> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new GeminiError("no-key", "GEMINI_API_KEY가 설정되어 있지 않습니다.");
 
@@ -77,12 +82,12 @@ export async function splitAdText(text: string): Promise<AdPair[]> {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents: [{ role: "user", parts: [{ text }] }],
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: user }] }],
         generationConfig: {
           temperature: 0,
           responseMimeType: "application/json",
-          responseSchema: SCHEMA,
+          responseSchema: schema,
         },
       }),
       signal: AbortSignal.timeout(60_000),
@@ -112,12 +117,16 @@ export async function splitAdText(text: string): Promise<AdPair[]> {
     throw new GeminiError("bad-output", `결과를 받지 못했습니다. (${reason})`);
   }
 
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
     throw new GeminiError("bad-output", "결과가 JSON 형식이 아닙니다.");
   }
+}
+
+/** 원문을 제목·내용 쌍으로 나눈다. 실패하면 GeminiError를 던진다. */
+export async function splitAdText(text: string): Promise<AdPair[]> {
+  const parsed = await generateJson(SYSTEM, text, SCHEMA);
 
   if (!Array.isArray(parsed)) throw new GeminiError("bad-output", "결과가 목록 형식이 아닙니다.");
 

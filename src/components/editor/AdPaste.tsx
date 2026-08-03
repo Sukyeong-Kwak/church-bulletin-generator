@@ -21,16 +21,29 @@ interface Props {
   onClose: () => void;
 }
 
+/** AI가 다듬은 칸에 대한 사람의 판단 */
+type Pick = "tidy" | "raw";
+
+/** 어느 결과에 대한 판단인지 함께 들고 다닌다 — 결과가 바뀌면 판단도 없던 일이 된다 */
+const NO_PICKS: Record<number, Pick> = {};
+
 /**
  * 광고 붙여넣기.
  * 목사님이 구글 문서로 올린 광고 전문을 통째로 붙여넣으면 블록으로 자동 변환한다.
  * 붙여넣고 잠시 기다리면 AI(Google AI Studio)가 제목과 내용을 갈라주고,
  * AI를 못 쓰는 상황이면 규칙 방식 결과가 그대로 남는다.
  * 원문에 섞여 온 주요일정과 본문 말씀도 함께 가려내 제자리에 넣는다.
+ *
+ * 한 덩어리로 뭉친 긴 줄글은 AI가 읽기 좋게 다듬은 글을 함께 보여준다.
+ * 다듬은 칸은 사람이 하나씩 승인해야 하며, 그 전에는 적용 버튼이 열리지 않는다.
  */
 export function AdPaste({ onApply, onClose }: Props) {
   const [text, setText] = useState("");
   const { blocks, source, note, status, error, retry } = useAdSplit(text);
+  const [judged, setJudged] = useState<{ of: ParsedBlock[]; picks: Record<number, Pick> }>({
+    of: [],
+    picks: NO_PICKS,
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -40,7 +53,29 @@ export function AdPaste({ onApply, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const toBlocks = (): FlowBlock[] => blocks.map(toFlowBlock);
+  // 원문을 고치거나 다시 나누면 이전 승인은 다른 결과에 대한 것이라 버린다
+  const picks = judged.of === blocks ? judged.picks : NO_PICKS;
+  const choose = (i: number, pick: Pick) =>
+    setJudged((prev) => ({
+      of: blocks,
+      picks: { ...(prev.of === blocks ? prev.picks : NO_PICKS), [i]: pick },
+    }));
+
+  const tidied = blocks.filter((b) => b.tidy).length;
+  const approved = blocks.filter((b, i) => b.tidy && picks[i] === "tidy").length;
+  const waiting = blocks.filter((b, i) => b.tidy && !picks[i]).length;
+  const firstWaiting = blocks.findIndex((b, i) => b.tidy && !picks[i]);
+
+  /** 목록이 길면 어느 칸이 잠근 것인지 찾기 어렵다 — 그 칸으로 데려다준다 */
+  const goToWaiting = () => {
+    document
+      .getElementById(`ad-block-${firstWaiting}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  // 승인한 칸은 다듬은 글로, 아닌 칸은 원문 그대로 넣는다
+  const toBlocks = (): FlowBlock[] =>
+    blocks.map((b, i) => toFlowBlock(picks[i] === "tidy" && b.tidy ? { ...b, body: b.tidy } : b));
 
   return (
     // 폰에서는 화면을 통째로 쓴다 — 좁은 화면에 창을 띄우면 정작 글 넣을 자리가 남지 않는다
@@ -127,6 +162,21 @@ export function AdPaste({ onApply, onClose }: Props) {
                 transition: "opacity .2s ease",
               }}
             >
+              {/* 굴려 내려도 따라오게 붙여 둔다 — 왜 적용이 잠겼는지 늘 눈에 보여야 한다 */}
+              {waiting > 0 && (
+                <div
+                  className="sticky top-0 z-10 mb-2 flex items-center gap-2 rounded-lg border px-2.5 py-2"
+                  style={{ background: "#e7f5ff", borderColor: "#74c0fc" }}
+                >
+                  <p className="min-w-0 flex-1 text-[11px] font-semibold leading-relaxed" style={{ color: "#1971c2" }}>
+                    AI가 정리한 {waiting}칸을 아직 확인하지 않았습니다. 승인해야 아래 적용 버튼이 켜집니다.
+                  </p>
+                  <Btn size="sm" onClick={goToWaiting}>
+                    확인할 칸으로
+                  </Btn>
+                </div>
+              )}
+
               {blocks.length === 0 ? (
                 status === "loading" ? (
                   <p className="ai-pulse p-3 text-[12px]" style={{ color: "var(--ui-muted)" }}>
@@ -138,34 +188,52 @@ export function AdPaste({ onApply, onClose }: Props) {
                   </p>
                 )
               ) : (
-                blocks.map((p, i) => (
-                  <div
-                    key={i}
-                    className="mb-2 rounded-lg border bg-white p-2.5"
-                    style={{ borderColor: p.confident ? "var(--ui-border)" : "#ffd8a8" }}
-                  >
-                    <div className="mb-1 flex items-center gap-1.5">
-                      <span className="text-[12px] font-bold">
-                        {p.title || <span style={{ color: "#f08c00" }}>제목 없음</span>}
-                      </span>
-                      {/* 광고가 아닌 것은 어느 자리로 들어가는지 알려준다 */}
-                      {p.kind !== "ad" && (
-                        <span
-                          className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                          style={{ background: "#e7f5ff", color: "#1971c2" }}
-                        >
-                          → {KIND_LABEL[p.kind]}
+                blocks.map((p, i) => {
+                  const pick = picks[i];
+                  // 다듬은 글이 있으면 그것을 먼저 보여준다 — 원문을 고르면 원문으로 돌아간다
+                  const shown = p.tidy && pick !== "raw" ? { ...p, body: p.tidy } : p;
+
+                  return (
+                    <div
+                      key={i}
+                      id={`ad-block-${i}`}
+                      className="mb-2 rounded-lg border bg-white p-2.5"
+                      style={{
+                        borderColor: p.tidy && !pick ? "#74c0fc" : p.confident ? "var(--ui-border)" : "#ffd8a8",
+                      }}
+                    >
+                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[12px] font-bold">
+                          {p.title || <span style={{ color: "#f08c00" }}>제목 없음</span>}
                         </span>
-                      )}
-                      {!p.confident && (
-                        <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: "#fff4e6", color: "#b45309" }}>
-                          확인 필요
-                        </span>
-                      )}
+                        {/* 광고가 아닌 것은 어느 자리로 들어가는지 알려준다 */}
+                        {p.kind !== "ad" && (
+                          <span
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{ background: "#e7f5ff", color: "#1971c2" }}
+                          >
+                            → {KIND_LABEL[p.kind]}
+                          </span>
+                        )}
+                        {!p.confident && (
+                          <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: "#fff4e6", color: "#b45309" }}>
+                            확인 필요
+                          </span>
+                        )}
+                        {p.tidy && pick !== "raw" && (
+                          <span
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{ background: "#e7f5ff", color: "#1971c2" }}
+                          >
+                            AI 정리
+                          </span>
+                        )}
+                      </div>
+                      <BlockPreview block={shown} />
+                      {p.tidy && <TidyReview raw={p.body} pick={pick} onPick={(v) => choose(i, v)} />}
                     </div>
-                    <BlockPreview block={p} />
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -181,6 +249,25 @@ export function AdPaste({ onApply, onClose }: Props) {
                 ? "AI가 나누는 중입니다. 잠시만 기다려 주세요 — 지금 보이는 건 임시 결과입니다."
                 : summarize(blocks)}
             </Hint>
+            {/* 승인 전에는 적용할 수 없다. 잠긴 버튼 바로 옆에서 이유를 밝힌다. */}
+            {waiting > 0 && (
+              <button
+                type="button"
+                onClick={goToWaiting}
+                className="mt-1 block w-full rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold leading-relaxed"
+                style={{ background: "#e7f5ff", borderColor: "#74c0fc", color: "#1971c2" }}
+              >
+                AI가 읽기 좋게 정리한 칸이 {waiting}개 있습니다. 내용이 빠지지 않았는지 확인하고 <u>승인</u> 버튼을
+                눌러야 적용할 수 있습니다. <span style={{ textDecoration: "underline" }}>확인하러 가기 →</span>
+              </button>
+            )}
+            {/* 다 봤으면 무엇을 승인했는지 남겨 보여준다 */}
+            {tidied > 0 && waiting === 0 && (
+              <Hint>
+                AI가 정리한 {tidied}칸 중 {approved}칸을 승인했습니다
+                {tidied - approved > 0 && `, ${tidied - approved}칸은 원문 그대로 넣습니다`}.
+              </Hint>
+            )}
             {/* 키가 없는 건 고장이 아니라 '아직 안 켠 기능'이므로 조용히 안내한다 */}
             {error?.code === "no-key" ? (
               <Hint>AI 자동 구분은 꺼져 있습니다 (서버에 GEMINI_API_KEY 없음). 규칙 방식으로 나눴습니다.</Hint>
@@ -194,7 +281,7 @@ export function AdPaste({ onApply, onClose }: Props) {
           </div>
           <div className="flex shrink-0 gap-2">
             <Btn
-              disabled={blocks.length === 0}
+              disabled={blocks.length === 0 || waiting > 0}
               onClick={() => onApply(toBlocks(), "append")}
               className="flex-1 sm:flex-none"
             >
@@ -202,7 +289,7 @@ export function AdPaste({ onApply, onClose }: Props) {
             </Btn>
             <Btn
               variant="primary"
-              disabled={blocks.length === 0}
+              disabled={blocks.length === 0 || waiting > 0}
               onClick={() => onApply(toBlocks(), "replace")}
               className="flex-1 sm:flex-none"
             >
@@ -210,6 +297,63 @@ export function AdPaste({ onApply, onClose }: Props) {
             </Btn>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * AI가 다듬은 칸의 승인 자리.
+ *
+ * 다듬기는 글자를 바꾸는 일이라 기계가 아무리 걸러도 마지막은 사람이 봐야 한다.
+ * 그래서 원문을 언제든 펼쳐 볼 수 있게 두고, 승인하거나 원문으로 되돌리기 전에는
+ * 적용 버튼을 열어주지 않는다.
+ */
+function TidyReview({
+  raw,
+  pick,
+  onPick,
+}: {
+  raw: string;
+  pick?: Pick;
+  onPick: (pick: Pick) => void;
+}) {
+  const [openRaw, setOpenRaw] = useState(false);
+
+  return (
+    <div className="mt-2 rounded-lg p-2" style={{ background: pick ? "#f8f9fa" : "#e7f5ff" }}>
+      <p className="text-[11px] leading-relaxed" style={{ color: pick ? "var(--ui-muted)" : "#1971c2" }}>
+        {pick === "tidy"
+          ? "✓ 확인했습니다. AI가 정리한 글로 넣습니다."
+          : pick === "raw"
+            ? "✓ AI 정리를 쓰지 않고 원문 그대로 넣습니다."
+            : "이 칸은 줄글이 길어 AI가 읽기 좋게 정리했습니다. 빠진 내용이 없는지 원문과 견줘 보고 승인해 주세요."}
+      </p>
+
+      <button
+        type="button"
+        onClick={() => setOpenRaw((v) => !v)}
+        className="mt-1 text-[11px] font-semibold underline"
+        style={{ color: "var(--ui-muted)" }}
+      >
+        원문 {openRaw ? "접기 ▴" : "보기 ▾"}
+      </button>
+      {openRaw && (
+        <p
+          className="mt-1 whitespace-pre-wrap rounded border bg-white p-2 text-[11px] leading-relaxed"
+          style={{ borderColor: "var(--ui-border)", color: "var(--ui-muted)" }}
+        >
+          {flowBody(raw)}
+        </p>
+      )}
+
+      <div className="mt-1.5 flex gap-1.5">
+        <Btn size="sm" variant={pick === "tidy" ? "primary" : "default"} onClick={() => onPick("tidy")}>
+          승인
+        </Btn>
+        <Btn size="sm" variant={pick === "raw" ? "primary" : "default"} onClick={() => onPick("raw")}>
+          원문 그대로
+        </Btn>
       </div>
     </div>
   );

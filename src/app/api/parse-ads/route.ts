@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { anchorBlocks } from "@/lib/ai/anchor";
 import { GeminiError, splitAdText } from "@/lib/ai/gemini";
+import { tidyBlocks } from "@/lib/ai/tidy";
 import { MAX_INPUT, type ParseErrorResponse, type ParseResponse } from "@/lib/ai/types";
 import { normalize, parseAdText } from "@/lib/parseAds";
 import { supabaseConfigured } from "@/lib/supabase/config";
@@ -12,6 +13,9 @@ import { currentUser } from "@/lib/supabase/server";
  * API 키는 이 파일이 도는 서버에만 있고 브라우저로 나가지 않는다.
  * AI 결과가 원문과 어긋나면 규칙 파서 결과로 되돌려 보낸다 —
  * 화면에 원문에 없던 글자가 뜨는 일은 없다.
+ *
+ * 나눈 뒤, 한 덩어리로 뭉쳐 온 긴 줄글만 골라 읽기 좋게 다듬은 글을 함께 보낸다.
+ * 다듬은 글은 원문을 덮지 않고 `tidy`에 따로 담기며, 화면에서 사람이 승인해야 쓰인다.
  *
  * 호출할 때마다 돈이 나가므로, 서버 연동이 켜져 있으면 승인된 사람만 부를 수 있다.
  * 로컬 모드(환경변수 없음)에서는 로그인 자체가 없어 그대로 열어둔다.
@@ -64,7 +68,17 @@ export async function POST(request: Request): Promise<NextResponse<ParseResponse
     });
   }
 
-  return NextResponse.json<ParseResponse>({ source: "ai", blocks });
+  // 나누기가 원문과 꼭 맞았을 때에만 다듬기로 넘어간다.
+  // 다듬은 글은 tidy에 따로 담기므로 원문은 여기서도 그대로 남는다.
+  const tidied = await tidyBlocks(blocks);
+
+  return NextResponse.json<ParseResponse>({
+    source: "ai",
+    blocks: tidied.blocks,
+    note: tidied.dropped
+      ? `${tidied.dropped}칸은 AI가 다듬은 글에서 내용이 달라져 원문 그대로 두었습니다.`
+      : undefined,
+  });
 }
 
 function bad(message: string) {
