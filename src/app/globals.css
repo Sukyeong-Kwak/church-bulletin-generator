@@ -275,23 +275,9 @@ button {
 /*
  * QR로 들어온 폰 화면(/now)의 움직임.
  *
- * 예배 직전에 한 손으로 스치듯 보는 화면이다. 눈에 띄는 연출은 오히려 방해가 되므로
- * "도착했다" "아래에 더 있다" 정도만 알릴 만큼 짧고 얕게 둔다.
+ * 예배 직전에 한 손으로 스치듯 보는 화면이다. 주보 자체가 첫인상이어야 하므로 화면이
+ * 등장하는 연출은 두지 않는다. 남은 것은 아직 오지 않은 그림의 자리를 지키는 것 하나뿐이다.
  */
-@keyframes now-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.now-rise {
-  animation: now-rise 0.45s ease-out both;
-}
 
 /* 주보가 오기 전 자리 — 빈 회색 대신 빛이 한 번씩 지나간다 */
 @keyframes now-sheen {
@@ -319,29 +305,12 @@ button {
   animation: now-sheen 1.5s ease-in-out infinite;
 }
 
-/* 표지 아래로 주보가 더 있다는 표시 */
-@keyframes now-nudge {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(3px);
-  }
-}
-
-.now-nudge {
-  animation: now-nudge 1.9s ease-in-out infinite;
-}
-
 /* 움직임을 줄이기로 한 사용자에게는 깜빡임 없이 정지된 표시만 보여준다 */
 @media (prefers-reduced-motion: reduce) {
   .ai-bar::after,
   .ai-spinner,
   .ai-pulse,
-  .now-rise,
-  .now-skeleton::after,
-  .now-nudge {
+  .now-skeleton::after {
     animation: none;
   }
 

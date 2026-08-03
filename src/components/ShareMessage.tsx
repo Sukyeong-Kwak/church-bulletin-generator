@@ -13,16 +13,7 @@ export function ShareMessage({ title, desc }: { title: string; desc: string }) {
       style={{ background: "#eff1f4" }}
     >
       <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: `radial-gradient(90% 55% at 12% 0%, rgba(65,80,143,0.15), transparent 62%),
-            radial-gradient(90% 55% at 88% 4%, rgba(229,107,78,0.14), transparent 62%)`,
-        }}
-      />
-
-      <div
-        className="now-rise relative w-full max-w-[360px] overflow-hidden rounded-3xl bg-white px-7 py-9 text-center"
+        className="relative w-full max-w-[360px] overflow-hidden rounded-3xl bg-white px-7 py-9 text-center"
         style={{ boxShadow: "0 1px 3px rgba(16,24,40,0.08), 0 12px 32px rgba(16,24,40,0.08)" }}
       >
         {/* 카드 머리에 네 조각을 얹어 둔다 — 문구를 읽기 전에 어느 교회 주보인지 안다 */}
@@ -40,18 +31,8 @@ export function ShareMessage({ title, desc }: { title: string; desc: string }) {
         </p>
 
         <div className="mt-7 flex justify-center gap-1.5">
-          {PIECES.map((c, i) => (
-            <span
-              key={c}
-              className="now-rise"
-              style={{
-                background: c,
-                width: 6,
-                height: 6,
-                borderRadius: 2,
-                animationDelay: `${200 + i * 110}ms`,
-              }}
-            />
+          {PIECES.map((c) => (
+            <span key={c} style={{ background: c, width: 6, height: 6, borderRadius: 2 }} />
           ))}
         </div>
 

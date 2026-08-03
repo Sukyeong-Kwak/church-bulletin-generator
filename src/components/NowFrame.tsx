@@ -21,16 +21,17 @@ interface Props {
  * QR로 들어온 사람이 보는 화면의 틀.
  *
  * 주보를 그리는 방법은 두 가지다 — 올릴 때 만들어 둔 이미지를 얹거나, 화면에서 다시 그리거나.
- * 어느 쪽으로 뜨든 사람이 보는 것은 같은 주보이므로, 머리띠·표지·마무리는 여기 한 곳에 두고
+ * 어느 쪽으로 뜨든 사람이 보는 것은 같은 주보이므로, 머리띠·마무리는 여기 한 곳에 두고
  * 가운데 자리만 각자 채우게 한다. 한쪽만 예뻐지는 일이 없도록.
+ *
+ * 틀은 여기까지다. 날짜도 설교 제목도 화면이 따로 크게 적지 않는다 — 바로 아래 표지 그림에
+ * 이미 인쇄되어 있고, 그 그림이 이 교회의 것이다. 화면이 그 앞을 가리지 않게 한다.
  */
 export function NowFrame({ doc, pageCount, action, footerAction, children }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLElement | null>(null);
   /** 얼마나 내려왔는지 (0~100). 머리띠의 네 조각이 그만큼 채워진다. */
   const [read, setRead] = useState(0);
-
-  const sermon = doc.blocks.find((b) => b.kind === "sermon");
 
   useEffect(() => {
     // 화면 전체가 아니라 <main>이 스크롤 통이다(body는 overflow-hidden).
@@ -103,89 +104,16 @@ export function NowFrame({ doc, pageCount, action, footerAction, children }: Pro
         </header>
       </div>
 
-      {/* 표지 — 네 조각 색을 옅게 번지게 깔아, 회색 화면이 첫인상이 되지 않게 한다 */}
-      <div className="relative overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background: `radial-gradient(115% 75% at 10% 0%, rgba(65,80,143,0.17), transparent 62%),
-              radial-gradient(115% 75% at 90% 4%, rgba(229,107,78,0.16), transparent 62%),
-              radial-gradient(100% 65% at 50% 100%, rgba(79,163,145,0.13), transparent 72%)`,
-          }}
-        />
-        <div className="relative mx-auto w-full max-w-[720px] px-5 pb-8 pt-9 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo/the-piece.svg"
-            alt=""
-            width={52}
-            height={52}
-            className="now-rise mx-auto"
-          />
-
-          <div
-            className="now-rise mt-4 inline-block rounded-full px-2.5 py-1 text-[11px] font-bold"
-            style={{
-              background: "rgba(255,255,255,0.8)",
-              color: "#41508F",
-              animationDelay: "60ms",
-            }}
-          >
-            이번 주 예배
-          </div>
-
-          <h1
-            className="now-rise mt-2 text-[24px] font-bold leading-tight tracking-tight"
-            style={{ animationDelay: "110ms" }}
-          >
-            {longDate(doc.serviceDate)}
-          </h1>
-
-          {sermon && (sermon.title || sermon.verse) && (
-            <div
-              className="now-rise mx-auto mt-5 max-w-[420px] rounded-2xl px-5 py-4"
-              style={{
-                background: "rgba(255,255,255,0.72)",
-                boxShadow: "0 1px 2px rgba(16,24,40,0.05)",
-                animationDelay: "170ms",
-              }}
-            >
-              <p
-                className="text-[11px] font-semibold tracking-[0.08em]"
-                style={{ color: "var(--ui-subtle)" }}
-              >
-                {sermon.heading || "말씀"}
-              </p>
-              {sermon.title && (
-                <p className="mt-1.5 text-[16px] font-bold leading-snug">{sermon.title}</p>
-              )}
-              {sermon.verse && (
-                <p className="mt-1 text-[12.5px]" style={{ color: "var(--ui-muted)" }}>
-                  {sermon.verse}
-                </p>
-              )}
-            </div>
-          )}
-
-          <div
-            className="now-rise mt-7 flex flex-col items-center gap-1 text-[11px]"
-            style={{ color: "var(--ui-subtle)", animationDelay: "230ms" }}
-          >
-            <span>아래로 넘겨 보세요 · 총 {pageCount}쪽</span>
-            <svg className="now-nudge" width="13" height="13" viewBox="0 0 24 24" aria-hidden>
-              <path
-                d="M6 9l6 6 6-6"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-        </div>
-      </div>
+      {/*
+        표지 그림 위에 놓는 한 줄. 그림에도 날짜가 찍혀 있지만 그건 그림이라 읽어주지 못하고,
+        몇 쪽짜리인지는 어디에도 없다 — 그 두 가지만 조용히 적는다.
+      */}
+      <p
+        className="mx-auto w-full max-w-[720px] px-3 pb-2 pt-3 text-[11.5px]"
+        style={{ color: "var(--ui-subtle)" }}
+      >
+        {longDate(doc.serviceDate)} · 모두 {pageCount}쪽
+      </p>
 
       <div className="mx-auto w-full max-w-[720px] px-3 pb-10">
         {children}
@@ -203,18 +131,8 @@ export function NowFrame({ doc, pageCount, action, footerAction, children }: Pro
         )}
 
         <div className="mt-5 flex justify-center gap-1.5">
-          {PIECES.map((c, i) => (
-            <span
-              key={c}
-              className="now-rise"
-              style={{
-                background: c,
-                width: 6,
-                height: 6,
-                borderRadius: 2,
-                animationDelay: `${i * 90}ms`,
-              }}
-            />
+          {PIECES.map((c) => (
+            <span key={c} style={{ background: c, width: 6, height: 6, borderRadius: 2 }} />
           ))}
         </div>
 

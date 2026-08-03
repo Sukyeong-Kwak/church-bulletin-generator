@@ -124,7 +124,7 @@ function SharedImages({ doc }: { doc: BulletinDoc }) {
                 src={urls[i]}
                 // 화면에 쪽 번호를 적지는 않지만, 소리로 듣는 사람에게는 순서가 유일한 길잡이다
                 alt={`주보 ${i + 1}쪽`}
-                className="now-rise block h-full w-full"
+                className="block h-full w-full"
                 style={{ objectFit: "contain" }}
               />
             ) : urls[i] === null ? (
