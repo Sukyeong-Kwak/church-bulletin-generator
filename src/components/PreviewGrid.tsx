@@ -76,7 +76,7 @@ export function PreviewGrid({
               {(page.kind === "cover" || page.kind === "worship") && (
                 <span
                   className="rounded px-1.5 py-0.5"
-                  style={{ background: "#f1f3f5", color: "#868e96" }}
+                  style={{ background: "#f1f3f5", color: "var(--ui-muted)" }}
                   title="고정 페이지 관리에서 수정합니다"
                 >
                   고정
