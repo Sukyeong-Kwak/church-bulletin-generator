@@ -2,24 +2,25 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getBackend } from "@/lib/backend";
-import { fileNameFor, saveBlob, saveZip } from "@/lib/exportImages";
-import { formatServiceDate } from "@/lib/layout";
+import { CANVAS } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { useFitScale } from "@/lib/useFitScale";
 import type { BulletinDoc } from "@/lib/types";
+import { NowFrame } from "./NowFrame";
 import { PreviewGrid } from "./PreviewGrid";
-import { Btn } from "./ui";
 
 /**
- * 공유 링크로 들어온 사람에게 보여주는 주보.
- * 로그인 없이 열리며 보기와 이미지 받기만 가능하다.
+ * 이미지 없이 올라온 주보 — 화면에서 다시 그려 보여준다.
+ *
+ * 내보낸 이미지가 붙어 있으면 그쪽이 먼저다(SharedView). 여기로 오는 것은 이미지가
+ * 만들어지기 전에 적용됐거나 옛 방식으로 저장된 주보인데, 보는 사람에게는 둘이 같은
+ * 이번 주 주보다. 그래서 겉틀은 NowFrame으로 똑같이 두고 가운데만 다르게 채운다.
  */
 export function SharedBulletin({ doc }: { doc: BulletinDoc }) {
   const { pages: flowPages, measurer } = useFlowPages(doc);
   const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
   const [urls, setUrls] = useState<{ background?: string; cover?: string; logo?: string }>({});
-  const [busy, setBusy] = useState(false);
   const created = useRef<string[]>([]);
 
   // 폰에서는 주보 한 장이 화면 폭에 통째로 들어오게 맞추고, 손대면 그 값을 지킨다
@@ -67,66 +68,38 @@ export function SharedBulletin({ doc }: { doc: BulletinDoc }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys]);
 
-  const downloadImages = async () => {
-    if (!doc.imageKeys?.length) return;
-    setBusy(true);
-    try {
-      const backend = getBackend();
-      const blobs: Blob[] = [];
-      for (const k of doc.imageKeys) {
-        const blob = await backend.getImage(k);
-        if (blob) blobs.push(blob);
-      }
-      const fmt = doc.exportFormat ?? "jpg";
-      if (blobs.length === 1) saveBlob(blobs[0], fileNameFor(doc.serviceDate, 0, fmt));
-      else await saveZip(blobs, doc.serviceDate, fmt);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
-    <div className="flex min-h-full flex-col">
-      <header
-        className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b bg-white px-4 py-2.5"
-        style={{ borderColor: "var(--ui-border)" }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo/the-piece.svg" alt="" width={22} height={22} />
-        <span className="text-[14px] font-bold">{formatServiceDate(doc.serviceDate)} 주보</span>
-        <span className="text-[12px]" style={{ color: "var(--ui-muted)" }}>
-          {pages.length}페이지
-        </span>
-
-        <div className="ml-auto flex items-center gap-2">
-          {!!doc.imageKeys?.length && (
-            <Btn size="sm" variant="primary" disabled={busy} onClick={downloadImages}>
-              {busy ? "준비 중…" : "이미지 받기"}
-            </Btn>
-          )}
-          <label
-            className="hidden items-center gap-1.5 text-[11px] sm:flex"
-            style={{ color: "var(--ui-muted)" }}
-          >
-            확대
-            <input
-              type="range"
-              min={0.2}
-              max={0.9}
-              step={0.05}
-              value={zoom}
-              onChange={(e) => setPicked(Number(e.target.value))}
-              style={{ width: 90 }}
-            />
-          </label>
-        </div>
-      </header>
-
-      <div className="flex-1 p-4">
+    <NowFrame
+      doc={doc}
+      pageCount={pages.length}
+      action={
+        // 폰에서는 손가락으로 벌리면 되므로, 조절기는 그럴 수 없는 큰 화면에서만 내놓는다
+        <label
+          className="hidden items-center gap-1.5 text-[11px] sm:flex"
+          style={{ color: "var(--ui-muted)" }}
+        >
+          확대
+          <input
+            type="range"
+            min={0.2}
+            max={0.9}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setPicked(Number(e.target.value))}
+            style={{ width: 90 }}
+          />
+        </label>
+      }
+    >
+      {/*
+        딱 한 쪽 너비로 잡아 가운데 세운다.
+        넓은 화면에서 두 쪽씩 나란히 놓이면 눈이 좌우로 갈라진다 — 위에서 아래로만 읽히게.
+      */}
+      <div className="mx-auto" style={{ width: CANVAS.w * zoom }}>
         <PreviewGrid doc={doc} pages={pages} urls={urls} scale={zoom} showCaption={false} />
       </div>
 
       {measurer}
-    </div>
+    </NowFrame>
   );
 }
