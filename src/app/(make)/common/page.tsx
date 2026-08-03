@@ -3,7 +3,8 @@
 import { ImageUpload } from "@/components/editor/ImageUpload";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { SplitView } from "@/components/SplitView";
-import { Field, Hint, Section, Warn } from "@/components/ui";
+import { Field, Hint, Section, Slider, SliderEnds, Warn } from "@/components/ui";
+import { grayColor, grayLevel } from "@/lib/layout";
 import { useDoc } from "@/lib/store";
 import { useFitScale } from "@/lib/useFitScale";
 import type { LaidOutPage } from "@/lib/types";
@@ -64,6 +65,46 @@ export default function CommonPage() {
                   <Warn>배경을 올리기 전에는 단색으로 표시됩니다.</Warn>
                 </div>
               )}
+            </Section>
+
+            <Section
+              title="글자 잘 보이게"
+              desc="배경 사진 때문에 글씨가 묻힐 때 조절합니다. 오른쪽 미리보기로 바로 확인하세요."
+            >
+              <div className="flex flex-col gap-3">
+                <div>
+                  <Slider
+                    label="배경 덮기"
+                    min={0}
+                    max={100}
+                    value={Math.round(doc.theme.cardOpacity * 100)}
+                    format={(v) => `${v}%`}
+                    onChange={(v) =>
+                      setSettings((s) => ({ ...s, theme: { ...s.theme, cardOpacity: v / 100 } }))
+                    }
+                  />
+                  <SliderEnds left="사진 그대로" right="흰 종이처럼" />
+                </div>
+
+                <div>
+                  <Slider
+                    label="글자색"
+                    min={0}
+                    max={100}
+                    value={grayLevel(doc.theme.bodyColor)}
+                    track="linear-gradient(to right, #000, #fff)"
+                    onChange={(v) =>
+                      setSettings((s) => ({ ...s, theme: { ...s.theme, bodyColor: grayColor(v) } }))
+                    }
+                  />
+                  <SliderEnds left="검정" right="흰색" />
+                </div>
+
+                <Hint>
+                  배경을 많이 덮을수록 글씨가 또렷해집니다. 반대로 사진을 살리고 싶다면 덮기를
+                  줄이고, 사진이 어두우면 글자색을 흰색 쪽으로 옮기세요. (제목 색은 그대로입니다)
+                </Hint>
+              </div>
             </Section>
 
             <Section title="교회 정보" desc="모든 페이지 하단에 두 줄로 들어갑니다.">

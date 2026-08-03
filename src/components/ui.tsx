@@ -1,6 +1,6 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 
 export function Section({
   title,
@@ -77,6 +77,10 @@ export function Btn({ variant = "default", size = "md", style, className, ...res
   );
 }
 
+/** 슬라이더의 라벨·값 칸 폭. 밑에 눈금 글씨를 나란히 놓을 때도 이 값을 쓴다. */
+export const SLIDER_LABEL_W = 56;
+export const SLIDER_VALUE_W = 34;
+
 /** 라벨·값·슬라이더가 한 줄에 들어가는 조절기. 좁은 패널에서도 폭을 넘지 않는다. */
 export function Slider({
   label,
@@ -85,6 +89,8 @@ export function Slider({
   max,
   step = 1,
   disabled,
+  track,
+  format,
   onChange,
 }: {
   label: string;
@@ -93,18 +99,23 @@ export function Slider({
   max: number;
   step?: number;
   disabled?: boolean;
+  /** 고를 수 있는 것이 색이면, 그 색들을 막대 자체에 깔아 보여준다 */
+  track?: string;
+  format?: (v: number) => string;
   onChange: (v: number) => void;
 }) {
   return (
     <label className="flex items-center gap-2" style={{ opacity: disabled ? 0.4 : 1 }}>
       <span
         className="shrink-0 text-[11px] font-semibold"
-        style={{ color: "var(--ui-muted)", width: 56 }}
+        style={{ color: "var(--ui-muted)", width: SLIDER_LABEL_W }}
       >
         {label}
       </span>
       <input
         type="range"
+        className={track ? "swatch" : undefined}
+        style={track ? ({ "--track": track } as CSSProperties) : undefined}
         min={min}
         max={max}
         step={step}
@@ -114,11 +125,28 @@ export function Slider({
       />
       <span
         className="shrink-0 text-right text-[11px] tabular-nums"
-        style={{ color: "var(--ui-text)", width: 34 }}
+        style={{ color: "var(--ui-text)", width: SLIDER_VALUE_W }}
       >
-        {value}
+        {format ? format(value) : value}
       </span>
     </label>
+  );
+}
+
+/** 슬라이더 양 끝이 무엇인지 알려주는 눈금 글씨. 위 슬라이더의 막대와 자리를 맞춘다. */
+export function SliderEnds({ left, right }: { left: string; right: string }) {
+  return (
+    <div
+      className="flex justify-between text-[10px]"
+      style={{
+        color: "var(--ui-muted)",
+        paddingLeft: SLIDER_LABEL_W + 8,
+        paddingRight: SLIDER_VALUE_W + 8,
+      }}
+    >
+      <span>{left}</span>
+      <span>{right}</span>
+    </div>
   );
 }
 

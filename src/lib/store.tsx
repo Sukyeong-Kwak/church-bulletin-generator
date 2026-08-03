@@ -47,8 +47,12 @@ interface DocContextValue {
   openSaved: (id: string) => void;
   duplicateSaved: (id: string) => void;
   removeSaved: (id: string) => Promise<void>;
+  /** 저장 뒤에 고친 것을 모두 버리고 마지막으로 저장한 상태로 되돌린다 */
+  revertToSaved: () => void;
+  /** 되돌릴 저장본이 있고, 되돌릴 변경도 있는지 */
+  canRevert: boolean;
   startNew: () => void;
-  attachImages: (docId: string, keys: string[]) => void;
+  attachImages: (docId: string, keys: string[]) => Promise<void>;
   /**
    * QR 주소에 지금 올라가 있는 주보. 서버 모드가 아니면 null.
    * 저장과 다르다 — 저장은 우리끼리 보관, 올리기는 남에게 공개다.
@@ -69,6 +73,39 @@ interface DocContextValue {
 
 const DocContext = createContext<DocContextValue | null>(null);
 
+/**
+ * 지금 어느 주보나 설정이라도 가리키고 있는 이미지 키 전부.
+ * 여기 없는 이미지는 아무도 쓰지 않는다는 뜻이라 저장소에서 지워도 된다.
+ *
+ * 이미지 키를 담는 자리가 새로 생기면 반드시 여기에 더해야 한다.
+ * 빠뜨리면 쓰고 있는 그림이 '아무도 안 쓴다'고 판단되어 지워진다.
+ */
+function referencedKeys(
+  doc: BulletinDoc,
+  library: BulletinDoc[],
+  settings: Settings,
+): Set<string> {
+  const keep = new Set<string>();
+  const add = (...keys: (string | undefined)[]) => {
+    for (const k of keys) if (k) keep.add(k);
+  };
+
+  const addDoc = (d: BulletinDoc) => {
+    add(d.theme.backgroundUrl, d.theme.coverUrl, d.theme.logoUrl);
+    // 지금은 아무도 채우지 않지만, 채우는 순간 지워지는 일이 없도록 미리 센다
+    add(d.fixed?.cover?.imageUrl);
+    d.imageKeys?.forEach((k) => keep.add(k));
+  };
+
+  // 작성 중인 주보도 센다 — 아직 저장하지 않았다고 배경을 뺏으면 안 된다
+  for (const b of [doc, ...library]) addDoc(b);
+
+  add(settings.theme.backgroundUrl, settings.theme.coverUrl, settings.theme.logoUrl);
+  add(settings.fixed?.cover?.imageUrl);
+
+  return keep;
+}
+
 export function DocProvider({ children }: { children: ReactNode }) {
   const backend = useMemo(() => getBackend(), []);
 
@@ -80,6 +117,15 @@ export function DocProvider({ children }: { children: ReactNode }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [urls, setUrls] = useState<DocContextValue["urls"]>({});
+
+  /**
+   * 보관함을 서버에서 실제로 받아왔는지.
+   *
+   * 못 받아온 채로 이미지를 정리하면 지난 주보를 하나도 모르는 상태에서 세게 되고,
+   * 그러면 남들이 쓰는 배경까지 '아무도 안 쓴다'고 판단해 지운다.
+   * 목록을 확실히 아는 동안에만 정리한다.
+   */
+  const librarySynced = useRef(false);
   const [published, setPublished] = useState<PublishState | null>(null);
 
   // 저장소를 읽는 일은 첫 렌더 뒤에만 가능하다.
@@ -99,6 +145,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
         const next = s ?? makeDefaultSettings();
         setSettingsState(next);
         setLibrary(list);
+        librarySynced.current = true;
         setPublished(pub);
 
         const raw = localStorage.getItem(DRAFT_KEY);
@@ -194,7 +241,10 @@ export function DocProvider({ children }: { children: ReactNode }) {
         ...d,
         church: { ...next.church },
         fixed: deepCopy(next.fixed),
-        theme: { ...d.theme, ...next.theme },
+        // 배경 사진만은 이 주보의 것을 지킨다.
+        // 배경은 주마다 다른 것이라 기본값에 담기지 않는데, 그대로 덮으면
+        // 방금 올린 배경이 설정을 건드리는 순간(글자색 조절 같은 것) 사라진다.
+        theme: { ...d.theme, ...next.theme, backgroundUrl: d.theme.backgroundUrl },
       }));
       setDirty(true);
       void backend.saveSettings(next).catch(() => setError("설정을 저장하지 못했습니다."));
@@ -202,24 +252,40 @@ export function DocProvider({ children }: { children: ReactNode }) {
     [settings, backend],
   );
 
+  /**
+   * 저장소에는 지금 쓰는 이미지만 남긴다.
+   * 배경을 바꾸거나 주보를 지우면 옛 이미지는 아무도 가리키지 않게 되는데,
+   * 그대로 두면 쓰지도 않는 파일이 용량만 차지한다.
+   * 화면을 막을 일은 아니라 저장·삭제가 끝난 뒤 뒤에서 돌린다.
+   */
+  const prune = useCallback(
+    (nextDoc: BulletinDoc, nextLibrary: BulletinDoc[], nextSettings: Settings) => {
+      if (!librarySynced.current) return;
+      void backend.pruneImages(referencedKeys(nextDoc, nextLibrary, nextSettings)).catch(
+        () => undefined,
+      );
+    },
+    [backend],
+  );
+
   const saveCurrent = useCallback(async () => {
     setSaving(true);
     setError(undefined);
     try {
       const saved = await backend.saveBulletin(doc);
-      setDocState(saved);
-      setLibrary((lib) =>
-        [saved, ...lib.filter((b) => b.id !== saved.id)].sort((a, b) =>
-          b.serviceDate.localeCompare(a.serviceDate),
-        ),
+      const nextLibrary = [saved, ...library.filter((b) => b.id !== saved.id)].sort((a, b) =>
+        b.serviceDate.localeCompare(a.serviceDate),
       );
+      setDocState(saved);
+      setLibrary(nextLibrary);
       setDirty(false);
+      prune(saved, nextLibrary, settings);
     } catch (e) {
       setError(e instanceof Error ? e.message : "저장하지 못했습니다.");
     } finally {
       setSaving(false);
     }
-  }, [doc, backend]);
+  }, [doc, library, settings, backend, prune]);
 
   const openSaved = useCallback(
     (id: string) => {
@@ -253,24 +319,86 @@ export function DocProvider({ children }: { children: ReactNode }) {
 
   const removeSaved = useCallback(
     async (id: string) => {
-      await backend.deleteBulletin(id).catch(() => setError("삭제하지 못했습니다."));
-      setLibrary((lib) => lib.filter((b) => b.id !== id));
+      try {
+        await backend.deleteBulletin(id);
+      } catch (e) {
+        // 목록에서 지우지 않는다 — 서버에 남아 있는데 사라진 것처럼 보이면 안 된다
+        setError(e instanceof Error ? e.message : "삭제하지 못했습니다.");
+        return;
+      }
+      const nextLibrary = library.filter((b) => b.id !== id);
+      setError(undefined);
+      setLibrary(nextLibrary);
       // 올라가 있던 주보를 지웠으면 QR도 함께 비워진다 (DB에서 연결이 끊긴다)
       setPublished((p) => (p?.bulletinId === id ? { bulletinId: null, publishedAt: null } : p));
+      prune(doc, nextLibrary, settings);
     },
-    [backend],
+    [doc, library, settings, backend, prune],
   );
+
+  /**
+   * 마지막으로 저장한 상태로 되돌린다.
+   *
+   * 교회 정보·고정 페이지·테마는 저장을 누르지 않아도 바로 반영되는 '기본값'이라
+   * 주보만 되돌리면 화면의 조절기와 미리보기가 서로 다른 값을 가리킨다.
+   * 그래서 저장본에 함께 담겨 있던 그때의 기본값까지 같이 되돌린다.
+   */
+  const revertToSaved = useCallback(() => {
+    const saved = library.find((b) => b.id === doc.id);
+    if (!saved) return;
+
+    const copy = deepCopy(saved);
+    const next: Settings = {
+      church: { ...copy.church },
+      fixed: deepCopy(copy.fixed),
+      theme: { ...copy.theme },
+    };
+
+    setDocState(copy);
+    setSettingsState(next);
+    setDirty(false);
+    setError(undefined);
+    void backend.saveSettings(next).catch(() => setError("설정을 되돌리지 못했습니다."));
+  }, [library, doc.id, backend]);
+
+  const canRevert = dirty && library.some((b) => b.id === doc.id);
 
   const startNew = useCallback(() => {
     setDocState(makeDraft(settings));
     setDirty(false);
   }, [settings]);
 
-  /** 내보낸 이미지를 주보에 붙여 과거 조회에서 그대로 다시 받을 수 있게 한다 */
-  const attachImages = useCallback((docId: string, keys: string[]) => {
-    setDocState((d) => (d.id === docId ? { ...d, imageKeys: keys } : d));
-    setLibrary((lib) => lib.map((b) => (b.id === docId ? { ...b, imageKeys: keys } : b)));
-  }, []);
+  /**
+   * 내보낸 이미지를 주보에 붙여 과거 조회에서 그대로 다시 받을 수 있게 한다.
+   *
+   * 주보 한 부가 갖는 이미지는 마지막으로 내보낸 한 벌뿐이다.
+   * 그래서 새 목록이 자리 잡은 것을 확인한 뒤, 이전에 내보냈던 이미지는 지운다.
+   * (순서를 뒤집으면 목록 갱신에 실패했을 때 받을 이미지가 하나도 남지 않는다)
+   */
+  const attachImages = useCallback(
+    async (docId: string, keys: string[]) => {
+      const before =
+        (docId === doc.id ? doc.imageKeys : library.find((b) => b.id === docId)?.imageKeys) ?? [];
+
+      setDocState((d) => (d.id === docId ? { ...d, imageKeys: keys } : d));
+      setLibrary((lib) => lib.map((b) => (b.id === docId ? { ...b, imageKeys: keys } : b)));
+
+      // 이미 보관함에 들어간 주보면 서버의 이미지 목록도 지금 바꾼다.
+      // 저장을 누를 때까지 미루면 그 사이 새로고침한 사람은 지워진 옛 이미지를 가리키게 된다.
+      if (library.some((b) => b.id === docId)) {
+        try {
+          await backend.setBulletinImages(docId, keys);
+        } catch {
+          setError("내보낸 이미지를 보관함에 반영하지 못했습니다.");
+          return;
+        }
+      }
+
+      const stale = before.filter((k) => !keys.includes(k));
+      if (stale.length) await backend.removeImages(stale).catch(() => undefined);
+    },
+    [doc, library, backend],
+  );
 
   /**
    * 작성 중인 주보를 QR 주소에 올린다.
@@ -302,21 +430,22 @@ export function DocProvider({ children }: { children: ReactNode }) {
         // 새 이미지가 무사히 자리 잡은 뒤에 옛 것을 지운다
         void backend.removeImages(old.filter((k) => !keys.includes(k))).catch(() => {});
 
-        setDocState(saved);
-        setLibrary((lib) =>
-          [saved, ...lib.filter((b) => b.id !== saved.id)].sort((a, b) =>
-            b.serviceDate.localeCompare(a.serviceDate),
-          ),
+        const nextLibrary = [saved, ...library.filter((b) => b.id !== saved.id)].sort((a, b) =>
+          b.serviceDate.localeCompare(a.serviceDate),
         );
+        setDocState(saved);
+        setLibrary(nextLibrary);
         setDirty(false);
         setPublished({ bulletinId: saved.id, publishedAt: at });
+        // 올리기도 저장이다 — 저장할 때와 똑같이 남는 이미지를 정리한다
+        prune(saved, nextLibrary, settings);
       } catch (e) {
         setError(e instanceof Error ? e.message : "QR에 올리지 못했습니다.");
       } finally {
         setSaving(false);
       }
     },
-    [doc, backend],
+    [doc, library, settings, backend, prune],
   );
 
   /** 보관함에 있는 주보로 갈아 끼운다 */
@@ -351,6 +480,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
       openSaved,
       duplicateSaved,
       removeSaved,
+      revertToSaved,
+      canRevert,
       startNew,
       attachImages,
       published,
@@ -373,6 +504,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
       openSaved,
       duplicateSaved,
       removeSaved,
+      revertToSaved,
+      canRevert,
       startNew,
       attachImages,
       published,

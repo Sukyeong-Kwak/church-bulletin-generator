@@ -20,7 +20,7 @@ interface Props {
   doc: BulletinDoc;
   setDoc: (updater: (prev: BulletinDoc) => BulletinDoc) => void;
   getNodes: () => HTMLElement[];
-  onImagesReady: (docId: string, keys: string[]) => void;
+  onImagesReady: (docId: string, keys: string[]) => Promise<void>;
   pageCount: number;
 }
 
@@ -32,14 +32,17 @@ export function ExportPanel({ doc, setDoc, getNodes, onImagesReady, pageCount }:
   const [error, setError] = useState<string>();
   const [totalSize, setTotalSize] = useState(0);
 
-  /** 만든 이미지를 보관해 과거 주보에서 그대로 다시 받을 수 있게 한다 */
+  /**
+   * 만든 이미지를 보관해 과거 주보에서 그대로 다시 받을 수 있게 한다.
+   * 다시 내보내면 이 한 벌이 통째로 새것으로 바뀐다 — 지난 내보내기는 남기지 않는다.
+   */
   async function keep(blobs: Blob[]) {
     const backend = getBackend();
     const keys: string[] = [];
     for (const b of blobs) {
       keys.push(await backend.putImage(b, "export"));
     }
-    onImagesReady(doc.id, keys);
+    await onImagesReady(doc.id, keys);
   }
 
   const run = async (action: "zip" | "each") => {

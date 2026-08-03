@@ -10,22 +10,34 @@ import { Btn } from "./ui";
 
 const MAKE_PATHS = ["/", "/common", "/fixed", "/preview"];
 
+interface Tab {
+  href: string;
+  label: string;
+  match: string[];
+  /** 관리자에게만 보이고, 다른 메뉴와 구분되게 색을 준다 */
+  adminOnly?: boolean;
+}
+
 /**
  * 1단계 메뉴.
  *   주보 만들기 — 이번 주 주보를 만드는 모든 과정
  *   보관함     — 지난 주보 목록
+ *   관리자     — 가입 승인·초대코드 (관리자에게만 보인다)
  */
-const PRIMARY = [
+const PRIMARY: Tab[] = [
   { href: "/", label: "주보 만들기", match: MAKE_PATHS },
   { href: "/library", label: "보관함", match: ["/library"] },
 ];
 
+const ADMIN_TAB: Tab = { href: "/admin", label: "관리자", match: ["/admin"], adminOnly: true };
+
 export function Nav() {
   const path = usePathname();
   const router = useRouter();
-  const { doc, saveCurrent, dirty, loaded } = useDoc();
+  const { saveCurrent, revertToSaved, canRevert, dirty, loaded } = useDoc();
   const { user, enabled, signOut } = useAuth();
   const inMake = MAKE_PATHS.includes(path);
+  const tabs = user?.role === "admin" ? [...PRIMARY, ADMIN_TAB] : PRIMARY;
 
   // 로그인·가입 화면에서는 상단 메뉴를 숨긴다
   if (isPublicPath(path) || path === "/pending") return null;
@@ -34,6 +46,13 @@ export function Nav() {
     await signOut();
     router.replace("/login");
     router.refresh();
+  };
+
+  // 되돌리면 저장 뒤에 한 일이 전부 사라진다 — 한 번 더 묻는다
+  const handleRevert = () => {
+    if (confirm("저장한 뒤에 고친 내용을 모두 버리고 마지막으로 저장한 상태로 돌아갑니다.")) {
+      revertToSaved();
+    }
   };
 
   return (
@@ -53,17 +72,19 @@ export function Nav() {
         className="flex shrink-0 gap-0.5 rounded-xl p-0.5 sm:ml-2"
         style={{ background: "#f1f2f5" }}
       >
-        {PRIMARY.map((m) => {
+        {tabs.map((m) => {
           const active = m.match.includes(path);
+          // 관리자 메뉴는 자주 쓰지 않아 회색으로 두면 있는 줄도 모른다 — 색을 살려 눈에 띄게 한다
+          const accent = m.adminOnly && !active;
           return (
             <Link
               key={m.href}
               href={m.href}
               className="whitespace-nowrap rounded-[9px] px-3 py-1.5 text-[13px] transition-colors sm:px-3.5"
               style={{
-                background: active ? "#fff" : "transparent",
-                color: active ? "var(--ui-text)" : "var(--ui-muted)",
-                fontWeight: active ? 700 : 500,
+                background: active ? "#fff" : accent ? "var(--ui-accent-soft)" : "transparent",
+                color: active ? "var(--ui-text)" : accent ? "var(--ui-accent)" : "var(--ui-muted)",
+                fontWeight: active || accent ? 700 : 500,
                 boxShadow: active ? "0 1px 2px rgba(16,24,40,.08)" : "none",
               }}
             >
@@ -76,26 +97,15 @@ export function Nav() {
       <div className="ml-auto flex items-center gap-2">
         {loaded && inMake && (
           <>
-            <span className="hidden text-[12px] lg:inline" style={{ color: "var(--ui-muted)" }}>
-              {formatServiceDate(doc.serviceDate)}
-            </span>
+            {canRevert && (
+              <Btn size="sm" onClick={handleRevert} title="마지막으로 저장한 상태로 되돌립니다">
+                초기화
+              </Btn>
+            )}
             <Btn variant={dirty ? "primary" : "default"} size="sm" onClick={saveCurrent}>
               {dirty ? "저장" : "저장됨"}
             </Btn>
           </>
-        )}
-
-        {user?.role === "admin" && (
-          <Link
-            href="/admin"
-            className="rounded-lg px-2.5 py-1.5 text-[12px] font-semibold"
-            style={{
-              background: path === "/admin" ? "var(--ui-accent-soft)" : "transparent",
-              color: path === "/admin" ? "var(--ui-accent)" : "var(--ui-muted)",
-            }}
-          >
-            관리자
-          </Link>
         )}
 
         {enabled && user && (
@@ -127,6 +137,8 @@ const MAKE_TABS = [
 
 export function MakeTabs() {
   const path = usePathname();
+  const { doc, loaded } = useDoc();
+
   return (
     <div
       className="scroll-x flex shrink-0 items-center gap-1 border-b bg-white px-2 sm:px-4"
@@ -150,6 +162,19 @@ export function MakeTabs() {
           </Link>
         );
       })}
+
+      {/*
+        지금 몇 주차 주보를 고치는 중인지.
+        보관함에서 지난 주보를 열면 이 표시 말고는 알 길이 없어, 고치는 화면들 옆에 붙여 둔다.
+      */}
+      {loaded && (
+        <span
+          className="ml-auto whitespace-nowrap pl-3 text-[12px] font-semibold"
+          style={{ color: "var(--ui-muted)" }}
+        >
+          {formatServiceDate(doc.serviceDate)}
+        </span>
+      )}
     </div>
   );
 }

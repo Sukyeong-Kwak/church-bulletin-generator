@@ -1,6 +1,6 @@
 "use client";
 
-import { deleteImage, getImage, putImage } from "@/lib/imageStore";
+import { deleteImage, getImage, listImageKeys, putImage } from "@/lib/imageStore";
 import {
   newId,
   normalizeFixed,
@@ -82,6 +82,14 @@ export const localBackend: Backend = {
     write({ ...cur, library: cur.library.filter((b) => b.id !== id) });
   },
 
+  async setBulletinImages(id, keys) {
+    const cur = read();
+    write({
+      ...cur,
+      library: cur.library.map((b) => (b.id === id ? { ...b, imageKeys: keys } : b)),
+    });
+  },
+
   async putImage(blob, prefix) {
     const key = `${prefix}-${newId("i")}`;
     await putImage(key, blob);
@@ -94,5 +102,12 @@ export const localBackend: Backend = {
 
   async removeImages(keys) {
     for (const k of keys) await deleteImage(k).catch(() => {});
+  },
+
+  async pruneImages(keep) {
+    // 이 브라우저 혼자 쓰는 저장소라, 남이 올리는 중인 파일을 지울 걱정이 없다
+    const stale = (await listImageKeys()).filter((k) => !keep.has(k));
+    for (const k of stale) await deleteImage(k).catch(() => {});
+    return stale.length;
   },
 };
