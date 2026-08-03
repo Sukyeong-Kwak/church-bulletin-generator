@@ -21,14 +21,9 @@ comment on table public.published is 'QR 주소(/now)가 지금 보여주는 주
 
 insert into public.published (id) values (1) on conflict do nothing;
 
--- 이미 만들어 둔 주보가 있으면 가장 최근 것을 올려 둔다.
--- 아무것도 안 올라가 있으면 QR을 찍는 사람에게 빈 안내만 보이기 때문이다.
-update public.published
-   set bulletin_id  = (select id from public.bulletins order by service_date desc limit 1),
-       published_at = now()
- where id = 1
-   and bulletin_id is null
-   and exists (select 1 from public.bulletins);
+-- 여기서 아무 주보도 올려 두지 않는다.
+-- 무엇을 내보일지는 사람이 정할 일이고, 이 파일을 실행했다는 이유로
+-- 마지막에 저장해둔 주보가 조용히 공개되면 그것부터가 이 기능의 취지에 어긋난다.
 
 alter table public.published enable row level security;
 

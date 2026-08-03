@@ -31,22 +31,34 @@ export function SharedView({ doc }: { doc: BulletinDoc }) {
  */
 function SharedImages({ doc }: { doc: BulletinDoc }) {
   const keys = doc.imageKeys ?? [];
-  const [urls, setUrls] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  /**
+   * 쪽수와 같은 자리에 넣는다.
+   *   undefined 아직 받는 중 · null 받지 못함 · string 준비됨
+   * 받은 것만 차례로 밀어 넣으면, 한 장이 실패했을 때 그 뒤가 통째로 한 칸씩 당겨져
+   * 2쪽 자리에 3쪽이 앉는다.
+   */
+  const [urls, setUrls] = useState<(string | null | undefined)[]>([]);
   const created = useRef<string[]>([]);
 
   useEffect(() => {
     let alive = true;
     const made: string[] = [];
+    const slots: (string | null | undefined)[] = keys.map(() => undefined);
 
     (async () => {
       const backend = getBackend();
-      for (const key of keys) {
-        const blob = await backend.getImage(key).catch(() => undefined);
-        if (!blob) continue;
-        made.push(URL.createObjectURL(blob));
+      for (let i = 0; i < keys.length; i++) {
+        const blob = await backend.getImage(keys[i]).catch(() => undefined);
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          made.push(url);
+          slots[i] = url;
+        } else {
+          slots[i] = null;
+        }
         // 한 장씩 받는 대로 보여준다 — 마지막 장을 기다리게 두지 않는다
-        if (alive) setUrls([...made]);
+        if (alive) setUrls([...slots]);
       }
 
       if (!alive) {
@@ -137,11 +149,16 @@ function SharedImages({ doc }: { doc: BulletinDoc }) {
             >
               {urls[i] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={urls[i]} alt={`${i + 1}쪽`} className="block h-full w-full" />
+                <img
+                  src={urls[i]}
+                  alt={`${i + 1}쪽`}
+                  className="block h-full w-full"
+                  style={{ objectFit: "contain" }}
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
                   <span className="text-[12px]" style={{ color: "#b9bec7" }}>
-                    {i + 1}쪽 불러오는 중…
+                    {urls[i] === null ? `${i + 1}쪽을 불러오지 못했습니다` : `${i + 1}쪽 불러오는 중…`}
                   </span>
                 </div>
               )}
