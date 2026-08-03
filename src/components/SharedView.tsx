@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { getBackend } from "@/lib/backend";
 import { fileNameFor, saveBlob, saveZip } from "@/lib/exportImages";
-import { formatServiceDate } from "@/lib/layout";
+import { CANVAS, formatServiceDate } from "@/lib/layout";
 import type { BulletinDoc } from "@/lib/types";
 import { SharedBulletin } from "./SharedBulletin";
 import { Btn } from "./ui";
+
+/** 로고를 이루는 네 조각의 색 */
+const PIECES = ["#41508F", "#4FA391", "#F0A94C", "#E56B4E"];
 
 /**
  * QR로 들어온 사람에게 보여주는 화면.
@@ -20,6 +23,12 @@ export function SharedView({ doc }: { doc: BulletinDoc }) {
   return <SharedBulletin doc={doc} />;
 }
 
+/**
+ * 폰으로 보는 주보.
+ *
+ * 대부분 예배 직전에 한 손으로 스치듯 넘겨 본다. 그래서 버튼을 늘어놓지 않고
+ * 주보 자체를 화면 폭 가득 채워 세로로 이어 놓았다. 확대는 손가락으로 벌리면 된다.
+ */
 function SharedImages({ doc }: { doc: BulletinDoc }) {
   const keys = doc.imageKeys ?? [];
   const [urls, setUrls] = useState<string[]>([]);
@@ -74,41 +83,87 @@ function SharedImages({ doc }: { doc: BulletinDoc }) {
   };
 
   return (
-    <div className="flex min-h-full flex-col" style={{ background: "#f5f6f8" }}>
-      <header
-        className="sticky top-0 z-10 flex items-center gap-2 border-b bg-white px-3 py-2.5"
-        style={{ borderColor: "var(--ui-border)" }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo/the-piece.svg" alt="" width={22} height={22} />
-        <span className="text-[14px] font-bold">{formatServiceDate(doc.serviceDate)} 주보</span>
-        <span className="text-[12px]" style={{ color: "var(--ui-muted)" }}>
-          {keys.length}쪽
-        </span>
-        <Btn size="sm" variant="primary" disabled={busy} onClick={download} className="ml-auto">
-          {busy ? "준비 중…" : "저장"}
-        </Btn>
-      </header>
+    <div className="min-h-full" style={{ background: "#eff1f4" }}>
+      {/* 로고의 네 조각을 실오라기처럼 얹어 둔다 — 맨 위 한 줄만으로 어느 주보인지 알아본다 */}
+      <div className="sticky top-0 z-20">
+        <div className="flex h-[3px]">
+          {PIECES.map((c) => (
+            <div key={c} style={{ background: c, flex: 1 }} />
+          ))}
+        </div>
+        <header
+          className="flex items-center gap-2 border-b px-3.5 py-2.5"
+          style={{
+            borderColor: "rgba(0,0,0,0.06)",
+            background: "rgba(255,255,255,0.92)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo/the-piece.svg" alt="" width={20} height={20} />
+          <span className="text-[13px] font-bold tracking-tight">
+            THE PIECE <span style={{ color: "var(--ui-muted)" }}>주보</span>
+          </span>
+          <Btn size="sm" variant="primary" disabled={busy} onClick={download} className="ml-auto">
+            {busy ? "준비 중…" : "저장"}
+          </Btn>
+        </header>
+      </div>
 
-      {/* 폰에서 한 손으로 넘겨 보는 화면이라 세로로 죽 이어 놓는다 */}
-      <div className="mx-auto flex w-full max-w-[820px] flex-col gap-3 p-3">
-        {urls.map((u, i) => (
-          // 내려받은 blob 주소라 next/image가 최적화할 것이 없다
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={i}
-            src={u}
-            alt={`${i + 1}쪽`}
-            className="w-full rounded-lg border bg-white"
-            style={{ borderColor: "var(--ui-border)", height: "auto" }}
-          />
-        ))}
-
-        {urls.length < keys.length && (
-          <p className="py-6 text-center text-[12px]" style={{ color: "var(--ui-muted)" }}>
-            불러오는 중… ({urls.length}/{keys.length})
+      <div className="mx-auto w-full max-w-[720px] px-3 pb-10">
+        {/* 표지 위에 날짜를 한 번 크게 적어 준다. 지난주 것을 열어둔 채 헷갈리지 않게. */}
+        <div className="py-7 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo/the-piece.svg" alt="" width={46} height={46} className="mx-auto" />
+          <h1 className="mt-3 text-[19px] font-bold tracking-tight">
+            {formatServiceDate(doc.serviceDate)}
+          </h1>
+          <p className="mt-1 text-[12px]" style={{ color: "var(--ui-muted)" }}>
+            THE PIECE 주보 · {keys.length}쪽
           </p>
-        )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {keys.map((key, i) => (
+            <figure
+              key={key}
+              className="relative overflow-hidden rounded-2xl bg-white"
+              style={{
+                // 이미지가 도착하기 전에도 자리를 잡아 둔다. 안 그러면 한 장씩 뜰 때마다 화면이 튄다.
+                aspectRatio: `${CANVAS.w} / ${CANVAS.h}`,
+                boxShadow: "0 1px 3px rgba(16,24,40,0.08), 0 8px 24px rgba(16,24,40,0.06)",
+              }}
+            >
+              {urls[i] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={urls[i]} alt={`${i + 1}쪽`} className="block h-full w-full" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <span className="text-[12px]" style={{ color: "#b9bec7" }}>
+                    {i + 1}쪽 불러오는 중…
+                  </span>
+                </div>
+              )}
+
+              <figcaption
+                className="absolute bottom-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{ background: "rgba(22,24,29,0.55)", color: "#fff" }}
+              >
+                {i + 1} / {keys.length}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+
+        <p
+          className="mt-8 text-center text-[11px] leading-relaxed"
+          style={{ color: "var(--ui-muted)" }}
+        >
+          우리는 하나님의 퍼즐의 한 조각
+          <br />
+          THE PIECE 주보
+        </p>
       </div>
     </div>
   );
