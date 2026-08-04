@@ -25,6 +25,13 @@ export default function PreviewPage() {
   const nodes = useRef(new Map<number, HTMLDivElement | null>());
   // 저장하면 공유 링크가 생기므로 QR을 바로 펼쳐 보여준다
   const [showShare, setShowShare] = useState(false);
+  const scroller = useRef<HTMLDivElement>(null);
+
+  /** QR은 통 맨 위에 붙는다 — 아래쪽을 보던 중에 열면 눌러놓고 아무 일도 안 일어난 것처럼 보인다 */
+  const toggleShare = () => {
+    if (!showShare) scroller.current?.scrollTo({ top: 0, behavior: "smooth" });
+    setShowShare((v) => !v);
+  };
 
   // 화면 폭에 맞춰 두다가, 사용자가 손대는 순간부터 그 값을 지킨다
   const fit = useFitScale(0.42);
@@ -68,11 +75,7 @@ export default function PreviewPage() {
             {overflowCount}개 페이지에서 내용이 넘칩니다
           </span>
         )}
-        <Btn
-          size="sm"
-          variant={showShare ? "primary" : "default"}
-          onClick={() => setShowShare((v) => !v)}
-        >
+        <Btn size="sm" variant={showShare ? "primary" : "default"} onClick={toggleShare}>
           교회 QR
         </Btn>
 
@@ -94,17 +97,19 @@ export default function PreviewPage() {
         </label>
       </div>
 
-      {showShare && (
-        <div
-          className="flex flex-col gap-3 border-b bg-white px-4 py-3"
-          style={{ borderColor: "var(--ui-border)" }}
-        >
-          <ShareCard getNodes={getNodes} />
-          <QrPoster url={nowUrl()} />
-        </div>
-      )}
+      <div ref={scroller} className="min-h-0 flex-1 overflow-auto p-4">
+        {/*
+         * QR은 미리보기와 같은 통 안에 둔다.
+         * 밖에 두면 화면이 낮을 때 미리보기가 0까지 밀려 종잇장처럼 눌린다 —
+         * 같은 통에 있으면 둘 다 제 높이를 지키고 화면이 대신 굴러간다.
+         */}
+        {showShare && (
+          <div className="mb-4 flex flex-col gap-3">
+            <ShareCard getNodes={getNodes} />
+            <QrPoster url={nowUrl()} />
+          </div>
+        )}
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
         <PreviewGrid doc={doc} pages={pages} urls={urls} scale={zoom} />
         {pages.length === 2 && (
           <div className="mt-3">
