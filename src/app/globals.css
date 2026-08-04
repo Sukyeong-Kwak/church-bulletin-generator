@@ -320,6 +320,60 @@ button {
   }
 }
 
+/*
+ * 교회 QR 포스터 인쇄.
+ *
+ * 화면에서는 없는 것처럼 있다가, 인쇄할 때만 나머지를 걷어내고 종이 한 장을 가득 채운다.
+ */
+#poster-print {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    height: auto;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  /* 인쇄할 포스터가 있을 때에만 화면을 걷어낸다 — 평소 인쇄는 그대로 둔다 */
+  body:has(#poster-print) > *:not(#poster-print) {
+    display: none !important;
+  }
+
+  /*
+   * 210×297mm로 못 박으면 프린터가 잡은 종이나 여백이 조금만 달라도 흰 테두리가 남는다.
+   * 고정 배치로 종이 자리를 통째로 차지하게 두면 어떤 종이에서도 가장자리까지 찬다.
+   */
+  #poster-print {
+    display: block;
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  /*
+   * cover는 종이 비율이 A4와 다를 때만 가장자리를 아주 조금 덜어낸다.
+   * 그 가장자리는 분홍 바탕뿐이라 잘려도 티가 나지 않는다 — 흰 테두리가 남는 쪽이 더 눈에 띈다.
+   */
+  #poster-print img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* 잉크를 아끼려 배경을 지우는 기본 동작을 막는다 — 분홍 바탕이 이 포스터의 전부다 */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 /* 가로로 넘치는 탭 줄은 스크롤되게 두고 스크롤바는 감춘다 */
 .scroll-x {
   overflow-x: auto;

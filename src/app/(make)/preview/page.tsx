@@ -3,11 +3,13 @@
 import { useMemo, useRef, useState } from "react";
 import { ExportLayer } from "@/components/ExportLayer";
 import { ExportPanel } from "@/components/editor/ExportPanel";
+import { QrPoster } from "@/components/editor/QrPoster";
 import { ShareCard } from "@/components/editor/ShareCard";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { Btn, Hint } from "@/components/ui";
 import { formatServiceDate } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
+import { nowUrl } from "@/lib/publish";
 import { useDoc } from "@/lib/store";
 import { useFitScale } from "@/lib/useFitScale";
 
@@ -93,8 +95,12 @@ export default function PreviewPage() {
       </div>
 
       {showShare && (
-        <div className="border-b bg-white px-4 py-3" style={{ borderColor: "var(--ui-border)" }}>
+        <div
+          className="flex flex-col gap-3 border-b bg-white px-4 py-3"
+          style={{ borderColor: "var(--ui-border)" }}
+        >
           <ShareCard getNodes={getNodes} />
+          <QrPoster url={nowUrl()} />
         </div>
       )}
 
