@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { DocProvider } from "@/lib/store";
 import { Nav } from "@/components/Nav";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "THE PIECE 주보",
@@ -31,6 +32,7 @@ export default function RootLayout({
           <Nav />
           <main className="flex-1 min-h-0 overflow-auto">{children}</main>
         </DocProvider>
+        <Analytics />
       </body>
     </html>
   );
