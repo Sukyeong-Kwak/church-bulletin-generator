@@ -73,7 +73,8 @@ export function Nav() {
         })}
       </nav>
 
-      <div className="ml-auto flex items-center gap-2">
+      {/* 오른쪽 묶음이 줄어들 수 있어야 폰에서 메뉴를 화면 밖으로 밀어내지 않는다 */}
+      <div className="ml-auto flex min-w-0 items-center gap-2">
         {loaded && inMake && (
           <>
             <span className="hidden text-[12px] lg:inline" style={{ color: "var(--ui-muted)" }}>
@@ -100,11 +101,22 @@ export function Nav() {
 
         {enabled && user && (
           <>
-            {/* 누구로 들어와 있는지 — 여럿이 같은 컴퓨터를 쓰는 자리라 이름이 보여야 한다 */}
-            <span className="text-[12px] font-semibold" title={user.email}>
+            {/*
+             * 누구로 들어와 있는지 — 여럿이 같은 컴퓨터를 쓰는 자리라 이름이 보여야 한다.
+             * 다만 폰에서는 이름까지 놓을 자리가 없다. 이메일이 길면 메뉴가 화면 밖으로
+             * 밀려나므로, 좁은 화면에서는 접고 남는 자리만큼만 보여준다.
+             */}
+            <span
+              className="hidden max-w-[140px] truncate text-[12px] font-semibold sm:inline"
+              title={user.email}
+            >
               {user.name || user.email}
             </span>
-            <button onClick={handleSignOut} className="text-[12px]" style={{ color: "var(--ui-muted)" }}>
+            <button
+              onClick={handleSignOut}
+              className="shrink-0 text-[12px]"
+              style={{ color: "var(--ui-muted)" }}
+            >
               로그아웃
             </button>
           </>
