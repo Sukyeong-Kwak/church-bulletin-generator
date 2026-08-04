@@ -56,7 +56,13 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // 정적 파일과 이미지 요청은 건너뛴다
-    "/((?!_next/static|_next/image|favicon.ico|fonts/|logo/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?)$).*)",
+    /*
+     * 정적 파일과 이미지 요청은 건너뛴다.
+     *
+     * manual/은 사용자 매뉴얼 PDF다. 여기서 빼지 않으면 로그인 안 한 사람이 받으려 할 때
+     * 로그인 화면으로 튕긴다 — 가입 전에 읽어보라고 걸어둔 링크라 그러면 뜻이 없다.
+     * 확장자로 열지 않고 폴더로 여는 이유는, 다른 자리의 PDF까지 덩달아 열리지 않게 하려는 것이다.
+     */
+    "/((?!_next/static|_next/image|favicon.ico|fonts/|logo/|manual/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?)$).*)",
   ],
 };

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # 셸 크래시 덤프
 *.stackdump
+
+# 매뉴얼 원본(PowerPoint). 내보낸 PDF만 앱에 들어간다.
+/*.pptx

@@ -222,6 +222,24 @@ export function AdminPanel({ meId }: { meId: string }) {
             </button>
           );
         })}
+
+        {/*
+          매뉴얼은 자주 열 것이 아니라 막힐 때 한 번 여는 것이다 — 탭 옆에 작게 둔다.
+          관리자 문서는 주소를 알아도 서버가 역할을 확인하므로 편집자는 받을 수 없다.
+          주보 만드는 방법은 사용자 문서에 있어, 관리자에게도 함께 필요하다.
+        */}
+        <div
+          className="ml-auto flex shrink-0 items-center gap-1.5 pl-3 text-[11px]"
+          style={{ color: "var(--ui-muted)" }}
+        >
+          <a href="/manual/the-piece-manual-user.pdf" download="THE_PIECE_주보_매뉴얼_사용자용.pdf">
+            사용자 매뉴얼
+          </a>
+          <span aria-hidden>·</span>
+          <a href="/api/manual/admin" style={{ color: "var(--ui-accent)", fontWeight: 700 }}>
+            관리자 매뉴얼
+          </a>
+        </div>
       </div>
 
       {tab === "pending" && <PendingTab users={pending} busy={busy} onStatus={setStatus} />}

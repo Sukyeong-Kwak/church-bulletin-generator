@@ -107,12 +107,19 @@ function LoginForm() {
     <AuthShell
       title="로그인"
       footer={
-        <span style={{ color: "var(--ui-muted)" }}>
-          아직 계정이 없나요?{" "}
-          <Link href="/signup" style={{ color: "var(--ui-accent)", fontWeight: 700 }}>
-            가입 신청
-          </Link>
-        </span>
+        <div className="flex flex-col gap-1.5">
+          <span style={{ color: "var(--ui-muted)" }}>
+            아직 계정이 없나요?{" "}
+            <Link href="/signup" style={{ color: "var(--ui-accent)", fontWeight: 700 }}>
+              가입 신청
+            </Link>
+          </span>
+          {/*
+            처음 오는 사람이 무엇을 하는 곳인지 알고 가입하도록 로그인 전에도 받을 수 있게 둔다.
+            (관리자 매뉴얼은 관리자 화면 안에 있다)
+          */}
+          <ManualLink />
+        </div>
       }
     >
       <form onSubmit={submit} className="flex flex-col gap-3">
@@ -148,6 +155,24 @@ function LoginForm() {
         </div>
       </form>
     </AuthShell>
+  );
+}
+
+/**
+ * 사용자 매뉴얼 내려받기.
+ *
+ * next/link가 아니라 <a>인 것은 화면 이동이 아니라 파일을 받는 링크이기 때문이다.
+ * 주소는 영문이지만 받아 보면 한글 이름으로 저장된다.
+ */
+function ManualLink() {
+  return (
+    <a
+      href="/manual/the-piece-manual-user.pdf"
+      download="THE_PIECE_주보_매뉴얼_사용자용.pdf"
+      style={{ color: "var(--ui-muted)" }}
+    >
+      처음이신가요? <b style={{ fontWeight: 700 }}>사용 매뉴얼 내려받기</b> (PDF)
+    </a>
   );
 }
 
