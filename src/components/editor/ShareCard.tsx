@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { renderAll, saveBlob } from "@/lib/exportImages";
 import { formatServiceDate } from "@/lib/layout";
+import { nowUrl } from "@/lib/publish";
 import { useDoc } from "@/lib/store";
 import { Btn, Hint, Section, Warn } from "../ui";
 
@@ -36,10 +37,7 @@ export function ShareCard({ getNodes }: { getNodes: () => HTMLElement[] }) {
   const [copied, setCopied] = useState(false);
 
   // 주소는 브라우저에서만 알 수 있다. 이 화면은 클라이언트에서만 그려지므로 렌더 중에 읽어도 된다.
-  const url = useMemo(
-    () => (typeof window === "undefined" ? "" : `${window.location.origin}/now`),
-    [],
-  );
+  const url = useMemo(() => nowUrl(), []);
 
   useEffect(() => {
     if (!url) return;

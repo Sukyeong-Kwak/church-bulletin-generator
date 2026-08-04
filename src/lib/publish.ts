@@ -16,6 +16,14 @@ export interface PublishState {
 
 const NONE: PublishState = { bulletinId: null, publishedAt: null };
 
+/**
+ * 교회 QR이 가리키는 주소. 브라우저에서만 알 수 있다.
+ * QR 한 장과 포스터가 같은 주소를 봐야 하므로 한 곳에서만 만든다.
+ */
+export function nowUrl(): string {
+  return typeof window === "undefined" ? "" : `${window.location.origin}/now`;
+}
+
 /** 서버가 연결되어 있지 않으면 null — 로컬 모드에서는 공유 자체가 없다 */
 export async function loadPublished(): Promise<PublishState | null> {
   const supabase = supabaseBrowser();
