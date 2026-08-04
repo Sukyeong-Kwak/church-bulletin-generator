@@ -43,6 +43,11 @@ export type PublishedRow = {
   bulletin_id: string | null;
   published_at: string | null;
   published_by: string | null;
+  /**
+   * 주일이 아닌 날 관리자가 열어둔 끝 시각. null이면 주일에만 열린다.
+   * 009 마이그레이션 전에는 이 칸 자체가 없다 — 읽는 쪽(publish.ts)에서 없을 때를 함께 본다.
+   */
+  open_until: string | null;
 };
 
 /** settings.data — 고정 페이지·교회 정보·테마 */
@@ -116,8 +121,17 @@ export type Database = {
       check_invite_code: { Args: { p_code: string }; Returns: boolean };
       /** 초대코드가 있어야 가입할 수 있는 상태인가 (아무도 없는 새 DB에서만 false) */
       invite_required: { Args: Record<string, never>; Returns: boolean };
-      /** QR 주소(/now)가 지금 보여주는 주보. 올린 것이 없으면 빈 배열 */
+      /**
+       * QR 주소(/now)가 지금 보여주는 주보. 올린 것이 없으면 빈 배열.
+       * 주일이 아니면 교인에게는 빈 배열을 준다 — 만드는 사람에게만 그대로 보인다.
+       */
       get_current_bulletin: { Args: Record<string, never>; Returns: BulletinRow[] };
+      /** 지금 교인에게 열려 있는가 (주일이거나, 관리자가 오늘 하루 열어두었거나) */
+      qr_is_open: { Args: Record<string, never>; Returns: boolean };
+      /** 주일이 아닌 날 오늘 하루만 연다. 닫히는 시각을 돌려준다. 관리자만. */
+      open_today: { Args: Record<string, never>; Returns: string };
+      /** 오늘 따로 열어둔 것을 거둔다. 주보는 그대로 올라가 있다. 관리자만. */
+      close_today: { Args: Record<string, never>; Returns: void };
       /** 이 주보를 QR 주소에 올린다. 올린 시각을 돌려준다 */
       publish_bulletin: { Args: { p_id: string }; Returns: string };
       unpublish_bulletin: { Args: Record<string, never>; Returns: void };

@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { renderAll, saveBlob } from "@/lib/exportImages";
 import { formatServiceDate } from "@/lib/layout";
-import { nowUrl } from "@/lib/publish";
+import { isSundayInSeoul, nowUrl } from "@/lib/publish";
 import { useDoc } from "@/lib/store";
+import { useAuth } from "@/lib/supabase/useAuth";
 import { Btn, Hint, Section, Warn } from "../ui";
 
 /**
@@ -22,6 +23,88 @@ const SIZES = [
 type Size = (typeof SIZES)[number]["px"];
 
 /**
+ * 지금 교인에게 열려 있는지, 그리고 관리자라면 여닫는 자리.
+ *
+ * 올렸다고 늘 보이는 것이 아니다. 입구 QR은 지나가는 누구나 찍을 수 있고 찍은 사람은
+ * 그 주소를 그대로 퍼뜨릴 수 있어, 주일에만 열어 둔다. 주보에 생일 명단이 들어가기 때문이다.
+ * 올린 사람이 이것을 모르면 "왜 안 보인대?"가 되므로 올리는 자리에서 함께 알린다.
+ */
+function OpenState({
+  sunday,
+  openUntil,
+  isAdmin,
+  saving,
+  onOpen,
+  onClose,
+}: {
+  sunday: boolean | undefined;
+  openUntil: string | null;
+  isAdmin: boolean;
+  saving: boolean;
+  onOpen: () => Promise<void>;
+  onClose: () => Promise<void>;
+}) {
+  // 첫 렌더에는 오늘이 무슨 요일인지 아직 모른다. 틀린 안내를 잠깐 보여주느니 비워 둔다.
+  if (sunday === undefined) return null;
+
+  const openedByAdmin = !!openUntil && new Date(openUntil) > new Date();
+  const open = sunday || openedByAdmin;
+
+  return (
+    <div
+      className="rounded-lg px-2.5 py-2 text-[12px] leading-relaxed"
+      style={
+        open
+          ? { background: "#f1f8f4", color: "#2b8a3e" }
+          : { background: "#fff4e6", color: "#b45309" }
+      }
+    >
+      {open ? (
+        <>
+          <b>지금 교인에게 열려 있습니다</b>
+          <br />
+          {sunday
+            ? "오늘은 주일입니다. 자정이 지나면 저절로 닫힙니다."
+            : `관리자가 오늘 하루 열어두었습니다. ${new Date(openUntil!).toLocaleString("ko-KR")}에 닫힙니다.`}
+        </>
+      ) : (
+        <>
+          <b>오늘은 주일이 아니라 교인에게는 닫혀 있습니다</b>
+          <br />
+          QR을 찍어도 주보가 보이지 않습니다. 만드는 사람에게만 보이니 미리 확인할 수 있습니다.
+        </>
+      )}
+
+      {isAdmin ? (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {openedByAdmin ? (
+            <Btn size="sm" variant="danger" disabled={saving} onClick={() => void onClose()}>
+              지금 닫기
+            </Btn>
+          ) : (
+            !sunday && (
+              <Btn
+                size="sm"
+                variant="primary"
+                disabled={saving}
+                title="수요예배·성탄절처럼 주일이 아닌 날에 씁니다. 자정이 지나면 저절로 닫힙니다."
+                onClick={() => void onOpen()}
+              >
+                오늘 하루 열기
+              </Btn>
+            )
+          )}
+        </div>
+      ) : (
+        !open && (
+          <div className="mt-1">주일이 아닌 날 여는 것은 관리자만 할 수 있습니다.</div>
+        )
+      )}
+    </div>
+  );
+}
+
+/**
  * 교회 QR.
  *
  * 주소는 하나뿐이라 QR도 한 장이면 된다. 한 번 뽑아 입구에 붙여두고,
@@ -31,13 +114,27 @@ type Size = (typeof SIZES)[number]["px"];
  * 작성 중인 주보가 새어 나가지 않게 하기 위해서다.
  */
 export function ShareCard({ getNodes }: { getNodes: () => HTMLElement[] }) {
-  const { doc, library, published, publishCurrent, unpublish, saving, error } = useDoc();
+  const { doc, library, published, publishCurrent, unpublish, openToday, closeToday, saving, error } =
+    useDoc();
+  const { user } = useAuth();
   const [size, setSize] = useState<Size>(512);
   const [preview, setPreview] = useState<string>();
   const [copied, setCopied] = useState(false);
+  /**
+   * 한국시간으로 오늘이 주일인가.
+   * 서버에서는 알 수 없는 값이라(브라우저 시계로 센다) 첫 렌더 뒤에 채운다 —
+   * 렌더 중에 읽으면 서버가 그린 것과 달라져 하이드레이션이 깨진다.
+   */
+  const [sunday, setSunday] = useState<boolean>();
 
   // 주소는 브라우저에서만 알 수 있다. 이 화면은 클라이언트에서만 그려지므로 렌더 중에 읽어도 된다.
   const url = useMemo(() => nowUrl(), []);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setSunday(isSundayInSeoul());
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!url) return;
@@ -126,6 +223,18 @@ export function ShareCard({ getNodes }: { getNodes: () => HTMLElement[] }) {
               <>아직 아무 주보도 올라가 있지 않습니다. QR을 찍으면 빈 안내만 보입니다.</>
             )}
           </div>
+
+          {/* 올려둔 것이 있을 때만 뜻이 있다 — 아무것도 안 올라갔으면 열려 있어도 보여줄 것이 없다 */}
+          {published.publishedAt && (
+            <OpenState
+              sunday={sunday}
+              openUntil={published.openUntil}
+              isAdmin={user?.role === "admin"}
+              saving={saving}
+              onOpen={openToday}
+              onClose={closeToday}
+            />
+          )}
 
           <input type="text" value={url} readOnly onFocus={(e) => e.currentTarget.select()} />
 

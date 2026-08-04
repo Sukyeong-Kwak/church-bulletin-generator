@@ -12,7 +12,9 @@ import {
 } from "react";
 import { getBackend } from "./backend";
 import {
+  closeToday as closeTodayRpc,
   loadPublished,
+  openToday as openTodayRpc,
   publishBulletin,
   unpublishBulletin,
   type PublishState,
@@ -64,6 +66,13 @@ interface DocContextValue {
   publishSaved: (id: string) => Promise<void>;
   /** QR 주소를 다시 닫는다 */
   unpublish: () => Promise<void>;
+  /**
+   * 주일이 아닌 날, 오늘 하루만 연다. 관리자만 쓸 수 있다(잠금은 DB에 있다).
+   * QR은 평소 주일에만 열리므로, 수요예배·성탄절처럼 따로 보여줄 날에 쓴다.
+   */
+  openToday: () => Promise<void>;
+  /** 오늘 따로 열어둔 것을 거둔다. 주보는 그대로 올라가 있다. */
+  closeToday: () => Promise<void>;
   urls: { background?: string; cover?: string; logo?: string };
   loaded: boolean;
   dirty: boolean;
@@ -330,7 +339,9 @@ export function DocProvider({ children }: { children: ReactNode }) {
       setError(undefined);
       setLibrary(nextLibrary);
       // 올라가 있던 주보를 지웠으면 QR도 함께 비워진다 (DB에서 연결이 끊긴다)
-      setPublished((p) => (p?.bulletinId === id ? { bulletinId: null, publishedAt: null } : p));
+      setPublished((p) =>
+        p?.bulletinId === id ? { ...p, bulletinId: null, publishedAt: null } : p,
+      );
       prune(doc, nextLibrary, settings);
     },
     [doc, library, settings, backend, prune],
@@ -436,7 +447,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
         setDocState(saved);
         setLibrary(nextLibrary);
         setDirty(false);
-        setPublished({ bulletinId: saved.id, publishedAt: at });
+        // 따로 열어둔 것은 올린다고 달라지지 않는다 — 그대로 둔다
+        setPublished((p) => ({ bulletinId: saved.id, publishedAt: at, openUntil: p?.openUntil ?? null }));
         // 올리기도 저장이다 — 저장할 때와 똑같이 남는 이미지를 정리한다
         prune(saved, nextLibrary, settings);
       } catch (e) {
@@ -453,7 +465,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
     setError(undefined);
     try {
       const at = await publishBulletin(id);
-      setPublished({ bulletinId: id, publishedAt: at });
+      setPublished((p) => ({ bulletinId: id, publishedAt: at, openUntil: p?.openUntil ?? null }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "QR에 올리지 못했습니다.");
     }
@@ -463,9 +475,30 @@ export function DocProvider({ children }: { children: ReactNode }) {
     setError(undefined);
     try {
       await unpublishBulletin();
-      setPublished({ bulletinId: null, publishedAt: null });
+      // 내리기는 닫는 일이다 — 따로 열어둔 것도 DB에서 함께 거둬진다
+      setPublished({ bulletinId: null, publishedAt: null, openUntil: null });
     } catch (e) {
       setError(e instanceof Error ? e.message : "QR에서 내리지 못했습니다.");
+    }
+  }, []);
+
+  const openToday = useCallback(async () => {
+    setError(undefined);
+    try {
+      const until = await openTodayRpc();
+      setPublished((p) => (p ? { ...p, openUntil: until } : p));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "QR을 열지 못했습니다.");
+    }
+  }, []);
+
+  const closeToday = useCallback(async () => {
+    setError(undefined);
+    try {
+      await closeTodayRpc();
+      setPublished((p) => (p ? { ...p, openUntil: null } : p));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "QR을 닫지 못했습니다.");
     }
   }, []);
 
@@ -488,6 +521,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
       publishCurrent,
       publishSaved,
       unpublish,
+      openToday,
+      closeToday,
       urls,
       loaded,
       dirty,
@@ -512,6 +547,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
       publishCurrent,
       publishSaved,
       unpublish,
+      openToday,
+      closeToday,
       urls,
       loaded,
       dirty,
