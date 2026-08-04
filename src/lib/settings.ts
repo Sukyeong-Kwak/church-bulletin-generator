@@ -1,4 +1,4 @@
-import { DEFAULT_THEME } from "./layout";
+import { DEFAULT_THEME, THEME_VERSION } from "./layout";
 import type { BulletinDoc, ChurchInfo, CoverText, FixedPages, Theme } from "./types";
 
 /**
@@ -197,16 +197,26 @@ export function normalizeFixed(fixed: FixedPages): FixedPages {
 }
 
 /**
- * 글자색은 화면 어디에서도 고를 수 없다 — 저장본에 남은 옛 색을 그대로 쓰면
- * 기본값을 고쳐도 예전에 시작한 주보만 옛 색으로 남는다. 그래서 색은 항상 기본값을 따른다.
+ * 제목색은 화면 어디에서도 고를 수 없다 — 저장본에 남은 옛 색을 그대로 쓰면
+ * 기본값을 고쳐도 예전에 시작한 주보만 옛 색으로 남는다. 그래서 제목색은 항상 기본값을 따른다.
+ *
+ * 카드 진하기와 글자색은 이제 화면에서 고를 수 있으므로 고른 값을 그대로 지킨다.
+ * 다만 그 조절기가 생기기 전 저장본은 배경 사진에 글자가 묻히던 값이라, 한 번만 새 기본값으로 끌어올린다.
  */
 export function normalizeTheme(theme: Theme | null | undefined): Theme {
-  return {
+  const merged: Theme = {
     ...DEFAULT_THEME,
     ...theme,
     titleColor: DEFAULT_THEME.titleColor,
-    bodyColor: DEFAULT_THEME.bodyColor,
+    version: THEME_VERSION,
   };
+
+  if ((theme?.version ?? 0) < THEME_VERSION) {
+    merged.cardOpacity = DEFAULT_THEME.cardOpacity;
+    merged.bodyColor = DEFAULT_THEME.bodyColor;
+  }
+
+  return merged;
 }
 
 export function normalizeSettings(s: Partial<Settings> | null | undefined): Settings {

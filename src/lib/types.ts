@@ -129,9 +129,12 @@ export interface ChurchInfo {
 
 export interface Theme {
   name: string;
+  /** 서식 버전. 옛 저장본을 새 기본값으로 한 번 끌어올리는 기준. */
+  version?: number;
   backgroundUrl?: string;
   coverUrl?: string;
   logoUrl?: string;
+  /** 본문 카드가 배경 사진을 얼마나 덮는지. 0 = 그대로 비침, 1 = 완전히 덮음 */
   cardOpacity: number;
   cardEnabled: boolean;
   titleColor: string;

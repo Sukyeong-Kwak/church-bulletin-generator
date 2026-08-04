@@ -153,6 +153,53 @@ input[type="range"] {
   accent-color: var(--ui-accent);
 }
 
+/*
+ * 색을 고르는 슬라이더.
+ * 고를 수 있는 색을 막대에 그대로 깔아, 숫자를 읽지 않아도 어느 쪽이 검정인지 보이게 한다.
+ * 막대 색은 --track 으로 넣는다. (브라우저마다 트랙·손잡이 선택자가 달라 둘 다 적는다)
+ */
+input[type="range"].swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  background: transparent;
+}
+
+input[type="range"].swatch::-webkit-slider-runnable-track {
+  height: 14px;
+  border-radius: 7px;
+  border: 1px solid var(--ui-border);
+  background: var(--track);
+}
+
+input[type="range"].swatch::-moz-range-track {
+  height: 14px;
+  border-radius: 7px;
+  border: 1px solid var(--ui-border);
+  background: var(--track);
+}
+
+input[type="range"].swatch::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--ui-accent);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.35);
+}
+
+input[type="range"].swatch::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--ui-accent);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.35);
+}
+
 input[type="color"] {
   padding: 0;
   border: 1px solid var(--ui-border);
@@ -201,6 +248,11 @@ button {
   }
 
   input[type="range"] {
+    height: 28px;
+  }
+
+  /* .swatch 가 더 구체적이라 위 규칙에 가려진다 — 색 슬라이더도 손가락 크기를 지킨다 */
+  input[type="range"].swatch {
     height: 28px;
   }
 

@@ -46,6 +46,19 @@ export async function getImage(key: string): Promise<Blob | undefined> {
   return blob;
 }
 
+/** 보관 중인 이미지 키 전부. 아무도 쓰지 않는 것을 골라내는 데 쓴다. */
+export async function listImageKeys(): Promise<string[]> {
+  const db = await open();
+  const keys = await new Promise<string[]>((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const req = tx.objectStore(STORE).getAllKeys();
+    req.onsuccess = () => resolve(req.result.map(String));
+    req.onerror = () => reject(req.error);
+  });
+  db.close();
+  return keys;
+}
+
 export async function deleteImage(key: string): Promise<void> {
   const db = await open();
   await new Promise<void>((resolve, reject) => {

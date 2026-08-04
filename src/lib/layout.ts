@@ -183,9 +183,18 @@ export function isOverridden(override: TextStyle | undefined, key: keyof TextSty
   return override != null && override[key] !== undefined;
 }
 
+/**
+ * 카드 진하기·글자색 기본값이 바뀌면 올린다.
+ * 예전 저장본을 새 기본값으로 한 번 끌어올리는 기준이 된다.
+ */
+export const THEME_VERSION = 2;
+
 export const DEFAULT_THEME: Theme = {
   name: "기본",
-  cardOpacity: 0.72,
+  version: THEME_VERSION,
+  // 배경 사진이 비쳐 글자가 묻히지 않도록 카드를 거의 불투명하게 둔다.
+  // 완전한 1이 아니라 배경 분위기는 옅게 남는다.
+  cardOpacity: 0.9,
   cardEnabled: true,
   titleColor: "#3B3B98",
   // 배경 사진 위에 얹히므로 색이 옅으면 읽기 어렵다 — 본문은 검정으로 대비를 준다
@@ -193,6 +202,22 @@ export const DEFAULT_THEME: Theme = {
   highlightColor: "#FFF3B0",
   fontScale: 1,
 };
+
+/** 글자색 밝기(0 검정 ~ 100 흰색) → #rrggbb */
+export function grayColor(level: number): string {
+  const v = Math.round((Math.min(100, Math.max(0, level)) / 100) * 255);
+  const h = v.toString(16).padStart(2, "0");
+  return `#${h}${h}${h}`;
+}
+
+/** #rrggbb → 밝기 0~100. 회색이 아닌 옛 값도 가장 가까운 밝기로 읽어 슬라이더에 얹는다. */
+export function grayLevel(color: string): number {
+  const m = /^#([0-9a-f]{6})$/i.exec(color.trim());
+  if (!m) return 0;
+  const n = parseInt(m[1], 16);
+  const avg = (((n >> 16) & 255) + ((n >> 8) & 255) + (n & 255)) / 3;
+  return Math.round((avg / 255) * 100);
+}
 
 /**
  * 블록 제목은 항상 <> 로 감싸 보여준다.

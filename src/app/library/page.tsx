@@ -7,6 +7,7 @@ import { getBackend } from "@/lib/backend";
 import { fileNameFor, saveBlob, saveZip } from "@/lib/exportImages";
 import { formatServiceDate } from "@/lib/layout";
 import { useDoc } from "@/lib/store";
+import { useAuth } from "@/lib/supabase/useAuth";
 import type { BulletinDoc } from "@/lib/types";
 
 /** 보관함 — 저장한 주보를 다시 열거나, 만들었던 이미지를 그대로 다시 받는다. */
@@ -23,13 +24,29 @@ export default function LibraryPage() {
     loaded,
     published,
     publishSaved,
+    error,
   } = useDoc();
+  const { user, enabled, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  // 지난 주보는 여럿이 함께 보는 기록이라 관리자만 지운다.
+  // 서버를 쓰지 않는 로컬 모드에는 계정 자체가 없어 그대로 열어 둔다.
+  const canDelete = !enabled || user?.role === "admin";
+  // 누구인지 알아내는 동안에는 아무 말도 하지 않는다 —
+  // 관리자인데도 '관리자만 삭제할 수 있다'가 잠깐 떴다 사라지면 읽는 사람만 헷갈린다
+  const showDeleteNote = !authLoading && !canDelete;
 
   if (!loaded) return null;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-3 p-5">
+      {error && (
+        <div className="rounded-xl px-3 py-2.5" style={{ background: "#fee2e2" }}>
+          <span className="text-[12px] font-semibold" style={{ color: "#b91c1c" }}>
+            {error}
+          </span>
+        </div>
+      )}
       {dirty && (
         <div
           className="flex flex-wrap items-center gap-2 rounded-xl px-3 py-2.5"
@@ -45,7 +62,11 @@ export default function LibraryPage() {
       )}
       <Section
         title="보관함"
-        desc="저장한 주보를 다시 열어 수정하거나, 지난주 것을 복사해 새로 만들 수 있습니다."
+        desc={
+          showDeleteNote
+            ? "저장한 주보를 다시 열어 수정하거나, 지난주 것을 복사해 새로 만들 수 있습니다. 삭제는 관리자만 할 수 있습니다."
+            : "저장한 주보를 다시 열어 수정하거나, 지난주 것을 복사해 새로 만들 수 있습니다."
+        }
         right={
           <Btn
             onClick={() => {
@@ -77,7 +98,7 @@ export default function LibraryPage() {
                   duplicateSaved(b.id);
                   router.push("/");
                 }}
-                onRemove={() => void removeSaved(b.id)}
+                onRemove={canDelete ? () => void removeSaved(b.id) : undefined}
               />
             ))}
           </div>
@@ -105,7 +126,8 @@ function Row({
   onPublish: () => void;
   onOpen: () => void;
   onDuplicate: () => void;
-  onRemove: () => void;
+  /** 없으면 삭제 권한이 없다는 뜻 — 버튼을 아예 보이지 않는다 */
+  onRemove?: () => void;
 }) {
   const [thumb, setThumb] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -202,7 +224,7 @@ function Row({
           열기
         </Btn>
         <Btn size="sm" onClick={onDuplicate} title="이 주보를 복사해 다음 주 날짜로 새로 만듭니다">
-          복사해서 새로
+          복제
         </Btn>
         {canPublish && !live && (
           <Btn
@@ -220,9 +242,11 @@ function Row({
         <Btn size="sm" disabled={!imageCount || busy} onClick={downloadImages}>
           {busy ? "준비 중…" : "이미지 받기"}
         </Btn>
-        <Btn size="sm" variant="danger" onClick={onRemove}>
-          삭제
-        </Btn>
+        {onRemove && (
+          <Btn size="sm" variant="danger" onClick={onRemove}>
+            삭제
+          </Btn>
+        )}
       </div>
     </div>
   );
