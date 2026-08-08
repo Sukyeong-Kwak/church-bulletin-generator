@@ -203,8 +203,10 @@ export function WorshipContent({ doc }: { doc: BulletinDoc }) {
   // 위쪽 내용의 실제 높이는 그려봐야 안다 (예배 항목 수·안내 줄 수·한글 줄바꿈까지 걸려 있다).
   // 값이 같으면 이전 상태를 그대로 돌려 재렌더가 되풀이되지 않게 막는다.
   useLayoutEffect(() => {
-    const h = aboveRef.current?.getBoundingClientRect().height ?? 0;
-    setAbove((prev) => (Math.abs(prev - h) < 0.5 ? prev : h));
+    setAbove((prev) => {
+      const h = measure(aboveRef.current);
+      return Math.abs(prev - h) < 0.5 ? prev : h;
+    });
   }, [aboveKey, fontsReady]);
 
   return (
@@ -276,8 +278,36 @@ export function WorshipContent({ doc }: { doc: BulletinDoc }) {
   );
 }
 
+/**
+ * 그려진 크기를 잰다.
+ *
+ * getBoundingClientRect 를 쓰면 안 된다.
+ * 미리보기는 페이지를 transform: scale() 로 줄여 그리는데(PreviewGrid), 그 값은
+ * 줄어든 '화면에 보이는 크기'를 돌려준다. 반면 자리를 셈하는 CONTENT 는 줄이기 전 단위다.
+ * 둘을 섞으면 명단 높이가 3분의 1로 재져 '1열도 넉넉히 들어간다'는 답이 나오고,
+ * 그래서 사람이 아무리 많아도 한 줄에 하나씩 세우게 된다.
+ *
+ * offsetWidth·offsetHeight 는 transform 을 타지 않는 배치 단위 값이라 그대로 쓸 수 있다.
+ */
+function measure(el: HTMLElement | null): number {
+  return el?.offsetHeight ?? 0;
+}
+
 /** 한 줄에 몇 사람까지 세워볼지 — 이 가운데 글자가 가장 크게 남는 짜임을 고른다 */
 const BIRTHDAY_COLS = [1, 2, 3, 4] as const;
+
+/**
+ * 재지 못했을 때 사람 수만 보고 정하는 짜임.
+ *
+ * 재는 일이 어긋나면 예전에는 말없이 1열로 떨어졌다 — 스무 명이 한 줄에 하나씩 섰다.
+ * 완벽하지 않아도 사람 수에 맞는 열을 주는 편이, 넘칠 것이 뻔한 1열보다 낫다.
+ */
+function colsByCount(n: number): number {
+  if (n <= 8) return 1;
+  if (n <= 18) return 2;
+  if (n <= 32) return 3;
+  return 4;
+}
 
 /** 아무리 좁아도 이보다 작아지면 벽에 붙여두고 읽을 수 없다 */
 const MIN_NAME_SIZE = 15;
@@ -329,8 +359,7 @@ function BirthdayNames({
     const next: Record<number, Natural> = {};
     probes.current.forEach((el, cols) => {
       if (!el) return;
-      const r = el.getBoundingClientRect();
-      next[cols] = { w: r.width, h: r.height };
+      next[cols] = { w: el.offsetWidth, h: el.offsetHeight };
     });
     setNatural((prev) => (sameNatural(prev, next) ? prev : next));
   }, [key, fontsReady]);
@@ -348,8 +377,8 @@ function BirthdayNames({
       // 눈에 뜨일 만큼(1% 넘게) 나아질 때만 열을 늘린다
       if (k > pick.k * 1.01) pick = { cols, k };
     }
-    return pick.k > 0 ? pick : { cols: 1, k: 1 };
-  }, [natural, avail]);
+    return pick.k > 0 ? pick : { cols: colsByCount(people.length), k: 1 };
+  }, [natural, avail, people]);
 
   const size = Math.max(MIN_NAME_SIZE, Math.floor(base * best.k));
 
