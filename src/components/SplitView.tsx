@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { EDIT_FOCUS_EVENT } from "@/lib/useEditFocus";
 
 /**
  * 좌: 입력 / 우: 미리보기 2단 레이아웃.
@@ -17,6 +18,17 @@ export function SplitView({
   preview: ReactNode;
 }) {
   const [tab, setTab] = useState<"edit" | "preview">("edit");
+
+  /*
+   * 좁은 화면에서는 편집과 미리보기가 한 번에 하나만 보인다.
+   * 미리보기에서 어느 구역을 눌러 고치러 갈 때, 넘어가 주지 않으면
+   * 굴러가고 빛나는 일이 보이지 않는 쪽에서 벌어진다.
+   */
+  useEffect(() => {
+    const toEdit = () => setTab("edit");
+    window.addEventListener(EDIT_FOCUS_EVENT, toEdit);
+    return () => window.removeEventListener(EDIT_FOCUS_EVENT, toEdit);
+  }, []);
 
   return (
     <div className="flex h-full flex-col">

@@ -10,6 +10,7 @@ import { Btn, Hint, Section } from "@/components/ui";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { SERMON_HEADING } from "@/lib/settings";
 import { useDoc } from "@/lib/store";
+import { useEditFocus } from "@/lib/useEditFocus";
 import { useFitScale } from "@/lib/useFitScale";
 import type { FlowBlock, ScheduleBlock, SermonBlock } from "@/lib/types";
 
@@ -22,6 +23,7 @@ export default function EditorPage() {
   // 확대는 화면 폭에 맞춰 두다가, 사용자가 손대는 순간부터 그 값을 지킨다.
   // 그래야 태블릿을 돌려도 알아서 맞으면서 직접 맞춘 배율이 되돌아가지 않는다.
   const fit = useFitScale(0.3);
+  const { goEdit } = useEditFocus();
   const [picked, setPicked] = useState<number | null>(null);
   const zoom = picked ?? fit;
 
@@ -154,7 +156,7 @@ export default function EditorPage() {
         }
         preview={
           <div className="min-h-0 flex-1 overflow-auto p-4">
-            <PreviewGrid doc={doc} pages={visiblePages} urls={urls} scale={zoom} />
+            <PreviewGrid doc={doc} pages={visiblePages} urls={urls} scale={zoom} onEdit={goEdit} />
             {visiblePages.length === 0 && (
               <Hint>
                 본문 내용이 아직 없습니다. 광고를 붙여넣거나 본문 말씀을 입력하면 여기에 나타납니다.

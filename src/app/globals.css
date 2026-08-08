@@ -463,3 +463,51 @@ button {
     animation: none;
   }
 }
+
+/*
+ * 미리보기에서 고칠 수 있는 구역.
+ *
+ * 평소에는 아무 표시도 하지 않는다 — 미리보기는 인쇄될 모습 그대로여야 한다.
+ * 마우스를 올린 동안에만 그 구역을 옅게 둘러 보여준다.
+ *
+ * :has() 로 안쪽에 또 다른 구역이 올라와 있는 경우를 뺀다.
+ * 없으면 생일 명단을 가리켰을 때 그것을 감싼 장까지 함께 둘러져 두 겹으로 보인다.
+ * outline 을 쓰는 까닭은 자리를 차지하지 않아서다 — border 는 조판을 밀어낸다.
+ */
+.editable [data-edit]:hover:not(:has([data-edit]:hover)) {
+  /*
+   * 테두리도 함께 줄어든다 — 미리보기는 0.3~0.5배로 그려지므로 2px 는 1px 아래로 보인다.
+   * 실제 인쇄물에는 나가지 않는 표시라 두껍게 잡아도 잃을 것이 없다.
+   */
+  outline: 5px solid var(--ui-accent);
+  outline-offset: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/*
+ * 눌러서 찾아온 입력 칸이 잠깐 빛난다.
+ * 굴러가 멈춘 자리에 여러 칸이 함께 보이므로, 어느 칸으로 왔는지 짚어주지 않으면
+ * 화면만 움직이고 만 것처럼 읽힌다.
+ */
+.edit-glow {
+  animation: edit-glow 1.4s ease-out;
+  border-radius: 12px;
+}
+
+@keyframes edit-glow {
+  0%,
+  55% {
+    box-shadow: 0 0 0 3px var(--ui-accent);
+  }
+  100% {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edit-glow {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--ui-accent);
+  }
+}

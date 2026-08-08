@@ -6,6 +6,7 @@ import { Btn, Hint } from "../ui";
 import { blockLabel } from "../FlowBlocks";
 import { DEFAULT_STYLES, FONT_SIZE, resolveStyle, type Role } from "@/lib/layout";
 import { SERMON_HEADING } from "@/lib/settings";
+import { blockTarget } from "@/lib/editTargets";
 import { moveBlock, newId, updateBlock } from "@/lib/store";
 import type {
   AdBlock,
@@ -58,6 +59,7 @@ export function BlockEditor({ doc, setDoc }: Props) {
         return (
           <div
             key={b.id}
+            data-edit-target={blockTarget(b.id)}
             className="rounded-xl border bg-white"
             style={{ borderColor: "var(--ui-border)" }}
           >

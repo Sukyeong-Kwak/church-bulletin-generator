@@ -15,6 +15,7 @@ import { Btn, Field, Hint, Section, Slider, Warn } from "@/components/ui";
 import { DEFAULT_STYLES, FONTS, monthOf, yearMonth } from "@/lib/layout";
 import { formatMonth, groupByMonth, parseBirthdays } from "@/lib/parseBirthdays";
 import { newId, useDoc } from "@/lib/store";
+import { useEditFocus } from "@/lib/useEditFocus";
 import { useFitScale } from "@/lib/useFitScale";
 import type { CoverText, LaidOutPage, WorshipRow } from "@/lib/types";
 
@@ -34,6 +35,7 @@ export default function FixedPagesPage() {
   const [tab, setTab] = useState<Tab>("cover");
   // 좁은 화면에서는 미리보기를 화면 폭에 맞춘다
   const previewScale = useFitScale(0.4, 0.5, 60);
+  const { goEdit } = useEditFocus();
 
   if (!loaded) return null;
 
@@ -76,7 +78,7 @@ export default function FixedPagesPage() {
           <p className="mb-2 text-[12px] font-bold">
             고정 페이지 미리보기 · 날짜는 작성 중인 주보({doc.serviceDate}) 기준입니다
           </p>
-          <PreviewGrid doc={doc} pages={fixedPages} urls={urls} scale={previewScale} />
+          <PreviewGrid doc={doc} pages={fixedPages} urls={urls} scale={previewScale} onEdit={goEdit} />
         </div>
       }
     />
@@ -125,7 +127,11 @@ function CoverEditor() {
 
   return (
     <>
-      <Section title="표지 이미지" desc="아치형 교회명 등 표지 디자인이 포함된 이미지를 올립니다.">
+      <Section
+        anchor="cover.image"
+        title="표지 이미지"
+        desc="아치형 교회명 등 표지 디자인이 포함된 이미지를 올립니다."
+      >
         <div className="flex flex-col gap-2.5">
           <ImageUpload
             label="표지 전용 이미지"
@@ -149,6 +155,7 @@ function CoverEditor() {
       </Section>
 
       <Section
+        anchor="cover.texts"
         title="표지 글자"
         desc="문구만 고치면 됩니다. 휘어짐이 양수면 가운데가 위로(∩), 음수면 아래로(∪) 휩니다."
         right={
@@ -263,6 +270,7 @@ function CoverEditor() {
       </Section>
 
       <Section
+        anchor="cover.logo"
         title="퍼즐 로고"
         desc="기본 로고가 들어 있어 따로 올리지 않아도 됩니다. 미리캔버스 건별 결제가 필요 없습니다."
       >
@@ -477,7 +485,11 @@ function WorshipEditor() {
 
   return (
     <>
-      <Section title="예배 안내" desc="라벨은 우측, 시간·장소는 좌측으로 자동 정렬됩니다.">
+      <Section
+        anchor="worship.rows"
+        title="예배 안내"
+        desc="라벨은 우측, 시간·장소는 좌측으로 자동 정렬됩니다."
+      >
         <div className="flex flex-col gap-2">
           <Field label="페이지 제목">
             <input
@@ -530,6 +542,7 @@ function WorshipEditor() {
       </Section>
 
       <Section
+        anchor="worship.notice"
         title="고정 안내"
         desc="예배 안내 아래, 생일 위에 들어갑니다. 한 번 적어두면 모든 주보에 그대로 따라갑니다."
       >
@@ -561,6 +574,7 @@ function WorshipEditor() {
       </Section>
 
       <Section
+        anchor="worship.birthdays"
         title="생일 명단"
         desc="월별로 계속 보관됩니다. 같은 달 주보에는 자동으로 들어갑니다."
       >

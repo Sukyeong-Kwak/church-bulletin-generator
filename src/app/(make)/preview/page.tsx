@@ -11,6 +11,7 @@ import { formatServiceDate } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { nowUrl } from "@/lib/publish";
 import { useDoc } from "@/lib/store";
+import { useEditFocus } from "@/lib/useEditFocus";
 import { useFitScale } from "@/lib/useFitScale";
 
 /**
@@ -35,6 +36,7 @@ export default function PreviewPage() {
 
   // 화면 폭에 맞춰 두다가, 사용자가 손대는 순간부터 그 값을 지킨다
   const fit = useFitScale(0.42);
+  const { goEdit } = useEditFocus();
   const [picked, setPicked] = useState<number | null>(null);
   const zoom = picked ?? fit;
 
@@ -110,7 +112,7 @@ export default function PreviewPage() {
           </div>
         )}
 
-        <PreviewGrid doc={doc} pages={pages} urls={urls} scale={zoom} />
+        <PreviewGrid doc={doc} pages={pages} urls={urls} scale={zoom} onEdit={goEdit} />
         {pages.length === 2 && (
           <div className="mt-3">
             <Hint>

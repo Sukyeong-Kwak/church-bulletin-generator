@@ -25,6 +25,7 @@ import {
   resolveStyle,
   yearMonth,
 } from "@/lib/layout";
+import { blockTarget, coverTextTarget } from "@/lib/editTargets";
 import { useFontsReady } from "@/lib/useFontsReady";
 import type { BulletinDoc, LaidOutPage, Theme } from "@/lib/types";
 
@@ -61,7 +62,13 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
         // next/image는 최적화 과정에서 원본 화질을 줄이고 내보내기(html-to-image) 시
         // 캡처되지 않는 형태로 감싸기 때문에 원본 그대로 그리는 img를 쓴다
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={bg} alt="" style={bgImg} draggable={false} />
+        <img
+          src={bg}
+          alt=""
+          style={bgImg}
+          draggable={false}
+          data-edit={isCover ? "cover.image" : "theme.background"}
+        />
       ) : (
         <div style={{ ...bgImg, background: "#EFEBE2" }} />
       )}
@@ -76,7 +83,9 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
       )}
 
       {isCover &&
-        (fixed.cover.texts ?? []).map((t) => <CoverTextView key={t.id} item={t} />)}
+        (fixed.cover.texts ?? []).map((t) => (
+          <CoverTextView key={t.id} item={t} editTarget={coverTextTarget(t.id)} />
+        ))}
 
       {isCover && fixed.cover.showLogo !== false && fixed.cover.logo && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -84,6 +93,7 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
           src={logoUrl ?? DEFAULT_LOGO}
           alt=""
           draggable={false}
+          data-edit="cover.logo"
           style={{
             position: "absolute",
             left: fixed.cover.logo.x,
@@ -156,6 +166,7 @@ function FlowContent({ doc, page }: { doc: BulletinDoc; page: LaidOutPage }) {
           {page.blocks.map((b, i) => (
             <div
               key={b.id}
+              data-edit={blockTarget(b.id)}
               style={{
                 marginTop: i === 0 ? 0 : BLOCK_GAP,
                 // 자리 자체는 그대로 두고 그려지는 위치만 옮긴다 — 페이지 나눔이 흔들리지 않는다
@@ -217,15 +228,18 @@ export function WorshipContent({ doc }: { doc: BulletinDoc }) {
         그만큼 아래 명단이 자리를 더 있다고 여겨 카드 밖으로 밀린다.
       */}
       <div ref={aboveRef} style={{ display: "flow-root" }}>
-        <Txt role="worshipHeading" theme={theme}>
-          {w.heading}
-        </Txt>
+        <div data-edit="worship.heading">
+          <Txt role="worshipHeading" theme={theme}>
+            {w.heading}
+          </Txt>
+        </div>
 
         {/*
           라벨은 가운데 거터 기준 오른쪽, 값은 왼쪽 정렬.
           두 칸을 내용 폭에 맞춰 잡고 그룹 전체를 가운데 두어야 원본과 같은 모양이 된다.
         */}
         <div
+          data-edit="worship.rows"
           style={{
             display: "grid",
             gridTemplateColumns: "auto auto",
@@ -253,32 +267,40 @@ export function WorshipContent({ doc }: { doc: BulletinDoc }) {
           예배 안내 바로 아래에 둔다 — 예배가 끝나고 이어지는 일이라 그 옆에 붙어야 읽히고,
           생일은 그 달에만 해당하는 것이라 뒤로 물러난다.
         */}
-        {w.noticeHeading?.trim() ? (
-          <Txt role="noticeHeading" theme={theme} override={w.noticeHeadingStyle}>
-            {w.noticeHeading}
-          </Txt>
-        ) : null}
-        {w.noticeBody?.trim() ? (
-          <Txt role="noticeLine" theme={theme} override={w.noticeBodyStyle} preserveLines>
-            {w.noticeBody}
-          </Txt>
-        ) : null}
+        {(w.noticeHeading?.trim() || w.noticeBody?.trim()) && (
+          <div data-edit="worship.notice">
+            {w.noticeHeading?.trim() ? (
+              <Txt role="noticeHeading" theme={theme} override={w.noticeHeadingStyle}>
+                {w.noticeHeading}
+              </Txt>
+            ) : null}
+            {w.noticeBody?.trim() ? (
+              <Txt role="noticeLine" theme={theme} override={w.noticeBodyStyle} preserveLines>
+                {w.noticeBody}
+              </Txt>
+            ) : null}
+          </div>
+        )}
 
         {w.birthdayHeading && (
-          <Txt role="birthdayHeading" theme={theme}>
-            {w.birthdayHeading.replace("{month}", String(monthOf(serviceDate)))}
-          </Txt>
+          <div data-edit="worship.birthdays">
+            <Txt role="birthdayHeading" theme={theme}>
+              {w.birthdayHeading.replace("{month}", String(monthOf(serviceDate)))}
+            </Txt>
+          </div>
         )}
       </div>
 
       {people.length > 0 && (
-        <BirthdayNames
-          people={people}
-          theme={theme}
-          avail={Math.max(0, CONTENT.h - above)}
-          fixedCols={w.birthdayCols}
-          fixedSize={w.birthdayNameSize}
-        />
+        <div data-edit="worship.birthdays">
+          <BirthdayNames
+            people={people}
+            theme={theme}
+            avail={Math.max(0, CONTENT.h - above)}
+            fixedCols={w.birthdayCols}
+            fixedSize={w.birthdayNameSize}
+          />
+        </div>
       )}
     </div>
   );

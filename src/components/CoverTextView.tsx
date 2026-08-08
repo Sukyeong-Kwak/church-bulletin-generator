@@ -11,7 +11,7 @@ const SIDE_PAD = 44;
  * curve가 0보다 크면 가운데가 위로 솟는 곡선을 따라 글자가 휘어진다(아치형 교회명).
  * 테두리는 paint-order로 글자 뒤에 깔아 원본처럼 얇게 둘러진다.
  */
-export function CoverTextView({ item }: { item: CoverText }) {
+export function CoverTextView({ item, editTarget }: { item: CoverText; editTarget?: string }) {
   const uid = useId().replace(/:/g, "");
   const pathId = `cover-${uid}-${item.id}`;
 
@@ -26,6 +26,7 @@ export function CoverTextView({ item }: { item: CoverText }) {
 
   return (
     <svg
+      data-edit={editTarget}
       style={{
         position: "absolute",
         left: 0,

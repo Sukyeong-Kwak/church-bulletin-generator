@@ -7,14 +7,21 @@ export function Section({
   right,
   children,
   desc,
+  anchor,
 }: {
   title: string;
   right?: ReactNode;
   desc?: string;
   children: ReactNode;
+  /**
+   * 미리보기에서 이 칸으로 찾아올 때 쓰는 이름표 (lib/editTargets).
+   * 주보의 어느 구역을 눌렀을 때 굴러와 잠깐 빛나는 자리가 된다.
+   */
+  anchor?: string;
 }) {
   return (
     <section
+      data-edit-target={anchor}
       className="rounded-xl border bg-white p-3.5"
       style={{ borderColor: "var(--ui-border)" }}
     >

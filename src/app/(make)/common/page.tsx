@@ -6,6 +6,7 @@ import { SplitView } from "@/components/SplitView";
 import { Field, Hint, Section, Slider, SliderEnds, Warn } from "@/components/ui";
 import { grayColor, grayLevel } from "@/lib/layout";
 import { useDoc } from "@/lib/store";
+import { useEditFocus } from "@/lib/useEditFocus";
 import { useFitScale } from "@/lib/useFitScale";
 import type { LaidOutPage } from "@/lib/types";
 
@@ -18,6 +19,7 @@ export default function CommonPage() {
   const { doc, setDoc, settings, setSettings, urls, loaded } = useDoc();
 
   const previewScale = useFitScale(0.4, 0.5, 60);
+  const { goEdit } = useEditFocus();
 
   if (!loaded) return null;
 
@@ -48,6 +50,7 @@ export default function CommonPage() {
             </Section>
 
             <Section
+              anchor="theme.background"
               title="배경 이미지"
               desc="모든 페이지의 배경으로 쓰입니다. (표지만 다르게 하려면 고정 페이지에서 표지 전용 이미지를 올리세요)"
             >
@@ -148,7 +151,7 @@ export default function CommonPage() {
             <p className="mb-2 text-[12px] font-bold">
               공통 요소 확인 · 날짜와 푸터는 전 페이지 같은 자리에 들어갑니다
             </p>
-            <PreviewGrid doc={doc} pages={samplePages} urls={urls} scale={previewScale} />
+            <PreviewGrid doc={doc} pages={samplePages} urls={urls} scale={previewScale} onEdit={goEdit} />
           </div>
         }
       />

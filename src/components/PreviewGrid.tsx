@@ -1,5 +1,6 @@
 "use client";
 
+import { editRoute } from "@/lib/editTargets";
 import { CANVAS } from "@/lib/layout";
 import type { BulletinDoc, LaidOutPage } from "@/lib/types";
 import { BulletinPage } from "./BulletinPage";
@@ -13,6 +14,8 @@ interface Props {
   /** 내보내기용 노드 등록 — 축소는 부모 transform으로만 하므로 원본 크기 그대로 캡처된다 */
   registerRef?: (index: number, el: HTMLDivElement | null) => void;
   onSelectPage?: (page: LaidOutPage) => void;
+  /** 주보의 한 구역을 눌렀을 때 — 그것을 고치는 자리로 데려간다 */
+  onEdit?: (target: string) => void;
   selectedIndex?: number;
   /**
    * 쪽 아래 설명줄('1 표지 고정')을 보일지.
@@ -30,6 +33,7 @@ export function PreviewGrid({
   scale,
   registerRef,
   onSelectPage,
+  onEdit,
   selectedIndex,
   showCaption = true,
 }: Props) {
@@ -38,7 +42,20 @@ export function PreviewGrid({
       {pages.map((page) => (
         <div key={page.index} className="flex flex-col gap-1.5">
           <div
-            onClick={() => onSelectPage?.(page)}
+            onClick={(e) => {
+              /*
+               * 눌린 자리가 고칠 수 있는 구역인지 안쪽부터 훑어 올라간다.
+               * closest 라서 겹쳐 있어도 가장 안쪽 것이 잡힌다 —
+               * 생일 명단을 눌렀는데 청년부 일정 장 전체가 잡히는 일이 없다.
+               */
+              const hit = (e.target as Element | null)?.closest?.("[data-edit]");
+              const target = hit?.getAttribute("data-edit");
+              if (onEdit && target) {
+                onEdit(target);
+                return;
+              }
+              onSelectPage?.(page);
+            }}
             className="relative overflow-hidden rounded-lg border bg-white"
             style={{
               width: CANVAS.w * scale,
@@ -47,11 +64,22 @@ export function PreviewGrid({
                 selectedIndex === page.index ? "var(--ui-accent)" : "var(--ui-border)",
               boxShadow:
                 selectedIndex === page.index ? "0 0 0 2px #dbe4ff" : "0 1px 2px rgba(0,0,0,.05)",
-              cursor: onSelectPage ? "pointer" : "default",
+              cursor: onSelectPage || onEdit ? "pointer" : "default",
             }}
           >
             <div
-              className="page-scale"
+              className={onEdit ? "page-scale editable" : "page-scale"}
+            // 어느 화면 어느 칸이 맡는지 그 자리에서 알려준다 — 눌러보기 전에 알 수 있어야 한다
+            onMouseOver={
+              onEdit
+                ? (e) => {
+                    const hit = (e.target as Element | null)?.closest?.("[data-edit]");
+                    if (!(hit instanceof HTMLElement) || hit.title) return;
+                    const route = editRoute(hit.dataset.edit ?? "");
+                    if (route) hit.title = `${route.label}에서 고칩니다`;
+                  }
+                : undefined
+            }
               style={{ transform: `scale(${scale})`, width: CANVAS.w, height: CANVAS.h }}
             >
               <div ref={(el) => registerRef?.(page.index, el)}>
