@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthError, AuthShell } from "@/components/auth/AuthShell";
+import { authMessage } from "@/components/auth/messages";
 import { VerifyCode } from "@/components/auth/VerifyCode";
 import { Btn, Field, Hint } from "@/components/ui";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -22,7 +23,13 @@ function LoginForm() {
   const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string>();
+  // 메일 링크가 통하지 않으면 /auth/callback 이 이리로 되돌려 보낸다.
+  // 까닭을 적어두지 않으면 눌렀는데 로그인 화면만 떠서, 링크가 죽은 줄도 모르고 계속 누르게 된다.
+  const [error, setError] = useState<string | undefined>(
+    params.get("error") === "link"
+      ? "메일 링크가 만료되었거나 이미 사용되었습니다. 아래에서 다시 시도해주세요."
+      : undefined,
+  );
   const [busy, setBusy] = useState(false);
   /** 메일 인증이 아직인 계정 — 로그인 대신 인증번호부터 받는다 */
   const [unconfirmed, setUnconfirmed] = useState(false);
@@ -66,11 +73,7 @@ function LoginForm() {
         await supabase.auth.resend({ type: "signup", email });
         setUnconfirmed(true);
       } else {
-        setError(
-          error.message.includes("Invalid login")
-            ? "이메일 또는 비밀번호가 맞지 않습니다."
-            : error.message,
-        );
+        setError(authMessage(error.message));
       }
       setBusy(false);
       return;

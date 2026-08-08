@@ -112,16 +112,21 @@ export function Nav() {
         {enabled && user && (
           <>
             {/*
-             * 누구로 들어와 있는지 — 여럿이 같은 컴퓨터를 쓰는 자리라 이름이 보여야 한다.
-             * 다만 폰에서는 이름까지 놓을 자리가 없다. 이메일이 길면 메뉴가 화면 밖으로
-             * 밀려나므로, 좁은 화면에서는 접고 남는 자리만큼만 보여준다.
-             */}
-            <span
-              className="hidden max-w-[140px] truncate text-[12px] font-semibold sm:inline"
-              title={user.email}
+              누구로 들어와 있는지 — 여럿이 같은 컴퓨터를 쓰는 자리라 이름이 보여야 한다.
+              눌러서 내 계정(비밀번호 바꾸기)으로 간다. 자기 이름은 자기 설정을 찾는 자리다.
+
+              다만 폰에서는 이름까지 놓을 자리가 없다. 이메일이 길면 메뉴가 화면 밖으로
+              밀려나므로, 좁은 화면에서는 '계정' 두 글자로 접는다 —
+              통째로 감추면 폰에서는 비밀번호를 바꾸러 갈 길 자체가 없어진다.
+            */}
+            <Link
+              href="/account"
+              className="shrink-0 truncate text-[12px] font-semibold sm:max-w-[140px]"
+              title={`${user.email} · 비밀번호 바꾸기`}
             >
-              {user.name || user.email}
-            </span>
+              <span className="hidden sm:inline">{user.name || user.email}</span>
+              <span className="sm:hidden">계정</span>
+            </Link>
             <button
               onClick={handleSignOut}
               className="shrink-0 text-[12px]"

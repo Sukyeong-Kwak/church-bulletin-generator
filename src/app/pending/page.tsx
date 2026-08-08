@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthError, AuthShell } from "@/components/auth/AuthShell";
 import { Btn, Field, Hint } from "@/components/ui";
@@ -105,6 +106,11 @@ function Pending() {
       </form>
 
       <Hint>초대코드는 발급 후 24시간 동안만 쓸 수 있습니다.</Hint>
+
+      {/* 승인을 기다리는 동안에도 자기 계정은 손볼 수 있어야 한다 (여기는 상단 메뉴가 없다) */}
+      <Link href="/account" className="text-center text-[12px]" style={{ color: "var(--ui-muted)" }}>
+        비밀번호 바꾸기
+      </Link>
 
       <Btn variant="ghost" onClick={signOut}>
         로그아웃

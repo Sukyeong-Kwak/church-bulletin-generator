@@ -4,21 +4,13 @@ import { useEffect, useState } from "react";
 import { Btn, Field, Hint } from "@/components/ui";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { AuthError, AuthNotice } from "./AuthShell";
+import { authMessage } from "./messages";
 
 /** 다시 보내기를 누를 수 있게 되기까지 (초) */
 const RESEND_WAIT = 60;
 
 /** 인증번호 자리수 — Supabase 기본값 */
 const CODE_LENGTH = 6;
-
-function readable(message: string): string {
-  const m = message.toLowerCase();
-  if (m.includes("expired") || m.includes("invalid"))
-    return "인증번호가 맞지 않거나 시간이 지났습니다. 아래 '다시 보내기'를 눌러 새 번호를 받아주세요.";
-  if (m.includes("rate limit") || m.includes("for security purposes"))
-    return "메일을 너무 자주 보냈습니다. 1분쯤 뒤에 다시 시도해주세요.";
-  return message;
-}
 
 /**
  * 메일로 받은 인증번호를 입력받아 메일 주소를 확인한다.
@@ -65,7 +57,7 @@ export function VerifyCode({
     });
 
     if (error) {
-      setError(readable(error.message));
+      setError(authMessage(error.message));
       setBusy(false);
       return;
     }
@@ -81,7 +73,7 @@ export function VerifyCode({
 
     const { error } = await supabaseBrowser()!.auth.resend({ type: "signup", email });
 
-    if (error) setError(readable(error.message));
+    if (error) setError(authMessage(error.message));
     else {
       setNotice("인증번호를 다시 보냈습니다.");
       setLeft(RESEND_WAIT);

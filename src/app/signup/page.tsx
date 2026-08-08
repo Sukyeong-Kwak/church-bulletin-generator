@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthError, AuthShell } from "@/components/auth/AuthShell";
+import { authMessage } from "@/components/auth/messages";
 import { VerifyCode } from "@/components/auth/VerifyCode";
 import { Btn, Field, Hint } from "@/components/ui";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -24,11 +25,21 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  /** 비밀번호는 눈에 보이지 않아 오타를 알아챌 수 없다. 두 번 받아 맞춰본다. */
+  const [password2, setPassword2] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   /** 인증번호를 보냈고 입력을 기다리는 중 */
   const [sent, setSent] = useState(false);
+  /**
+   * 이미 신청된 적이 있는 주소였다.
+   *
+   * Supabase는 있는 주소인지 아닌지를 알려주지 않는다 — 아무나 회원 명단을 캐내지 못하게 하려는 것이다.
+   * 그래서 '아직 인증 전'과 '이미 인증 끝'이 똑같은 모양으로 돌아온다. 둘을 가려낼 방법이 없으니
+   * 인증번호 칸은 그대로 내주고, 어느 쪽이든 갈 길을 찾을 수 있게 말로 안내한다.
+   */
+  const [again, setAgain] = useState(false);
   /**
    * 초대코드가 있어야 하는가.
    * 아무도 없는 새 DB의 첫 사람만 예외다 — 코드를 줄 관리자가 아직 없기 때문이다.
@@ -85,9 +96,15 @@ export default function SignupPage() {
       setError("비밀번호는 8자 이상으로 정해주세요.");
       return;
     }
+    // 여기서 오타가 나면 인증번호까지 다 넣고 나서야 로그인이 안 되는 것으로 드러난다
+    if (password !== password2) {
+      setError("비밀번호가 서로 다릅니다. 두 칸을 같게 넣어주세요.");
+      return;
+    }
 
     setBusy(true);
     setError(undefined);
+    setAgain(false);
     const supabase = supabaseBrowser()!;
     const entered = code.trim();
 
@@ -96,7 +113,14 @@ export default function SignupPage() {
       const { data: valid, error: checkError } = await supabase.rpc("check_invite_code", {
         p_code: entered,
       });
-      if (checkError || !valid) {
+      // 못 물어본 것과 '아니다'라는 답은 다르다.
+      // 한데 묶으면 잠깐 끊긴 인터넷 때문에 멀쩡한 코드를 버리고 다시 받으러 가게 된다.
+      if (checkError) {
+        setError(`초대코드를 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요. (${checkError.message})`);
+        setBusy(false);
+        return;
+      }
+      if (!valid) {
         setError("초대코드가 유효하지 않거나 24시간이 지났습니다. 발급한 분께 다시 받아주세요.");
         setBusy(false);
         return;
@@ -110,25 +134,16 @@ export default function SignupPage() {
     });
 
     if (signUpError) {
-      setError(
-        signUpError.message.includes("already registered")
-          ? "이미 가입된 이메일입니다. 로그인해주세요."
-          : // 가입 조건은 DB에서도 막는다. 걸리면 이 뭉뚱그린 메시지로 돌아온다.
-            signUpError.message.toLowerCase().includes("database error")
-            ? "이름과 초대코드를 다시 확인해주세요."
-            : signUpError.message,
-      );
+      // 가입 조건은 DB에서도 막는다. 트리거가 올린 말은 이미 우리말이라 그대로 지나간다.
+      setError(authMessage(signUpError.message));
       setBusy(false);
       return;
     }
 
-    // 이미 가입을 마친 주소로 다시 신청하면 Supabase는 빈 계정을 돌려준다.
-    // (있는 주소인지 아닌지를 아무나 알아내지 못하게 하려는 것이다)
-    if (data.user && data.user.identities?.length === 0) {
-      setError("이미 가입된 이메일입니다. 로그인해주세요.");
-      setBusy(false);
-      return;
-    }
+    // 이미 신청된 적이 있는 주소면 Supabase는 빈 계정을 돌려준다.
+    // 아직 인증 전인 사람에게는 이때 인증번호를 다시 보내준다 — 그러니 여기서 끊으면 안 된다.
+    // 끊어버리면 메일이 늦어 한 번 더 누른 사람이 번호를 받아 들고도 넣을 칸을 못 찾는다.
+    if (data.user && data.user.identities?.length === 0) setAgain(true);
 
     // 메일 확인이 꺼져 있으면 이 자리에서 바로 로그인된다
     if (data.session) {
@@ -143,15 +158,26 @@ export default function SignupPage() {
   if (sent) {
     return (
       <AuthShell
-        title="인증번호를 보냈습니다"
-        desc={`${email} 로 6자리 숫자를 보냈습니다. 번호를 넣어야 가입이 끝납니다.`}
+        title={again ? "이미 신청된 주소입니다" : "인증번호를 보냈습니다"}
+        desc={
+          again
+            ? `${email} 로는 이미 가입 신청이 되어 있습니다. 아직 메일 인증 전이라면 방금 다시 보낸 6자리 번호를 넣어 마저 끝내주세요. 이미 인증을 마친 주소라면 아래에서 로그인하시면 됩니다.`
+            : `${email} 로 6자리 숫자를 보냈습니다. 번호를 넣어야 가입이 끝납니다.`
+        }
         footer={
           <Link href="/login" style={{ color: "var(--ui-accent)", fontWeight: 700 }}>
             로그인 화면으로
           </Link>
         }
       >
-        <VerifyCode email={email} onVerified={finish} onBack={() => setSent(false)} />
+        <VerifyCode
+          email={email}
+          onVerified={finish}
+          onBack={() => {
+            setSent(false);
+            setAgain(false);
+          }}
+        />
       </AuthShell>
     );
   }
@@ -196,6 +222,16 @@ export default function SignupPage() {
             required
             minLength={8}
             onChange={(e) => setPassword(e.target.value)}
+          />
+        </Field>
+        <Field label="비밀번호 다시 넣기">
+          <input
+            type="password"
+            value={password2}
+            autoComplete="new-password"
+            required
+            minLength={8}
+            onChange={(e) => setPassword2(e.target.value)}
           />
         </Field>
         <Field label={needCode ? "초대코드" : "초대코드 (첫 관리자는 비워두세요)"}>
