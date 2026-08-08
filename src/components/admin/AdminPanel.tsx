@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { usePopup } from "../Popup";
 import type { AppUser, InviteCode, UserDecision } from "@/lib/supabase/types";
 import { Btn, Hint, Section } from "../ui";
 
@@ -34,6 +35,17 @@ const ACTION_LABEL: Record<AppUser["status"], string> = {
 
 /** 사유를 반드시 받아야 하는 판단 — 사람을 막는 쪽이다 */
 const NEEDS_REASON: AppUser["status"][] = ["rejected", "blocked"];
+
+/**
+ * 다 하고 난 뒤에 띄우는 말.
+ * 목록이 조용히 새로 그려지기만 하면 눌린 것인지 아닌지 알 수 없다.
+ */
+const DONE_LABEL: Record<AppUser["status"], string> = {
+  pending: "승인 대기로 되돌렸습니다.",
+  approved: "승인했습니다. 이제 주보를 만들 수 있습니다.",
+  rejected: "거절했습니다. 사유는 이력에 남았습니다.",
+  blocked: "로그인을 차단했습니다. 사유는 이력에 남았습니다.",
+};
 
 /**
  * 이력 한 줄이 무슨 일이었는지.
@@ -236,6 +248,8 @@ export function AdminPanel({ meId }: { meId: string }) {
   const [asking, setAsking] = useState<Asking>();
   const [reason, setReason] = useState("");
 
+  const { notify, confirm } = usePopup();
+
   const load = useCallback(async () => {
     const supabase = supabaseBrowser();
     if (!supabase) return;
@@ -281,6 +295,24 @@ export function AdminPanel({ meId }: { meId: string }) {
       return;
     }
 
+    // 사람의 자리를 바꾸는 일이라 한 번 더 묻는다.
+    // 거절·차단은 사유를 적는 칸이 이미 한 걸음이므로 여기서 또 묻지 않는다 —
+    // 두 번 물으면 확인이 아니라 성가신 절차가 되어 읽지 않고 누르게 된다.
+    if (!NEEDS_REASON.includes(status)) {
+      const who = users.find((u) => u.id === id);
+      const name = who?.name || who?.email || "이 사람";
+      const back = who?.status === "rejected" || who?.status === "blocked";
+
+      const ok = await confirm({
+        title: back ? `${name} 님을 다시 들이시겠어요?` : `${name} 님의 가입을 승인할까요?`,
+        desc: back
+          ? "지금까지 막혀 있던 계정이 바로 열립니다. 되돌린 사실은 이력에 남습니다."
+          : "승인하면 바로 주보를 만들고 고칠 수 있게 됩니다.",
+        confirmLabel: "승인",
+      });
+      if (!ok) return;
+    }
+
     setBusy(true);
     setError(undefined);
 
@@ -292,6 +324,7 @@ export function AdminPanel({ meId }: { meId: string }) {
 
     if (error) {
       setError(error.message);
+      notify("바꾸지 못했습니다. 아래 오류를 확인해주세요.", { tone: "error" });
       setBusy(false);
       return;
     }
@@ -300,13 +333,40 @@ export function AdminPanel({ meId }: { meId: string }) {
     setReason("");
     await load();
     setBusy(false);
+    notify(DONE_LABEL[status], { tone: status === "approved" ? "success" : "info" });
   };
 
+  /**
+   * 역할 바꾸기.
+   *
+   * 관리자로 올리는 것은 이 서비스에서 가장 큰 권한을 건네는 일이다 —
+   * 그 사람이 다른 사람을 거절하고 차단할 수 있게 된다. 반드시 한 번 더 묻는다.
+   */
   const setRole = async (id: string, role: AppUser["role"]) => {
+    const who = users.find((u) => u.id === id);
+    const name = who?.name || who?.email || "이 사람";
+    const up = role === "admin";
+
+    const ok = await confirm({
+      title: up ? `${name} 님을 관리자로 올릴까요?` : `${name} 님을 편집자로 내릴까요?`,
+      desc: up
+        ? "가입 승인·거절, 로그인 차단, 초대코드 발급을 할 수 있게 됩니다."
+        : "승인·거절과 초대코드 발급을 더 이상 할 수 없게 됩니다. 주보 작성은 그대로 할 수 있습니다.",
+      confirmLabel: up ? "관리자로 올리기" : "편집자로 내리기",
+      tone: up ? "default" : "danger",
+    });
+    if (!ok) return;
+
     setBusy(true);
+    setError(undefined);
     const supabase = supabaseBrowser()!;
     const { error } = await supabase.from("users").update({ role }).eq("id", id);
-    if (error) setError(error.message);
+    if (error) {
+      setError(error.message);
+      notify("역할을 바꾸지 못했습니다.", { tone: "error" });
+    } else {
+      notify(up ? "관리자로 올렸습니다." : "편집자로 내렸습니다.", { tone: "info" });
+    }
     await load();
     setBusy(false);
   };
@@ -322,26 +382,77 @@ export function AdminPanel({ meId }: { meId: string }) {
       expires_at: expires,
       max_uses: 10,
     });
-    if (error) setError(error.message);
+    if (error) {
+      setError(error.message);
+      notify("코드를 만들지 못했습니다.", { tone: "error" });
+    } else {
+      notify("새 코드를 만들었습니다. 복사해서 나눠주세요.", { tone: "success" });
+    }
     await load();
     setBusy(false);
   };
 
+  /**
+   * 복사는 되돌릴 것이 없어 묻지 않는다. 다만 됐는지는 알려줘야 한다 —
+   * 클립보드는 눈에 보이지 않아서, 눌렀는데 아무 일도 없으면 안 눌린 줄 알고 또 누른다.
+   */
+  const copyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      notify(`${code} 복사했습니다. 단톡방에 붙여넣으세요.`, { tone: "success" });
+    } catch {
+      // 브라우저가 클립보드를 막아둔 경우다. 눈으로 읽어 옮길 수 있게 코드를 그대로 띄운다.
+      notify(`복사하지 못했습니다. 코드를 직접 옮겨 적어주세요.\n\n${code}`, {
+        tone: "warn",
+        sticky: true,
+      });
+    }
+  };
+
+  /**
+   * 코드 폐기.
+   * 단톡방에 이미 뿌려진 코드라 누르는 순간 그것을 들고 있던 사람들이 다 같이 막힌다.
+   */
   const revoke = async (id: string) => {
+    const code = codes.find((c) => c.id === id);
+    const left = code ? code.max_uses - code.used_count : 0;
+
+    const ok = await confirm({
+      title: `${code?.code ?? "이 코드"} 를 폐기할까요?`,
+      desc:
+        `이 코드로는 더 이상 가입할 수 없게 됩니다. 되돌릴 수 없습니다.\n` +
+        `아직 ${left}명이 쓸 수 있는 코드입니다 — 단톡방에 올려두셨다면 그분들도 함께 막힙니다.`,
+      confirmLabel: "폐기",
+      tone: "danger",
+    });
+    if (!ok) return;
+
     setBusy(true);
     const supabase = supabaseBrowser()!;
     await supabase.from("invite_codes").update({ revoked: true }).eq("id", id);
     await load();
     setBusy(false);
+    notify("코드를 폐기했습니다.", { tone: "info" });
   };
 
   /** 다 쓴 코드는 목록에서 아주 치운다. 살아 있는 코드는 폐기부터 해야 지울 수 있다. */
   const removeCode = async (id: string) => {
+    const ok = await confirm({
+      title: "목록에서 지울까요?",
+      desc: "이미 못 쓰는 코드라 가입에는 영향이 없습니다. 기록만 사라집니다.",
+      confirmLabel: "삭제",
+      tone: "danger",
+    });
+    if (!ok) return;
+
     setBusy(true);
     setError(undefined);
     const supabase = supabaseBrowser()!;
     const { error } = await supabase.from("invite_codes").delete().eq("id", id);
-    if (error) setError(error.message);
+    if (error) {
+      setError(error.message);
+      notify("지우지 못했습니다.", { tone: "error" });
+    }
     await load();
     setBusy(false);
   };
@@ -446,6 +557,7 @@ export function AdminPanel({ meId }: { meId: string }) {
           onIssue={issueCode}
           onRevoke={revoke}
           onRemove={removeCode}
+          onCopy={copyCode}
         />
       )}
     </div>
@@ -714,12 +826,14 @@ function CodesTab({
   onIssue,
   onRevoke,
   onRemove,
+  onCopy,
 }: {
   codes: InviteCode[];
   busy: boolean;
   onIssue: () => void;
   onRevoke: (id: string) => void;
   onRemove: (id: string) => void;
+  onCopy: (code: string) => Promise<void>;
 }) {
   return (
     <Section
@@ -757,7 +871,7 @@ function CodesTab({
                     </Btn>
                   ) : (
                     <>
-                      <Btn size="sm" onClick={() => void navigator.clipboard.writeText(c.code)}>
+                      <Btn size="sm" onClick={() => void onCopy(c.code)}>
                         복사
                       </Btn>
                       <Btn size="sm" variant="danger" disabled={busy} onClick={() => onRevoke(c.id)}>

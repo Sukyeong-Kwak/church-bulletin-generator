@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePopup } from "@/components/Popup";
 import { Btn, Hint, Section } from "@/components/ui";
 import { getBackend } from "@/lib/backend";
 import { fileNameFor, saveBlob, saveZip } from "@/lib/exportImages";
@@ -27,7 +28,64 @@ export default function LibraryPage() {
     error,
   } = useDoc();
   const { user, enabled, loading: authLoading } = useAuth();
+  const { notify, confirm } = usePopup();
   const router = useRouter();
+
+  /**
+   * 지운 주보는 돌아오지 않는다. 만들어둔 페이지 이미지까지 함께 사라진다.
+   * 목록의 다른 버튼들과 나란히 서 있어 손이 미끄러지기 쉬운 자리다.
+   */
+  const askAndRemove = async (b: { id: string; serviceDate: string }) => {
+    const ok = await confirm({
+      title: `${formatServiceDate(b.serviceDate)} 주보를 지울까요?`,
+      desc: "주보와 만들어둔 페이지 이미지가 함께 사라집니다. 되돌릴 수 없습니다.",
+      confirmLabel: "삭제",
+      tone: "danger",
+    });
+    if (!ok) return;
+
+    if (await removeSaved(b.id)) notify("지웠습니다.", { tone: "info" });
+  };
+
+  /**
+   * 새 주보로 넘어가기.
+   *
+   * 저장하지 않은 것이 있을 때만 묻는다 — 늘 물으면 평소에 클릭만 한 번씩 늘어난다.
+   * 지금 것을 저장하고 넘어가는 길도 함께 내준다. 물어놓고 '그만두기'만 주면
+   * 저장하러 되돌아갔다가 다시 여기로 와야 한다.
+   */
+  const askAndStartNew = async () => {
+    if (dirty) {
+      const keep = await confirm({
+        title: "저장하지 않은 내용이 있습니다",
+        desc: "지금 만들던 주보를 저장하고 새로 시작할까요?\n저장하지 않으면 고친 내용이 사라집니다.",
+        confirmLabel: "저장하고 새로 만들기",
+        cancelLabel: "그만두기",
+      });
+      if (!keep) return;
+
+      const saved = await saveCurrent();
+      if (!saved) {
+        notify("저장하지 못했습니다. 새 주보로 넘어가지 않았습니다.", { tone: "error", sticky: true });
+        return;
+      }
+    }
+
+    startNew();
+    router.push("/");
+  };
+
+  /** 보관함에서 바로 올리는 자리. 편집 화면과 마찬가지로 교인 전체가 보는 것이 바뀐다. */
+  const askAndPublish = async (b: { id: string; serviceDate: string }) => {
+    const ok = await confirm({
+      title: `${formatServiceDate(b.serviceDate)} 주보를 QR에 올릴까요?`,
+      desc: "올리는 즉시 QR을 찍는 교인에게 이 주보가 보입니다.\n지금 올라가 있는 주보가 있다면 그것을 대신합니다.",
+      confirmLabel: "올리기",
+    });
+    if (!ok) return;
+
+    if (await publishSaved(b.id)) notify("QR에 올렸습니다.", { tone: "success" });
+  };
 
   // 지난 주보는 여럿이 함께 보는 기록이라 관리자만 지운다.
   // 서버를 쓰지 않는 로컬 모드에는 계정 자체가 없어 그대로 열어 둔다.
@@ -68,14 +126,7 @@ export default function LibraryPage() {
             : "저장한 주보를 다시 열어 수정하거나, 지난주 것을 복사해 새로 만들 수 있습니다."
         }
         right={
-          <Btn
-            onClick={() => {
-              startNew();
-              router.push("/");
-            }}
-          >
-            새 주보 만들기
-          </Btn>
+          <Btn onClick={() => void askAndStartNew()}>새 주보 만들기</Btn>
         }
       >
         {library.length === 0 ? (
@@ -89,7 +140,7 @@ export default function LibraryPage() {
                 current={b.id === doc.id}
                 live={!!published?.publishedAt && published.bulletinId === b.id}
                 canPublish={!!published}
-                onPublish={() => publishSaved(b.id)}
+                onPublish={() => void askAndPublish(b)}
                 onOpen={() => {
                   openSaved(b.id);
                   router.push("/");
@@ -98,7 +149,7 @@ export default function LibraryPage() {
                   duplicateSaved(b.id);
                   router.push("/");
                 }}
-                onRemove={canDelete ? () => void removeSaved(b.id) : undefined}
+                onRemove={canDelete ? () => void askAndRemove(b) : undefined}
               />
             ))}
           </div>

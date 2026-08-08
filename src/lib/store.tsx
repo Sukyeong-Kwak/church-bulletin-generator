@@ -45,10 +45,12 @@ interface DocContextValue {
   setSettings: (updater: (prev: Settings) => Settings) => void;
   /** 저장된 주보 목록 (최신순) */
   library: BulletinDoc[];
-  saveCurrent: () => Promise<void>;
+  /** 저장에 성공했으면 true. 실패는 화면에서 알려야 하므로 조용히 삼키지 않는다. */
+  saveCurrent: () => Promise<boolean>;
   openSaved: (id: string) => void;
   duplicateSaved: (id: string) => void;
-  removeSaved: (id: string) => Promise<void>;
+  /** 지웠으면 true. 실패는 화면에서 알려야 하므로 조용히 삼키지 않는다. */
+  removeSaved: (id: string) => Promise<boolean>;
   /** 저장 뒤에 고친 것을 모두 버리고 마지막으로 저장한 상태로 되돌린다 */
   revertToSaved: () => void;
   /** 되돌릴 저장본이 있고, 되돌릴 변경도 있는지 */
@@ -61,18 +63,18 @@ interface DocContextValue {
    */
   published: PublishState | null;
   /** 작성 중인 주보를 저장하고 QR 주소에 올린다. 페이지 이미지가 없으면 만들어 함께 올린다. */
-  publishCurrent: (makeImages: () => Promise<Blob[]>) => Promise<void>;
+  publishCurrent: (makeImages: () => Promise<Blob[]>) => Promise<boolean>;
   /** 보관함에 있는 주보로 갈아 끼운다 */
-  publishSaved: (id: string) => Promise<void>;
+  publishSaved: (id: string) => Promise<boolean>;
   /** QR 주소를 다시 닫는다 */
-  unpublish: () => Promise<void>;
+  unpublish: () => Promise<boolean>;
   /**
    * 주일이 아닌 날, 오늘 하루만 연다. 관리자만 쓸 수 있다(잠금은 DB에 있다).
    * QR은 평소 주일에만 열리므로, 수요예배·성탄절처럼 따로 보여줄 날에 쓴다.
    */
-  openToday: () => Promise<void>;
+  openToday: () => Promise<boolean>;
   /** 오늘 따로 열어둔 것을 거둔다. 주보는 그대로 올라가 있다. */
-  closeToday: () => Promise<void>;
+  closeToday: () => Promise<boolean>;
   urls: { background?: string; cover?: string; logo?: string };
   loaded: boolean;
   dirty: boolean;
@@ -277,7 +279,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
     [backend],
   );
 
-  const saveCurrent = useCallback(async () => {
+  const saveCurrent = useCallback(async (): Promise<boolean> => {
     setSaving(true);
     setError(undefined);
     try {
@@ -289,8 +291,10 @@ export function DocProvider({ children }: { children: ReactNode }) {
       setLibrary(nextLibrary);
       setDirty(false);
       prune(saved, nextLibrary, settings);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "저장하지 못했습니다.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -327,13 +331,13 @@ export function DocProvider({ children }: { children: ReactNode }) {
   );
 
   const removeSaved = useCallback(
-    async (id: string) => {
+    async (id: string): Promise<boolean> => {
       try {
         await backend.deleteBulletin(id);
       } catch (e) {
         // 목록에서 지우지 않는다 — 서버에 남아 있는데 사라진 것처럼 보이면 안 된다
         setError(e instanceof Error ? e.message : "삭제하지 못했습니다.");
-        return;
+        return false;
       }
       const nextLibrary = library.filter((b) => b.id !== id);
       setError(undefined);
@@ -343,6 +347,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
         p?.bulletinId === id ? { ...p, bulletinId: null, publishedAt: null } : p,
       );
       prune(doc, nextLibrary, settings);
+      return true;
     },
     [doc, library, settings, backend, prune],
   );
@@ -420,10 +425,10 @@ export function DocProvider({ children }: { children: ReactNode }) {
    * 갈아 끼운 뒤 옛 이미지는 지운다 — 남겨두면 매주 쌓여 저장 공간만 먹는다.
    */
   const publishCurrent = useCallback(
-    async (makeImages: () => Promise<Blob[]>) => {
+    async (makeImages: () => Promise<Blob[]>): Promise<boolean> => {
       if (backend.kind !== "supabase") {
         setError("서버에 연결해야 QR로 공유할 수 있습니다.");
-        return;
+        return false;
       }
 
       setSaving(true);
@@ -451,8 +456,10 @@ export function DocProvider({ children }: { children: ReactNode }) {
         setPublished((p) => ({ bulletinId: saved.id, publishedAt: at, openUntil: p?.openUntil ?? null }));
         // 올리기도 저장이다 — 저장할 때와 똑같이 남는 이미지를 정리한다
         prune(saved, nextLibrary, settings);
+        return true;
       } catch (e) {
         setError(e instanceof Error ? e.message : "QR에 올리지 못했습니다.");
+        return false;
       } finally {
         setSaving(false);
       }
@@ -461,44 +468,52 @@ export function DocProvider({ children }: { children: ReactNode }) {
   );
 
   /** 보관함에 있는 주보로 갈아 끼운다 */
-  const publishSaved = useCallback(async (id: string) => {
+  const publishSaved = useCallback(async (id: string): Promise<boolean> => {
     setError(undefined);
     try {
       const at = await publishBulletin(id);
       setPublished((p) => ({ bulletinId: id, publishedAt: at, openUntil: p?.openUntil ?? null }));
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "QR에 올리지 못했습니다.");
+      return false;
     }
   }, []);
 
-  const unpublish = useCallback(async () => {
+  const unpublish = useCallback(async (): Promise<boolean> => {
     setError(undefined);
     try {
       await unpublishBulletin();
       // 내리기는 닫는 일이다 — 따로 열어둔 것도 DB에서 함께 거둬진다
       setPublished({ bulletinId: null, publishedAt: null, openUntil: null });
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "QR에서 내리지 못했습니다.");
+      return false;
     }
   }, []);
 
-  const openToday = useCallback(async () => {
+  const openToday = useCallback(async (): Promise<boolean> => {
     setError(undefined);
     try {
       const until = await openTodayRpc();
       setPublished((p) => (p ? { ...p, openUntil: until } : p));
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "QR을 열지 못했습니다.");
+      return false;
     }
   }, []);
 
-  const closeToday = useCallback(async () => {
+  const closeToday = useCallback(async (): Promise<boolean> => {
     setError(undefined);
     try {
       await closeTodayRpc();
       setPublished((p) => (p ? { ...p, openUntil: null } : p));
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "QR을 닫지 못했습니다.");
+      return false;
     }
   }, []);
 

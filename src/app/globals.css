@@ -435,3 +435,31 @@ button {
 .scroll-x::-webkit-scrollbar {
   display: none;
 }
+
+/*
+ * 안내·확인 팝업이 나타나는 모양.
+ *
+ * 툭 튀어나오지 않고 살짝 아래에서 올라오며 또렷해진다 —
+ * 화면 한가운데 갑자기 생기면 방금 누른 것과 무관한 일이 벌어진 것처럼 읽힌다.
+ * 움직임을 꺼둔 사람에게는 그냥 나타난다.
+ */
+@keyframes popup-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.popup-pop {
+  animation: popup-pop 0.14s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-pop {
+    animation: none;
+  }
+}

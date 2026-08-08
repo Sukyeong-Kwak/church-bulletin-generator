@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { DocProvider } from "@/lib/store";
 import { Nav } from "@/components/Nav";
+import { PopupProvider } from "@/components/Popup";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
@@ -38,10 +39,16 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
       <body className="h-full flex flex-col overflow-hidden" suppressHydrationWarning>
-        <DocProvider>
-          <Nav />
-          <main className="flex-1 min-h-0 overflow-auto">{children}</main>
-        </DocProvider>
+        {/*
+          팝업은 가장 바깥에 둔다. 어느 화면에서 부르든 같은 자리에 뜨고,
+          화면이 바뀌어도 떠 있던 안내가 함께 사라지지 않는다.
+        */}
+        <PopupProvider>
+          <DocProvider>
+            <Nav />
+            <main className="flex-1 min-h-0 overflow-auto">{children}</main>
+          </DocProvider>
+        </PopupProvider>
         <Analytics />
       </body>
     </html>

@@ -6,6 +6,7 @@ import { formatServiceDate } from "@/lib/layout";
 import { useDoc } from "@/lib/store";
 import { isPublicPath } from "@/lib/supabase/config";
 import { useAuth } from "@/lib/supabase/useAuth";
+import { usePopup } from "./Popup";
 import { Btn } from "./ui";
 
 const MAKE_PATHS = ["/", "/common", "/fixed", "/preview"];
@@ -36,6 +37,7 @@ export function Nav() {
   const router = useRouter();
   const { saveCurrent, revertToSaved, canRevert, dirty, loaded } = useDoc();
   const { user, enabled, signOut } = useAuth();
+  const { notify, confirm } = usePopup();
   const inMake = MAKE_PATHS.includes(path);
   const tabs = user?.role === "admin" ? [...PRIMARY, ADMIN_TAB] : PRIMARY;
 
@@ -49,9 +51,28 @@ export function Nav() {
   };
 
   // 되돌리면 저장 뒤에 한 일이 전부 사라진다 — 한 번 더 묻는다
-  const handleRevert = () => {
-    if (confirm("저장한 뒤에 고친 내용을 모두 버리고 마지막으로 저장한 상태로 돌아갑니다.")) {
-      revertToSaved();
+  const handleRevert = async () => {
+    const ok = await confirm({
+      title: "마지막으로 저장한 상태로 돌아갈까요?",
+      desc: "저장한 뒤에 고친 내용이 모두 사라집니다. 되돌릴 수 없습니다.",
+      confirmLabel: "초기화",
+      tone: "danger",
+    });
+    if (ok) revertToSaved();
+  };
+
+  /**
+   * 저장은 자주 누르는 버튼이라 잘됐다고 매번 띄우지 않는다 — 버튼 글씨가 '저장됨'으로 바뀐다.
+   * 다만 실패는 다르다. 못 저장한 채로 계속 고치다 창을 닫으면 그날 일이 통째로 사라진다.
+   * 그래서 이것만은 눌러서 닫아야 하는 안내로 세운다.
+   */
+  const handleSave = async () => {
+    const ok = await saveCurrent();
+    if (!ok) {
+      notify("저장하지 못했습니다.\n인터넷 연결을 확인한 뒤 다시 눌러주세요.", {
+        tone: "error",
+        sticky: true,
+      });
     }
   };
 
@@ -99,11 +120,11 @@ export function Nav() {
         {loaded && inMake && (
           <>
             {canRevert && (
-              <Btn size="sm" onClick={handleRevert} title="마지막으로 저장한 상태로 되돌립니다">
+              <Btn size="sm" onClick={() => void handleRevert()} title="마지막으로 저장한 상태로 되돌립니다">
                 초기화
               </Btn>
             )}
-            <Btn variant={dirty ? "primary" : "default"} size="sm" onClick={saveCurrent}>
+            <Btn variant={dirty ? "primary" : "default"} size="sm" onClick={() => void handleSave()}>
               {dirty ? "저장" : "저장됨"}
             </Btn>
           </>

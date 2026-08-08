@@ -7,6 +7,7 @@ import { formatServiceDate } from "@/lib/layout";
 import { isSundayInSeoul, nowUrl } from "@/lib/publish";
 import { useDoc } from "@/lib/store";
 import { useAuth } from "@/lib/supabase/useAuth";
+import { usePopup } from "../Popup";
 import { Btn, Hint, Section, Warn } from "../ui";
 
 /**
@@ -41,6 +42,7 @@ function OpenState({
   openUntil: string | null;
   isAdmin: boolean;
   saving: boolean;
+  /** 확인창을 거친 뒤에 도는 것들 — 여기서는 부르기만 한다 */
   onOpen: () => Promise<void>;
   onClose: () => Promise<void>;
 }) {
@@ -117,6 +119,7 @@ export function ShareCard({ getNodes }: { getNodes: () => HTMLElement[] }) {
   const { doc, library, published, publishCurrent, unpublish, openToday, closeToday, saving, error } =
     useDoc();
   const { user } = useAuth();
+  const { notify, confirm } = usePopup();
   const [size, setSize] = useState<Size>(512);
   const [preview, setPreview] = useState<string>();
   const [copied, setCopied] = useState(false);
@@ -177,6 +180,70 @@ export function ShareCard({ getNodes }: { getNodes: () => HTMLElement[] }) {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  /**
+   * QR에 올리기 — 이 화면에서 가장 멀리 가는 일이다.
+   *
+   * 누르는 순간 교인 전체가 보는 것이 바뀐다. 되돌리려면 '내리기'를 눌러야 하는데,
+   * 그 사이에 QR을 찍은 사람은 이미 본 뒤다. 그래서 한 번 더 묻는다.
+   */
+  const askAndPublish = async () => {
+    const ok = await confirm({
+      title: isMine ? "이 주보를 다시 올릴까요?" : "이 주보를 QR에 올릴까요?",
+      desc: live
+        ? `지금 올라가 있는 ${formatServiceDate(live.serviceDate)} 주보를 대신합니다.\n올리는 즉시 QR을 찍는 교인에게 이 주보가 보입니다.`
+        : "올리는 즉시 QR을 찍는 교인에게 이 주보가 보입니다.",
+      confirmLabel: "올리기",
+    });
+    if (!ok) return;
+
+    // 성공했을 때만 성공이라고 말한다. 실패한 까닭은 아래 붉은 줄에 그대로 남는다.
+    if (await publishCurrent(makeImages)) {
+      notify("QR에 올렸습니다. 이제 교인이 찍으면 이 주보가 보입니다.", { tone: "success" });
+    }
+  };
+
+  const askAndUnpublish = async () => {
+    const ok = await confirm({
+      title: "QR에서 내릴까요?",
+      desc: "교인이 QR을 찍어도 아무것도 보이지 않게 됩니다.\n주보 자체는 지워지지 않아 다시 올릴 수 있습니다.",
+      confirmLabel: "내리기",
+      tone: "danger",
+    });
+    if (!ok) return;
+
+    if (await unpublish()) notify("QR에서 내렸습니다.", { tone: "info" });
+  };
+
+  /**
+   * 주일이 아닌 날 여닫기.
+   * 주일 제한은 주보에 생일 명단이 들어가기 때문에 걸어둔 것이라,
+   * 그것을 여는 일은 '오늘 하루만'이라도 가볍게 지나갈 일이 아니다.
+   */
+  const askAndOpenToday = async () => {
+    const ok = await confirm({
+      title: "오늘 하루 교인에게 열까요?",
+      desc: "주일이 아닌 날에도 QR을 찍으면 주보가 보이게 됩니다.\n주보에는 그 달 생일 명단이 들어갑니다. 자정이 지나면 저절로 닫힙니다.",
+      confirmLabel: "오늘 하루 열기",
+    });
+    if (!ok) return;
+
+    if (await openToday()) {
+      notify("오늘 하루 열었습니다. 자정이 지나면 저절로 닫힙니다.", { tone: "success" });
+    }
+  };
+
+  const askAndCloseToday = async () => {
+    const ok = await confirm({
+      title: "지금 닫을까요?",
+      desc: "교인이 QR을 찍어도 주보가 보이지 않게 됩니다.\n올려둔 주보는 그대로 있고, 주일이 되면 다시 열립니다.",
+      confirmLabel: "지금 닫기",
+      tone: "danger",
+    });
+    if (!ok) return;
+
+    if (await closeToday()) notify("닫았습니다. 주일이 되면 다시 열립니다.", { tone: "info" });
+  };
+
   /** 폰에서 보여줄 페이지 이미지. 내보내기와 같은 그림이다. */
   const makeImages = async () => {
     const nodes = getNodes();
@@ -231,15 +298,15 @@ export function ShareCard({ getNodes }: { getNodes: () => HTMLElement[] }) {
               openUntil={published.openUntil}
               isAdmin={user?.role === "admin"}
               saving={saving}
-              onOpen={openToday}
-              onClose={closeToday}
+              onOpen={askAndOpenToday}
+              onClose={askAndCloseToday}
             />
           )}
 
           <input type="text" value={url} readOnly onFocus={(e) => e.currentTarget.select()} />
 
           <div className="flex flex-wrap gap-1.5">
-            <Btn variant="primary" disabled={saving} onClick={() => void publishCurrent(makeImages)}>
+            <Btn variant="primary" disabled={saving} onClick={() => void askAndPublish()}>
               {saving
                 ? "올리는 중…"
                 : isMine
@@ -247,7 +314,7 @@ export function ShareCard({ getNodes }: { getNodes: () => HTMLElement[] }) {
                   : "이 주보를 QR에 올리기"}
             </Btn>
             {published.publishedAt && (
-              <Btn variant="danger" disabled={saving} onClick={() => void unpublish()}>
+              <Btn variant="danger" disabled={saving} onClick={() => void askAndUnpublish()}>
                 내리기
               </Btn>
             )}

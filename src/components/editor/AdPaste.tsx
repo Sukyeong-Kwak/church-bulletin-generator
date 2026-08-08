@@ -14,6 +14,7 @@ import {
 import { SERMON_HEADING } from "@/lib/settings";
 import { newId } from "@/lib/store";
 import type { FlowBlock } from "@/lib/types";
+import { usePopup } from "../Popup";
 import { Btn, Hint } from "../ui";
 
 interface Props {
@@ -38,6 +39,7 @@ const NO_PICKS: Record<number, Pick> = {};
  * 다듬은 칸은 사람이 하나씩 승인해야 하며, 그 전에는 적용 버튼이 열리지 않는다.
  */
 export function AdPaste({ onApply, onClose }: Props) {
+  const { confirm } = usePopup();
   const [text, setText] = useState("");
   const { blocks, source, note, status, error, retry } = useAdSplit(text);
   const [judged, setJudged] = useState<{ of: ParsedBlock[]; picks: Record<number, Pick> }>({
@@ -76,6 +78,21 @@ export function AdPaste({ onApply, onClose }: Props) {
   // 승인한 칸은 다듬은 글로, 아닌 칸은 원문 그대로 넣는다
   const toBlocks = (): FlowBlock[] =>
     blocks.map((b, i) => toFlowBlock(picks[i] === "tidy" && b.tidy ? { ...b, body: b.tidy } : b));
+
+  /**
+   * 전체 교체는 지금 적어둔 광고를 통째로 버린다.
+   * 바로 옆 '뒤에 붙이기'와 나란히 서 있어 손이 미끄러지기 쉽고, 되돌릴 길이 없다.
+   * (뒤에 붙이기는 묻지 않는다 — 잘못 눌러도 지워진 것이 없어 그 칸만 지우면 된다)
+   */
+  const askAndReplace = async () => {
+    const ok = await confirm({
+      title: "지금 광고를 전부 교체할까요?",
+      desc: `적어두신 광고가 모두 사라지고 새로 읽어들인 ${blocks.length}칸으로 바뀝니다.\n되돌릴 수 없습니다.`,
+      confirmLabel: "전체 교체",
+      tone: "danger",
+    });
+    if (ok) onApply(toBlocks(), "replace");
+  };
 
   return (
     // 폰에서는 화면을 통째로 쓴다 — 좁은 화면에 창을 띄우면 정작 글 넣을 자리가 남지 않는다
@@ -290,7 +307,7 @@ export function AdPaste({ onApply, onClose }: Props) {
             <Btn
               variant="primary"
               disabled={blocks.length === 0 || waiting > 0}
-              onClick={() => onApply(toBlocks(), "replace")}
+              onClick={() => void askAndReplace()}
               className="flex-1 sm:flex-none"
             >
               광고 전체 교체
