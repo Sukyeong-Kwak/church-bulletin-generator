@@ -35,6 +35,13 @@ export function coverTextTarget(id: string): string {
   return `${COVER_TEXT_PREFIX}${id}`;
 }
 
+const COMMON: Record<string, string> = {
+  "common.date": "주보 날짜",
+  "theme.background": "배경 이미지",
+  "theme.card": "글자 잘 보이게",
+  "common.church": "교회 정보",
+};
+
 const FIXED: Record<string, string> = {
   "cover.image": "표지 이미지",
   "cover.logo": "표지 로고",
@@ -58,10 +65,9 @@ export function editRoute(target: string): EditRoute | null {
     return { href: "/fixed", label: "고정 페이지 · 표지 글" };
   }
 
-  // 배경은 모든 장에 깔리는 것이라 고정 페이지가 아니라 공통 화면에서 고친다
-  if (target === "theme.background") {
-    return { href: "/common", label: "공통 · 배경 이미지" };
-  }
+  // 모든 장에 똑같이 들어가는 것들은 고정 페이지가 아니라 공통 화면에서 고친다
+  const common = COMMON[target];
+  if (common) return { href: "/common", label: `전체 공통 · ${common}` };
 
   const name = FIXED[target];
   return name ? { href: "/fixed", label: `고정 페이지 · ${name}` } : null;

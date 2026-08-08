@@ -75,7 +75,7 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
 
       {/* 상단 날짜 — 한 번만 입력하면 전 페이지에 자동 반영 */}
       {(!isCover || fixed.cover.showDate) && (
-        <div style={{ position: "absolute", top: DATE_TOP, left: 0, right: 0 }}>
+        <div data-edit="common.date" style={{ position: "absolute", top: DATE_TOP, left: 0, right: 0 }}>
           <Txt role="date" theme={theme}>
             {formatServiceDate(doc.serviceDate)}
           </Txt>
@@ -106,6 +106,7 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
 
       {showCard && (
         <div
+          data-edit="theme.card"
           style={{
             position: "absolute",
             left: CARD.x,
@@ -130,7 +131,10 @@ export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: Pa
 
       {/* 푸터 — 교회 기본정보에 저장, 매주 재입력 불필요 */}
       {!isCover && (
-        <div style={{ position: "absolute", left: FOOTER.left, bottom: FOOTER.bottom }}>
+        <div
+          data-edit="common.church"
+          style={{ position: "absolute", left: FOOTER.left, bottom: FOOTER.bottom }}
+        >
           <Txt role="footer" theme={theme}>
             {church.pastorLine}
           </Txt>

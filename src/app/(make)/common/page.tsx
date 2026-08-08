@@ -1,14 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import { ImageUpload } from "@/components/editor/ImageUpload";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { SplitView } from "@/components/SplitView";
 import { Field, Hint, Section, Slider, SliderEnds, Warn } from "@/components/ui";
 import { grayColor, grayLevel } from "@/lib/layout";
+import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { useDoc } from "@/lib/store";
 import { useEditFocus } from "@/lib/useEditFocus";
 import { useFitScale } from "@/lib/useFitScale";
-import type { LaidOutPage } from "@/lib/types";
 
 /**
  * 전체 공통 — 모든 페이지에 똑같이 들어가는 것들.
@@ -17,23 +18,37 @@ import type { LaidOutPage } from "@/lib/types";
  */
 export default function CommonPage() {
   const { doc, setDoc, settings, setSettings, urls, loaded } = useDoc();
+  const { pages: flowPages, measurer } = useFlowPages(doc);
+
+  /*
+   * 표지 · 일정 · 본문 한 장씩 세운다.
+   *
+   * 여기서 고치는 것(날짜·배경·카드·교회 정보)은 모든 장에 똑같이 들어간다.
+   * 그런데 고정 두 장만 보여주면 본문 장에 어떻게 앉는지가 안 보여
+   * '여기 것이 저기에도 들어가는가'가 애매해진다.
+   * 그렇다고 다 세우면 전체 보기와 같은 화면이 되므로, 종류마다 하나씩만 세운다.
+   */
+  const samplePages = useMemo(() => {
+    const all = withFixedPages(flowPages);
+    const first = all.find((p) => p.kind === "flow");
+    return first ? [...all.slice(0, 2), first] : all.slice(0, 2);
+  }, [flowPages]);
 
   const previewScale = useFitScale(0.4, 0.5, 60);
   const { goEdit } = useEditFocus();
 
   if (!loaded) return null;
 
-  // 공통 요소(날짜·배경·푸터)가 어떻게 들어가는지 확인용으로 앞 두 장만 보여준다
-  const samplePages: LaidOutPage[] = [
-    { index: 0, kind: "cover", blocks: [], showAdsHeader: false, overflow: false },
-    { index: 1, kind: "worship", blocks: [], showAdsHeader: false, overflow: false },
-  ];
-
   return (
+    <>
     <SplitView
         panel={
           <>
-            <Section title="주보 날짜" desc="모든 페이지 상단에 자동으로 들어갑니다.">
+            <Section
+              anchor="common.date"
+              title="주보 날짜"
+              desc="모든 페이지 상단에 자동으로 들어갑니다."
+            >
               <Field label="예배 날짜">
                 <input
                   type="date"
@@ -71,6 +86,7 @@ export default function CommonPage() {
             </Section>
 
             <Section
+              anchor="theme.card"
               title="글자 잘 보이게"
               desc="배경 사진 때문에 글씨가 묻힐 때 조절합니다. 오른쪽 미리보기로 바로 확인하세요."
             >
@@ -110,7 +126,11 @@ export default function CommonPage() {
               </div>
             </Section>
 
-            <Section title="교회 정보" desc="모든 페이지 하단에 두 줄로 들어갑니다.">
+            <Section
+              anchor="common.church"
+              title="교회 정보"
+              desc="모든 페이지 하단에 두 줄로 들어갑니다."
+            >
               <div className="flex flex-col gap-2">
                 <Field label="담당 목사">
                   <input
@@ -149,11 +169,17 @@ export default function CommonPage() {
         preview={
           <div className="min-h-0 flex-1 overflow-auto p-5">
             <p className="mb-2 text-[12px] font-bold">
-              공통 요소 확인 · 날짜와 푸터는 전 페이지 같은 자리에 들어갑니다
+              장 종류마다 한 장씩 · 여기서 고친 것은 모든 장에 똑같이 들어갑니다
             </p>
             <PreviewGrid doc={doc} pages={samplePages} urls={urls} scale={previewScale} onEdit={goEdit} />
+            <div className="mt-2">
+              <Hint>고치고 싶은 자리를 주보에서 바로 누르면 그 칸으로 갑니다.</Hint>
+            </div>
           </div>
         }
       />
+      {/* 본문 한 장을 세우려면 블록 높이를 재야 한다 — 화면 밖에서 재는 자리 */}
+      {measurer}
+    </>
   );
 }
