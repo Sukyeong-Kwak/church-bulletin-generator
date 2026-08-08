@@ -1,13 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { DEFAULT_LOGO } from "@/components/BulletinPage";
+import {
+  BIRTHDAY_COLS,
+  DEFAULT_LOGO,
+  MAX_NAME_SIZE,
+  MIN_NAME_SIZE,
+} from "@/components/BulletinPage";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { SplitView } from "@/components/SplitView";
 import { ImageUpload } from "@/components/editor/ImageUpload";
 import { Inspector } from "@/components/Inspector";
 import { Btn, Field, Hint, Section, Slider, Warn } from "@/components/ui";
-import { FONTS, monthOf, yearMonth } from "@/lib/layout";
+import { DEFAULT_STYLES, FONTS, monthOf, yearMonth } from "@/lib/layout";
 import { formatMonth, groupByMonth, parseBirthdays } from "@/lib/parseBirthdays";
 import { newId, useDoc } from "@/lib/store";
 import { useFitScale } from "@/lib/useFitScale";
@@ -596,6 +601,13 @@ function WorshipEditor() {
               }
             />
           </Field>
+          <BirthdayFit
+            cols={w.birthdayCols}
+            size={w.birthdayNameSize}
+            onCols={(v) => setWorship({ birthdayCols: v })}
+            onSize={(v) => setWorship({ birthdayNameSize: v })}
+          />
+
           <Hint>
             한 사람씩 줄을 바꿔 적으면 됩니다. 몇 명이든 남은 자리에 맞춰 한 줄에 두 명·세 명·네
             명씩 알아서 앉히고, 그래도 넘치면 글씨를 줄입니다. 줄을 맞추려고 <b>|</b>를 넣던
@@ -669,4 +681,84 @@ function WorshipEditor() {
     [next[i], next[j]] = [next[j], next[i]];
     setRows(next);
   }
+}
+
+/**
+ * 생일 명단의 짜임을 손으로 잡는 자리.
+ *
+ * 기본은 자동이다 — 남은 자리를 재서 한 줄에 몇 명을 세울지, 글자를 얼마나 줄일지 스스로 정한다.
+ * 대개는 그것으로 충분하지만, 달마다 사람 수가 크게 달라 눈에 거슬릴 때가 있다.
+ * 그때만 여기서 잡는다. 잡아둔 값은 그 달만이 아니라 계속 따라간다.
+ */
+function BirthdayFit({
+  cols,
+  size,
+  onCols,
+  onSize,
+}: {
+  cols?: number;
+  size?: number;
+  onCols: (v: number | undefined) => void;
+  onSize: (v: number | undefined) => void;
+}) {
+  const base = DEFAULT_STYLES.birthdayName.fontSize;
+
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-xl border p-2.5"
+      style={{ borderColor: "var(--ui-border)", background: "#fbfbfc" }}
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="w-[68px] shrink-0 text-[11px] font-semibold" style={{ color: "var(--ui-muted)" }}>
+          줄당 인원
+        </span>
+        <Btn size="sm" variant={cols ? "default" : "primary"} onClick={() => onCols(undefined)}>
+          자동
+        </Btn>
+        {BIRTHDAY_COLS.map((n) => (
+          <Btn
+            key={n}
+            size="sm"
+            variant={cols === n ? "primary" : "default"}
+            onClick={() => onCols(n)}
+          >
+            {n}명
+          </Btn>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="w-[68px] shrink-0 text-[11px] font-semibold" style={{ color: "var(--ui-muted)" }}>
+          글자 크기
+        </span>
+        <Btn size="sm" variant={size ? "default" : "primary"} onClick={() => onSize(undefined)}>
+          자동
+        </Btn>
+        <input
+          type="number"
+          min={MIN_NAME_SIZE}
+          max={MAX_NAME_SIZE}
+          step={1}
+          value={size ?? ""}
+          placeholder={String(base)}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            // 빈 칸은 '자동'과 같은 뜻이다 — 지우는 것으로도 자동으로 돌아갈 수 있어야 한다
+            if (!e.target.value.trim() || !Number.isFinite(v)) return onSize(undefined);
+            onSize(Math.min(MAX_NAME_SIZE, Math.max(MIN_NAME_SIZE, Math.round(v))));
+          }}
+          style={{ width: 84 }}
+        />
+        <span className="text-[11px]" style={{ color: "var(--ui-muted)" }}>
+          px
+        </span>
+      </div>
+
+      <Hint>
+        {cols || size
+          ? "손으로 잡아둔 값은 카드를 넘치더라도 그대로 씁니다. 미리보기에서 확인해주세요."
+          : `자동은 남은 자리에 맞춰 줄당 인원과 글자 크기(기본 ${base}px)를 스스로 고릅니다.`}
+      </Hint>
+    </div>
+  );
 }

@@ -272,7 +272,13 @@ export function WorshipContent({ doc }: { doc: BulletinDoc }) {
       </div>
 
       {people.length > 0 && (
-        <BirthdayNames people={people} theme={theme} avail={Math.max(0, CONTENT.h - above)} />
+        <BirthdayNames
+          people={people}
+          theme={theme}
+          avail={Math.max(0, CONTENT.h - above)}
+          fixedCols={w.birthdayCols}
+          fixedSize={w.birthdayNameSize}
+        />
       )}
     </div>
   );
@@ -294,7 +300,7 @@ function measure(el: HTMLElement | null): number {
 }
 
 /** 한 줄에 몇 사람까지 세워볼지 — 이 가운데 글자가 가장 크게 남는 짜임을 고른다 */
-const BIRTHDAY_COLS = [1, 2, 3, 4] as const;
+export const BIRTHDAY_COLS = [1, 2, 3, 4, 5] as const;
 
 /**
  * 재지 못했을 때 사람 수만 보고 정하는 짜임.
@@ -310,7 +316,10 @@ function colsByCount(n: number): number {
 }
 
 /** 아무리 좁아도 이보다 작아지면 벽에 붙여두고 읽을 수 없다 */
-const MIN_NAME_SIZE = 15;
+export const MIN_NAME_SIZE = 15;
+
+/** 손으로 잡을 때 넣을 수 있는 가장 큰 값 — 이보다 크면 두어 사람만 넣어도 카드를 넘긴다 */
+export const MAX_NAME_SIZE = 60;
 
 /** 이름 칸 사이 가로 간격. 글자를 줄이면 이 사이도 같은 비율로 줄어든다. */
 const NAME_GAP = 34;
@@ -338,10 +347,16 @@ function BirthdayNames({
   people,
   theme,
   avail,
+  fixedCols,
+  fixedSize,
 }: {
   people: string[];
   theme: Theme;
   avail: number;
+  /** 손으로 잡아둔 열 수. 없으면 재서 고른다. */
+  fixedCols?: number;
+  /** 손으로 잡아둔 글자 크기(px). 없으면 남은 자리에 맞춰 줄인다. */
+  fixedSize?: number;
 }) {
   const fontsReady = useFontsReady();
   const probes = useRef(new Map<number, HTMLDivElement | null>());
@@ -367,20 +382,38 @@ function BirthdayNames({
 
   const base = resolveStyle("birthdayName", theme).fontSize;
 
-  /** 가장 덜 줄여도 되는 짜임. 같은 값이면 열이 적은 쪽이 보기 좋다. */
+  /**
+   * 가장 덜 줄여도 되는 짜임. 같은 값이면 열이 적은 쪽이 보기 좋다.
+   *
+   * 손으로 잡아둔 것이 있으면 그것을 앞세운다 — 재서 고르는 것은 어디까지나 기본값이고,
+   * 사람이 보고 정한 것을 기계가 뒤집으면 왜 안 바뀌는지 알 길이 없다.
+   */
   const best = useMemo(() => {
-    let pick = { cols: 1, k: 0 };
-    for (const cols of BIRTHDAY_COLS) {
+    const tries = fixedCols ? [fixedCols] : BIRTHDAY_COLS;
+
+    // 글자 크기를 잡아두었으면 줄일 수가 없다. 그 크기로 들어가는 가장 적은 열을 고른다.
+    if (fixedSize) {
+      const r = fixedSize / base;
+      const fits = tries.find((cols) => {
+        const n = natural[cols];
+        return n && n.w * r <= CONTENT.w && n.h * r <= avail;
+      });
+      return { cols: fits ?? tries[tries.length - 1], k: 1 };
+    }
+
+    let pick = { cols: 0, k: 0 };
+    for (const cols of tries) {
       const n = natural[cols];
       if (!n || n.w <= 0 || n.h <= 0) continue;
       const k = Math.min(1, CONTENT.w / n.w, avail / n.h);
       // 눈에 뜨일 만큼(1% 넘게) 나아질 때만 열을 늘린다
       if (k > pick.k * 1.01) pick = { cols, k };
     }
-    return pick.k > 0 ? pick : { cols: colsByCount(people.length), k: 1 };
-  }, [natural, avail, people]);
+    return pick.k > 0 ? pick : { cols: fixedCols ?? colsByCount(people.length), k: 1 };
+  }, [natural, avail, people, fixedCols, fixedSize, base]);
 
-  const size = Math.max(MIN_NAME_SIZE, Math.floor(base * best.k));
+  // 잡아둔 크기가 있으면 그대로 쓴다. 넘치더라도 사람이 정한 것을 말없이 줄이지 않는다.
+  const size = fixedSize ?? Math.max(MIN_NAME_SIZE, Math.floor(base * best.k));
 
   return (
     <>
