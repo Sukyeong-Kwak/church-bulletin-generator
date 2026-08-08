@@ -133,8 +133,9 @@ select {
   background: #fff;
   border: 1px solid var(--ui-border);
   border-radius: 9px;
-  padding: 8px 11px;
-  font-size: 13px;
+  padding: 9px 11px;
+  /* 한글은 획이 많아 라틴 문자보다 작게 읽힌다 — 칸 안 글씨는 14px 아래로 내리지 않는다 */
+  font-size: 14px;
   font-family: inherit;
   width: 100%;
   color: var(--ui-text);

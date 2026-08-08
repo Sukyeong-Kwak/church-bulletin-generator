@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { DEFAULT_STYLES, FONTS, FONT_SIZE, resolveStyle, roleFontKey, type Role } from "@/lib/layout";
 import type { Align, TextStyle, Theme } from "@/lib/types";
 import { Btn } from "./ui";
@@ -32,10 +32,50 @@ export function Inspector({ label, role, theme, value, onChange }: Props) {
 
   const modified = value !== undefined && Object.keys(value).length > 0;
 
+  /*
+   * 접어둔 채로 시작한다.
+   *
+   * 글꼴·크기·자간·색·여백이 늘 펼쳐져 있으면 자리를 가장 많이 먹는데,
+   * 정작 대부분은 기본값 그대로 둔다. 자주 고치는 칸들이 그 아래로 밀려
+   * 굴려야 보이는 것이 정작 본래 할 일이었다.
+   *
+   * 고친 것이 있으면 접혀 있어도 '수정됨'이 붙어, 어디를 건드렸는지 열지 않고도 안다.
+   */
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="rounded-xl border bg-white p-3" style={{ borderColor: "var(--ui-border)" }}>
-      <div className="mb-2.5 flex items-center justify-between">
-        <span className="text-[12px] font-bold">{label}</span>
+    <div className="rounded-xl border bg-white" style={{ borderColor: "var(--ui-border)" }}>
+      <div className="flex items-center gap-1.5 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+        >
+          <span
+            aria-hidden
+            className="shrink-0 text-[10px] transition-transform"
+            style={{
+              color: "var(--ui-muted)",
+              transform: open ? "rotate(90deg)" : undefined,
+            }}
+          >
+            ▶
+          </span>
+          <span className="truncate text-[13px] font-semibold">{label}</span>
+          {modified && (
+            <span
+              className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold"
+              style={{ background: "var(--ui-accent-soft)", color: "var(--ui-accent)" }}
+            >
+              수정됨
+            </span>
+          )}
+          <span className="ml-auto shrink-0 text-[11px]" style={{ color: "var(--ui-muted)" }}>
+            글자 모양
+          </span>
+        </button>
+
+        {/* 되돌리기는 접힌 채로도 눌러야 한다 — 여는 버튼 밖에 따로 둔다 */}
         <Btn
           size="sm"
           variant="ghost"
@@ -43,9 +83,12 @@ export function Inspector({ label, role, theme, value, onChange }: Props) {
           onClick={() => onChange(undefined)}
           title="이 요소의 모든 수정을 취소하고 기본값으로"
         >
-          ↺ 기본값으로
+          ↺
         </Btn>
       </div>
+
+      {!open ? null : (
+      <div className="border-t px-3 pt-2.5 pb-3" style={{ borderColor: "var(--ui-border)" }}>
 
       <Row label="정렬" modified={has("align")} onReset={() => set("align", undefined)}>
         <div className="flex gap-1">
@@ -178,6 +221,8 @@ export function Inspector({ label, role, theme, value, onChange }: Props) {
           )}
         </label>
       </div>
+      </div>
+      )}
     </div>
   );
 }

@@ -22,22 +22,38 @@ export function Section({
   return (
     <section
       data-edit-target={anchor}
-      className="rounded-xl border bg-white p-3.5"
+      className="overflow-hidden rounded-xl border bg-white"
       style={{ borderColor: "var(--ui-border)" }}
     >
-      <div className="mb-2.5 flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="text-[13px] font-bold">{title}</h2>
-          {desc && (
-            <p className="mt-0.5 text-[11px]" style={{ color: "var(--ui-muted)" }}>
-              {desc}
-            </p>
-          )}
+      {/*
+        제목을 따로 띠로 세우고 아래에 선을 긋는다.
+        한 화면에 칸이 예닐곱 개씩 쌓이는데 모두 같은 흰 바탕이면
+        굴리는 동안 어디서 어디까지가 한 덩어리인지 잡히지 않는다.
+      */}
+      <div
+        className="flex items-start justify-between gap-2 border-b px-3.5 py-2.5"
+        style={{ borderColor: "var(--ui-border)", background: "#fcfcfd" }}
+      >
+        <div className="flex min-w-0 gap-2">
+          {/* 훑을 때 눈이 걸리는 자리 — 제목 줄의 시작을 알린다 */}
+          <span
+            aria-hidden
+            className="mt-[3px] h-[15px] w-[3px] shrink-0 rounded-full"
+            style={{ background: "var(--ui-accent)" }}
+          />
+          <div className="min-w-0">
+            <h2 className="text-[15px] leading-tight font-bold">{title}</h2>
+            {desc && (
+              <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "var(--ui-muted)" }}>
+                {desc}
+              </p>
+            )}
+          </div>
         </div>
         {/* 설명이 길어도 버튼이 눌리지 않게 제 폭은 지킨다 */}
         {right && <div className="shrink-0">{right}</div>}
       </div>
-      {children}
+      <div className="p-3.5">{children}</div>
     </section>
   );
 }
@@ -45,7 +61,7 @@ export function Section({
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] font-semibold" style={{ color: "var(--ui-muted)" }}>
+      <span className="mb-1 block text-[12px] font-semibold" style={{ color: "var(--ui-muted)" }}>
         {label}
       </span>
       {children}
@@ -74,7 +90,8 @@ export function Btn({ variant = "default", size = "md", style, className, ...res
         ...palette,
         borderRadius: 8,
         padding: size === "sm" ? "4px 8px" : "7px 12px",
-        fontSize: size === "sm" ? 11 : 13,
+        // 작은 버튼도 11px 아래로 두지 않는다 — 한글은 그 크기에서 획이 뭉갠다
+        fontSize: size === "sm" ? 12 : 13,
         fontWeight: 600,
         whiteSpace: "nowrap",
         opacity: rest.disabled ? 0.5 : 1,
@@ -114,7 +131,7 @@ export function Slider({
   return (
     <label className="flex items-center gap-2" style={{ opacity: disabled ? 0.4 : 1 }}>
       <span
-        className="shrink-0 text-[11px] font-semibold"
+        className="shrink-0 text-[12px] font-semibold"
         style={{ color: "var(--ui-muted)", width: SLIDER_LABEL_W }}
       >
         {label}
@@ -131,7 +148,7 @@ export function Slider({
         onChange={(e) => onChange(Number(e.target.value))}
       />
       <span
-        className="shrink-0 text-right text-[11px] tabular-nums"
+        className="shrink-0 text-right text-[12px] tabular-nums"
         style={{ color: "var(--ui-text)", width: SLIDER_VALUE_W }}
       >
         {format ? format(value) : value}
@@ -159,7 +176,7 @@ export function SliderEnds({ left, right }: { left: string; right: string }) {
 
 export function Hint({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] leading-relaxed" style={{ color: "var(--ui-muted)" }}>
+    <p className="text-[12px] leading-relaxed" style={{ color: "var(--ui-muted)" }}>
       {children}
     </p>
   );
@@ -168,7 +185,7 @@ export function Hint({ children }: { children: ReactNode }) {
 export function Warn({ children }: { children: ReactNode }) {
   return (
     <p
-      className="rounded-lg px-2.5 py-2 text-[11px] leading-relaxed"
+      className="rounded-lg px-2.5 py-2 text-[12px] leading-relaxed"
       style={{ background: "#fff4e6", color: "#b45309" }}
     >
       {children}

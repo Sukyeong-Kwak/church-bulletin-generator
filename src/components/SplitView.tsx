@@ -56,7 +56,7 @@ export function SplitView({
         <div
           className={`${
             tab === "edit" ? "flex" : "hidden"
-          } w-full shrink-0 flex-col gap-3 overflow-y-auto p-3 lg:flex lg:w-[430px] lg:border-r lg:p-3.5`}
+          } w-full shrink-0 flex-col gap-4 overflow-y-auto p-3 lg:flex lg:w-[470px] lg:border-r lg:p-3.5`}
           style={{ borderColor: "var(--ui-border)" }}
         >
           {panel}
