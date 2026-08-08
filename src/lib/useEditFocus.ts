@@ -7,8 +7,23 @@ import { EDIT_PARAM, editRoute, targetAnchor } from "./editTargets";
 /** 잠깐 빛나는 시간 (ms). 눈이 따라올 만큼만 두고 지운다. */
 const GLOW = 1400;
 
-/** 좁은 화면에서 '편집' 쪽으로 넘어가라고 SplitView 에게 알리는 신호 */
+/**
+ * 어느 칸으로 찾아가는 중이라고 화면에 알리는 신호.
+ *
+ * 받는 쪽이 둘이다.
+ *   SplitView   좁은 화면이면 '편집' 쪽으로 넘긴다
+ *   고정 페이지  그 칸이 다른 탭에 있으면 탭을 먼저 바꿔준다
+ *
+ * 아직 그려지지 않은 칸이라도 아래 reveal 이 몇 틀 더 찾아보므로,
+ * 이 신호를 받고 탭을 바꾸면 그 사이에 자리가 나타나 제때 잡힌다.
+ */
 export const EDIT_FOCUS_EVENT = "bulletin:edit-focus";
+
+export interface EditFocusDetail {
+  target: string;
+  /** 화면에서 찾을 때 쓰는 이름 (표지 글처럼 여럿이 한 칸을 쓰는 경우가 있다) */
+  anchor: string;
+}
 
 /**
  * 미리보기에서 누른 자리로 데려간다.
@@ -29,8 +44,10 @@ export function useEditFocus() {
   const reveal = useCallback((target: string) => {
     const anchor = targetAnchor(target);
 
-    // 좁은 화면은 미리보기만 보이고 있을 수 있다. 먼저 편집 쪽으로 넘긴다.
-    window.dispatchEvent(new CustomEvent(EDIT_FOCUS_EVENT));
+    // 보이지 않는 쪽(다른 탭·미리보기 화면)에 있을 수 있다. 먼저 자리를 열어달라고 알린다.
+    window.dispatchEvent(
+      new CustomEvent<EditFocusDetail>(EDIT_FOCUS_EVENT, { detail: { target, anchor } }),
+    );
 
     /*
      * 화면을 옮겨온 참이면 그 칸이 아직 그려지지 않았을 수 있다.

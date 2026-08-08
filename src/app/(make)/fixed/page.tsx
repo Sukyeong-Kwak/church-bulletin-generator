@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   BIRTHDAY_COLS,
   DEFAULT_LOGO,
@@ -15,7 +16,8 @@ import { Btn, Field, Hint, Section, Slider, Warn } from "@/components/ui";
 import { DEFAULT_STYLES, FONTS, monthOf, yearMonth } from "@/lib/layout";
 import { formatMonth, groupByMonth, parseBirthdays } from "@/lib/parseBirthdays";
 import { newId, useDoc } from "@/lib/store";
-import { useEditFocus } from "@/lib/useEditFocus";
+import { EDIT_PARAM, targetAnchor } from "@/lib/editTargets";
+import { EDIT_FOCUS_EVENT, useEditFocus, type EditFocusDetail } from "@/lib/useEditFocus";
 import { useFitScale } from "@/lib/useFitScale";
 import type { CoverText, LaidOutPage, WorshipRow } from "@/lib/types";
 
@@ -23,8 +25,25 @@ type Tab = "cover" | "worship";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "cover", label: "① 표지" },
-  { key: "worship", label: "② 청년부 일정" },
+  // 이 장에 든 것을 그대로 적는다. '청년부 일정'이라고만 하면
+  // 차량안내와 생일자를 고치러 여기 들어와야 한다는 것을 알 수가 없다.
+  { key: "worship", label: "② 일정 · 차량 · 생일" },
 ];
+
+/**
+ * 어느 칸이 어느 탭에 있는가.
+ *
+ * 미리보기는 두 장을 함께 보여주므로, 표지 탭에 있으면서 생일 명단을 누르는 일이 생긴다.
+ * 그때 탭을 바꿔주지 않으면 굴러갈 자리가 화면에 없어 아무 일도 일어나지 않는다.
+ */
+const TAB_OF: Record<string, Tab> = {
+  "cover.image": "cover",
+  "cover.texts": "cover",
+  "cover.logo": "cover",
+  "worship.rows": "worship",
+  "worship.notice": "worship",
+  "worship.birthdays": "worship",
+};
 
 /**
  * 고정 페이지 — 매주 바뀌지 않는 앞 두 장.
@@ -32,7 +51,31 @@ const TABS: { key: Tab; label: string }[] = [
  */
 export default function FixedPagesPage() {
   const { doc, urls, loaded } = useDoc();
-  const [tab, setTab] = useState<Tab>("cover");
+  const params = useSearchParams();
+
+  /*
+   * 다른 화면에서 이름표를 달고 넘어왔으면 그 칸이 있는 탭에서 시작한다.
+   * 첫 그림부터 맞는 탭이라야, 뒤이어 찾아오는 쪽이 헛걸음하지 않는다.
+   */
+  const [tab, setTab] = useState<Tab>(
+    () => TAB_OF[targetAnchor(params.get(EDIT_PARAM) ?? "")] ?? "cover",
+  );
+
+  /*
+   * 같은 화면 안에서 누른 경우 — 주소가 바뀌지 않으므로 신호로 받는다.
+   * useEditFocus 보다 먼저 걸어두어야 한다. 그쪽이 화면이 붙자마자 신호를 보내는데,
+   * 뒤에 걸면 그 첫 신호를 놓친다.
+   */
+  useEffect(() => {
+    const onFocus = (e: Event) => {
+      const detail = (e as CustomEvent<EditFocusDetail>).detail;
+      const next = detail && TAB_OF[detail.anchor];
+      if (next) setTab(next);
+    };
+    window.addEventListener(EDIT_FOCUS_EVENT, onFocus);
+    return () => window.removeEventListener(EDIT_FOCUS_EVENT, onFocus);
+  }, []);
+
   // 좁은 화면에서는 미리보기를 화면 폭에 맞춘다
   const previewScale = useFitScale(0.4, 0.5, 60);
   const { goEdit } = useEditFocus();

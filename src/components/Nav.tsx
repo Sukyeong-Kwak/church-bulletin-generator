@@ -168,7 +168,7 @@ export function Nav() {
  */
 const MAKE_TABS = [
   { href: "/common", label: "전체 공통", hint: "모든 페이지에 들어가는 것 — 날짜·배경·교회 정보" },
-  { href: "/fixed", label: "고정 페이지", hint: "표지 · 청년부 일정" },
+  { href: "/fixed", label: "고정 페이지", hint: "표지 · 일정 · 차량 · 생일" },
   { href: "/", label: "본문 작성", hint: "광고 · 주요일정 · 설교" },
   { href: "/preview", label: "전체 보기", hint: "완성본 확인 · 이미지 내보내기" },
 ];

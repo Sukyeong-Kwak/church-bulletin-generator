@@ -109,7 +109,7 @@ export default function EditorPage() {
           <Link href="/common" style={{ color: "var(--ui-accent)", fontWeight: 700 }}>
             전체 공통
           </Link>
-          , 표지와 청년부 일정은{" "}
+          , 표지와 일정·차량·생일 장은{" "}
           <Link href="/fixed" style={{ color: "var(--ui-accent)", fontWeight: 700 }}>
             고정 페이지
           </Link>
