@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { EDIT_FOCUS_EVENT } from "@/lib/useEditFocus";
+import { SectionGroup, SectionGroupBar } from "./SectionGroup";
 
 /**
  * 좌: 입력 / 우: 미리보기 2단 레이아웃.
@@ -59,7 +60,14 @@ export function SplitView({
           } w-full shrink-0 flex-col gap-4 overflow-y-auto p-3 lg:flex lg:w-[470px] lg:border-r lg:p-3.5`}
           style={{ borderColor: "var(--ui-border)" }}
         >
-          {panel}
+          {/*
+            칸을 접었다 폈다 하는 일은 세 화면이 똑같이 한다.
+            여기서 한 번 감싸두면 화면마다 따로 챙길 것이 없다.
+          */}
+          <SectionGroup>
+            <SectionGroupBar />
+            {panel}
+          </SectionGroup>
         </div>
 
         <div

@@ -1,6 +1,7 @@
 "use client";
 
-import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
+import { useEffect, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
+import { useSectionGroup } from "./SectionGroup";
 
 export function Section({
   title,
@@ -19,41 +20,71 @@ export function Section({
    */
   anchor?: string;
 }) {
+  const group = useSectionGroup();
+  /* 이름표가 있으면 그것을 열쇠로 쓴다 — 미리보기에서 찾아올 때와 같은 이름이라야 열린다 */
+  const key = anchor ?? title;
+  const open = group ? group.isOpen(key) : true;
+
+  useEffect(() => group?.register(key), [group, key]);
+
   return (
     <section
       data-edit-target={anchor}
-      className="overflow-hidden rounded-xl border bg-white"
+      className="rounded-xl border bg-white"
       style={{ borderColor: "var(--ui-border)" }}
     >
       {/*
-        제목을 따로 띠로 세우고 아래에 선을 긋는다.
-        한 화면에 칸이 예닐곱 개씩 쌓이는데 모두 같은 흰 바탕이면
-        굴리는 동안 어디서 어디까지가 한 덩어리인지 잡히지 않는다.
+        제목 줄이 곧 여는 손잡이다.
+        접혀 있을 때 이 줄만 남으므로, 왼쪽이 '무엇을 고칠 수 있는가'의 목록이 된다.
       */}
       <div
-        className="flex items-start justify-between gap-2 border-b px-3.5 py-2.5"
-        style={{ borderColor: "var(--ui-border)", background: "#fcfcfd" }}
+        className="flex items-start gap-2 px-3.5 py-3"
+        style={{ background: open ? "#fcfcfd" : undefined }}
       >
-        <div className="flex min-w-0 gap-2">
-          {/* 훑을 때 눈이 걸리는 자리 — 제목 줄의 시작을 알린다 */}
+        <button
+          type="button"
+          onClick={() => group?.toggle(key)}
+          disabled={!group}
+          className="flex min-w-0 flex-1 items-start gap-2 text-left"
+        >
+          {/* 훑을 때 눈이 걸리는 자리 — 펴져 있으면 색이 살고, 접히면 물러난다 */}
           <span
             aria-hidden
-            className="mt-[3px] h-[15px] w-[3px] shrink-0 rounded-full"
-            style={{ background: "var(--ui-accent)" }}
+            className="mt-[5px] h-[16px] w-[3px] shrink-0 rounded-full transition-colors"
+            style={{ background: open ? "var(--ui-accent)" : "var(--ui-border)" }}
           />
-          <div className="min-w-0">
-            <h2 className="text-[15px] leading-tight font-bold">{title}</h2>
-            {desc && (
-              <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "var(--ui-muted)" }}>
+          <span className="min-w-0">
+            <span className="block text-[17px] leading-tight font-bold">{title}</span>
+            {/* 설명은 펴져 있을 때만. 접힌 목록은 제목만 있어야 한눈에 훑힌다. */}
+            {desc && open && (
+              <span
+                className="mt-1.5 block text-[12px] leading-relaxed"
+                style={{ color: "var(--ui-muted)" }}
+              >
                 {desc}
-              </p>
+              </span>
             )}
-          </div>
-        </div>
+          </span>
+          {group && (
+            <span
+              aria-hidden
+              className="mt-[3px] ml-auto shrink-0 text-[11px] transition-transform"
+              style={{ color: "var(--ui-muted)", transform: open ? "rotate(90deg)" : undefined }}
+            >
+              ▶
+            </span>
+          )}
+        </button>
+
         {/* 설명이 길어도 버튼이 눌리지 않게 제 폭은 지킨다 */}
-        {right && <div className="shrink-0">{right}</div>}
+        {right && open && <div className="shrink-0">{right}</div>}
       </div>
-      <div className="p-3.5">{children}</div>
+
+      {open && (
+        <div className="border-t px-3.5 pt-3 pb-3.5" style={{ borderColor: "var(--ui-border)" }}>
+          {children}
+        </div>
+      )}
     </section>
   );
 }
