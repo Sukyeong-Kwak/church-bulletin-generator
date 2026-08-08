@@ -77,7 +77,9 @@ function Pending() {
   /**
    * 거절된 계정.
    * 기다린다고 열리지 않으므로 '기다리는 중'이라고 말하지 않는다.
-   * 다만 길이 아주 막힌 것은 아니다 — 관리자에게 초대코드를 받으면 그것으로 다시 들어온다.
+   * 코드로도 열리지 않으므로 코드 칸을 내주지 않는다 — 내주면 될 때까지 넣어보게 된다.
+   * 되돌리는 것은 관리자만 한다.
+   *
    * 거절한 까닭은 여기에 적지 않는다. 그것은 관리자끼리 남기는 기록이다.
    */
   const rejected = status === "rejected";
@@ -122,39 +124,38 @@ function Pending() {
       title={rejected ? "가입이 거절되었습니다" : "승인을 기다리는 중입니다"}
       desc={
         rejected
-          ? "관리자가 이 계정의 가입 신청을 받지 않았습니다. 담당자에게 문의해 초대코드를 받으시면 그 코드로 다시 시작하실 수 있습니다."
+          ? "관리자가 이 계정의 가입 신청을 받지 않았습니다. 사정을 알고 싶으시면 담당자에게 문의해주세요."
           : "메일 주소 확인은 끝났습니다. 이제 관리자가 승인하면 바로 주보를 만들 수 있습니다. 승인되면 이 화면을 새로고침해주세요."
       }
     >
-      <form onSubmit={redeem} className="flex flex-col gap-3">
-        <Field
-          label={
-            rejected
-              ? "관리자에게 받은 초대코드를 넣으시면 바로 시작합니다"
-              : "초대코드가 있다면 지금 입력해도 됩니다"
-          }
-        >
-          <input
-            type="text"
-            value={code}
-            placeholder="단톡방에 공유된 코드"
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-          />
-        </Field>
+      {/* 거절된 계정에는 코드가 통하지 않는다. 칸을 내주면 될 때까지 넣어보게 된다. */}
+      {!rejected && (
+        <>
+          <form onSubmit={redeem} className="flex flex-col gap-3">
+            <Field label="초대코드가 있다면 지금 입력해도 됩니다">
+              <input
+                type="text"
+                value={code}
+                placeholder="단톡방에 공유된 코드"
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+              />
+            </Field>
 
-        <AuthError message={error} />
+            <AuthError message={error} />
 
-        <Btn
-          type="submit"
-          variant="primary"
-          disabled={busy || !code.trim()}
-          style={{ padding: "10px 12px" }}
-        >
-          {busy ? "확인 중…" : "코드로 바로 시작하기"}
-        </Btn>
-      </form>
+            <Btn
+              type="submit"
+              variant="primary"
+              disabled={busy || !code.trim()}
+              style={{ padding: "10px 12px" }}
+            >
+              {busy ? "확인 중…" : "코드로 바로 시작하기"}
+            </Btn>
+          </form>
 
-      <Hint>초대코드는 발급 후 24시간 동안만 쓸 수 있습니다.</Hint>
+          <Hint>초대코드는 발급 후 24시간 동안만 쓸 수 있습니다.</Hint>
+        </>
+      )}
 
       {/* 승인을 기다리는 동안에도 자기 계정은 손볼 수 있어야 한다 (여기는 상단 메뉴가 없다) */}
       <Link href="/account" className="text-center text-[12px]" style={{ color: "var(--ui-muted)" }}>

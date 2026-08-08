@@ -44,7 +44,9 @@ const NEEDS_REASON: AppUser["status"][] = ["rejected", "blocked"];
 function decisionLabel(r: UserDecision): { text: string; danger: boolean } {
   const parts: string[] = [];
 
-  if (r.from_status !== r.to_status) parts.push(ACTION_LABEL[r.to_status]);
+  // 거절을 되돌린 것은 그냥 승인과 다르다. 이력에서 갈라 읽혀야 한다.
+  if (r.from_status === "rejected" && r.to_status === "approved") parts.push("거절 취소하고 승인");
+  else if (r.from_status !== r.to_status) parts.push(ACTION_LABEL[r.to_status]);
   if (r.to_role) parts.push(r.to_role === "admin" ? "관리자로 올림" : "편집자로 내림");
 
   return {
@@ -91,6 +93,30 @@ function MailBadge({ at }: { at: string | null | undefined }) {
       title={ok ? `${new Date(at).toLocaleString("ko-KR")} 확인` : "아직 메일 링크를 누르지 않았습니다"}
     >
       {ok ? "메일 인증됨" : "메일 인증 전"}
+    </span>
+  );
+}
+
+/**
+ * 거절·차단된 사람 표시.
+ *
+ * 구성원 목록에 이용 중인 사람들과 섞여 서 있으면 눈에 띄지 않는다.
+ * 거절을 되돌릴 수 있는 자리가 여기뿐인데, 어느 줄이 거절된 줄인지 보이지 않으면
+ * 되돌릴 방법이 없다고 여기게 된다.
+ */
+function StatusBadge({ status }: { status: AppUser["status"] }) {
+  if (status === "approved" || status === "pending") return null;
+  return (
+    <span
+      className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+      style={{ background: "#fff5f5", color: "#c92a2a" }}
+      title={
+        status === "rejected"
+          ? "가입을 받지 않은 계정입니다. 아래 '거절 취소하고 승인'으로 되돌릴 수 있습니다."
+          : "로그인해도 아무것도 할 수 없는 계정입니다."
+      }
+    >
+      {STATUS_LABEL[status]}
     </span>
   );
 }
@@ -629,8 +655,8 @@ function MembersTab({
       title={`구성원 ${users.length}명`}
       desc={
         canSetRole
-          ? "관리자로 올리면 가입 승인과 초대코드 발급을 맡길 수 있습니다. 차단하면 로그인해도 주보를 열거나 고칠 수 없습니다."
-          : "차단하면 로그인해도 주보를 열거나 고칠 수 없습니다. 계정과 만들어둔 주보는 남습니다."
+          ? "관리자로 올리면 가입 승인과 초대코드 발급을 맡길 수 있습니다. 차단하면 로그인해도 주보를 열거나 고칠 수 없습니다. 거절한 신청도 이 목록에 남아 있어 여기서 되돌릴 수 있습니다."
+          : "차단하면 로그인해도 주보를 열거나 고칠 수 없습니다. 계정과 만들어둔 주보는 남습니다. 거절한 신청도 이 목록에서 되돌릴 수 있습니다."
       }
     >
       {!canSetRole && <Hint>역할(관리자·편집자)은 최고 관리자만 바꿀 수 있습니다.</Hint>}
@@ -650,6 +676,7 @@ function MembersTab({
                     </span>
                   )}
                   {u.is_owner && <OwnerBadge />}
+                  <StatusBadge status={u.status} />
                   <MailBadge at={u.email_confirmed_at} />
                 </p>
                 <p className="truncate text-[11px]" style={{ color: "var(--ui-muted)" }}>
@@ -680,9 +707,13 @@ function MembersTab({
                   </Btn>
                 ) : (
                   <>
+                    {/*
+                      거절을 되돌리는 자리는 여기뿐이다. '다시 승인'은 무엇을 되돌리는지
+                      말해주지 않아, 거절한 사람 앞에서 누르기를 망설이게 된다.
+                    */}
                     {u.status !== "approved" && (
                       <Btn size="sm" variant="primary" disabled={busy} onClick={() => onStatus(u.id, "approved")}>
-                        다시 승인
+                        {u.status === "rejected" ? "거절 취소하고 승인" : "다시 승인"}
                       </Btn>
                     )}
                     <Btn
