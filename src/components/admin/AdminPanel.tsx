@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import type { AppUser, InviteCode } from "@/lib/supabase/types";
+import type { AppUser, InviteCode, UserDecision } from "@/lib/supabase/types";
 import { Btn, Hint, Section } from "../ui";
 
 /** 24시간 뒤 만료 */
@@ -24,17 +24,51 @@ const STATUS_LABEL: Record<AppUser["status"], string> = {
   blocked: "이용 중지됨",
 };
 
+/** 이력에서 읽히는 말. 상태 이름보다 '무엇을 했는가'로 적어야 줄이 읽힌다. */
+const ACTION_LABEL: Record<AppUser["status"], string> = {
+  pending: "승인 대기로 되돌림",
+  approved: "승인",
+  rejected: "거절",
+  blocked: "로그인 차단",
+};
+
+/** 사유를 반드시 받아야 하는 판단 — 사람을 막는 쪽이다 */
+const NEEDS_REASON: AppUser["status"][] = ["rejected", "blocked"];
+
 /**
- * 관리자가 하는 일은 셋뿐이고 서로 성격이 다르다.
+ * 이력 한 줄이 무슨 일이었는지.
+ *
+ * 한 번의 수정으로 상태와 역할이 함께 바뀔 수 있어 둘을 이어 붙인다.
+ * 역할 변경은 승인보다 큰 일이라 붉게 세운다 — 관리자를 세우고 내리는 일이기 때문이다.
+ */
+function decisionLabel(r: UserDecision): { text: string; danger: boolean } {
+  const parts: string[] = [];
+
+  if (r.from_status !== r.to_status) parts.push(ACTION_LABEL[r.to_status]);
+  if (r.to_role) parts.push(r.to_role === "admin" ? "관리자로 올림" : "편집자로 내림");
+
+  return {
+    // 트리거는 둘 중 하나는 반드시 바뀌었을 때만 남기므로 여기가 비는 일은 없다
+    text: parts.join(" · ") || "변경",
+    danger: r.to_status === "rejected" || r.to_status === "blocked" || !!r.to_role,
+  };
+}
+
+/**
+ * 관리자가 하는 일은 넷이고 서로 성격이 다르다.
  * 한 화면에 다 늘어놓으면 지금 무엇을 하러 왔는지가 묻혀, 하는 일 단위로 화면을 나눈다.
  */
-type TabKey = "pending" | "codes" | "members";
+type TabKey = "pending" | "codes" | "members" | "history";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "pending", label: "가입 신청" },
   { key: "codes", label: "초대코드" },
   { key: "members", label: "구성원" },
+  { key: "history", label: "이력" },
 ];
+
+/** 거절·차단을 누르면 그 줄에서 까닭을 묻는다 */
+type Asking = { id: string; status: AppUser["status"] };
 
 /**
  * 메일 인증 여부.
@@ -74,7 +108,68 @@ function OwnerBadge() {
   );
 }
 
-/** 목록의 한 줄 — 세 탭이 같은 테두리·간격을 쓴다 */
+/**
+ * 까닭을 묻는 칸을 다루는 손잡이.
+ * 목록 탭 둘이 같은 짓을 하므로 한 덩어리로 묶어 내려보낸다.
+ */
+type AskCtl = {
+  asking?: Asking;
+  reason: string;
+  busy: boolean;
+  setReason: (v: string) => void;
+  cancel: () => void;
+  confirm: () => void;
+};
+
+/**
+ * 거절·차단을 누르면 그 줄에서 펼쳐지는 칸.
+ *
+ * 누르자마자 처리하지 않는 까닭:
+ * 사람을 막는 판단은 되돌리기 어렵고, 남은 기록은 몇 달 뒤에 읽힌다.
+ * 손이 한 번 더 가게 해야 잘못 누른 것과 정말 그러려던 것이 갈린다.
+ */
+function ReasonBox({ ctl }: { ctl: AskCtl }) {
+  const status = ctl.asking!.status;
+  return (
+    <div className="w-full border-t pt-2.5" style={{ borderColor: "var(--ui-border)" }}>
+      <p className="mb-1.5 text-[11px] font-semibold" style={{ color: "#c92a2a" }}>
+        {ACTION_LABEL[status]} 사유를 적어주세요. 관리자 모두에게 이력으로 남습니다.
+      </p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <input
+          type="text"
+          autoFocus
+          value={ctl.reason}
+          maxLength={200}
+          placeholder={
+            status === "rejected" ? "예: 교인 명단에 없는 분입니다" : "예: 본인 요청으로 중지"
+          }
+          onChange={(e) => ctl.setReason(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") ctl.cancel();
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            if (ctl.reason.trim()) ctl.confirm();
+          }}
+          style={{ flex: "1 1 180px", width: "auto" }}
+        />
+        <Btn
+          size="sm"
+          variant="danger"
+          disabled={ctl.busy || !ctl.reason.trim()}
+          onClick={ctl.confirm}
+        >
+          {ACTION_LABEL[status]} 확정
+        </Btn>
+        <Btn size="sm" variant="ghost" disabled={ctl.busy} onClick={ctl.cancel}>
+          취소
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+/** 목록의 한 줄 — 탭들이 같은 테두리·간격을 쓴다 */
 function Row({ children, faded }: { children: ReactNode; faded?: boolean }) {
   return (
     <div
@@ -89,21 +184,38 @@ function Row({ children, faded }: { children: ReactNode; faded?: boolean }) {
 export function AdminPanel({ meId }: { meId: string }) {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [codes, setCodes] = useState<InviteCode[]>([]);
+  const [history, setHistory] = useState<UserDecision[]>([]);
+  /** 011 마이그레이션을 아직 안 돌렸는가 — 빈 이력과 없는 표는 다른 이야기다 */
+  const [noHistoryTable, setNoHistoryTable] = useState(false);
   const [tab, setTab] = useState<TabKey>("pending");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+
+  /** 지금 까닭을 묻고 있는 줄. 누르는 순간 바로 하지 않고 한 번 더 손을 거치게 한다. */
+  const [asking, setAsking] = useState<Asking>();
+  const [reason, setReason] = useState("");
 
   const load = useCallback(async () => {
     const supabase = supabaseBrowser();
     if (!supabase) return;
 
-    const [u, c] = await Promise.all([
+    const [u, c, h] = await Promise.all([
       supabase.from("users").select("*").order("created_at", { ascending: false }),
       supabase.from("invite_codes").select("*").order("created_at", { ascending: false }).limit(20),
+      // 011 마이그레이션 전이면 이 표가 없다. 그때는 이력 탭이 비어 있을 뿐 다른 탭은 그대로 돈다.
+      supabase
+        .from("user_decisions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200),
     ]);
 
     if (u.data) setUsers(u.data);
     if (c.data) setCodes(c.data);
+    if (h.data) setHistory(h.data);
+    // 표가 없는 것과 이력이 없는 것을 갈라둔다. 한데 묶으면 마이그레이션을 안 돌린 것을
+    // '아직 아무 일도 없었다'로 읽고 넘어가게 된다.
+    setNoHistoryTable(!!h.error);
   }, []);
 
   // 목록은 서버에 물어봐야 알 수 있어 첫 렌더 뒤에 채운다
@@ -113,19 +225,38 @@ export function AdminPanel({ meId }: { meId: string }) {
   }, [load]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const setStatus = async (id: string, status: AppUser["status"]) => {
+  /**
+   * 상태를 바꾼다.
+   *
+   * users 를 직접 고치지 않고 decide_user 만 부른다 — 그래야 이력이 반드시 함께 남는다.
+   * 사유가 있어야 하는 판단인지도 DB가 다시 본다. 화면에서만 막으면 언젠가 빠뜨린다.
+   */
+  const setStatus = async (id: string, status: AppUser["status"], why?: string) => {
+    if (NEEDS_REASON.includes(status) && !why?.trim()) {
+      // 지난번 오류를 그대로 두면, 방금 연 칸이 이미 실패한 것처럼 보인다
+      setError(undefined);
+      setAsking({ id, status });
+      setReason("");
+      return;
+    }
+
     setBusy(true);
     setError(undefined);
-    const supabase = supabaseBrowser()!;
-    const { error } = await supabase
-      .from("users")
-      .update({
-        status,
-        approved_by: status === "approved" ? meId : null,
-        approved_at: status === "approved" ? new Date().toISOString() : null,
-      })
-      .eq("id", id);
-    if (error) setError(error.message);
+
+    const { error } = await supabaseBrowser()!.rpc("decide_user", {
+      p_user: id,
+      p_status: status,
+      p_reason: why?.trim() || null,
+    });
+
+    if (error) {
+      setError(error.message);
+      setBusy(false);
+      return;
+    }
+
+    setAsking(undefined);
+    setReason("");
     await load();
     setBusy(false);
   };
@@ -183,6 +314,20 @@ export function AdminPanel({ meId }: { meId: string }) {
    * 여기서 잠가버리면 아무도 관리자를 세울 수 없게 된다.
    */
   const canSetRole = users.find((u) => u.id === meId)?.is_owner !== false;
+
+  const ask: AskCtl = {
+    asking,
+    reason,
+    busy,
+    setReason,
+    cancel: () => {
+      setAsking(undefined);
+      setReason("");
+    },
+    confirm: () => {
+      if (asking) void setStatus(asking.id, asking.status, reason);
+    },
+  };
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-3 p-4 sm:p-5">
@@ -242,7 +387,10 @@ export function AdminPanel({ meId }: { meId: string }) {
         </div>
       </div>
 
-      {tab === "pending" && <PendingTab users={pending} busy={busy} onStatus={setStatus} />}
+      {tab === "pending" && (
+        <PendingTab users={pending} busy={busy} ask={ask} onStatus={setStatus} />
+      )}
+      {tab === "history" && <HistoryTab rows={history} missing={noHistoryTable} />}
       {tab === "codes" && (
         <CodesTab
           codes={codes}
@@ -258,6 +406,7 @@ export function AdminPanel({ meId }: { meId: string }) {
           meId={meId}
           busy={busy}
           canSetRole={canSetRole}
+          ask={ask}
           onRole={setRole}
           onStatus={setStatus}
         />
@@ -269,10 +418,12 @@ export function AdminPanel({ meId }: { meId: string }) {
 function PendingTab({
   users,
   busy,
+  ask,
   onStatus,
 }: {
   users: AppUser[];
   busy: boolean;
+  ask: AskCtl;
   onStatus: (id: string, status: AppUser["status"]) => void;
 }) {
   return (
@@ -306,10 +457,85 @@ function PendingTab({
               <Btn size="sm" variant="danger" disabled={busy} onClick={() => onStatus(u.id, "rejected")}>
                 거절
               </Btn>
+
+              {ask.asking?.id === u.id && <ReasonBox ctl={ask} />}
             </Row>
           ))}
         </div>
       )}
+    </Section>
+  );
+}
+
+/**
+ * 승인·거절·차단의 이력.
+ *
+ * 관리자라면 누구나 본다. 승인을 맡은 사람이 여럿인데 서로의 판단을 볼 수 없으면
+ * 한쪽이 거절한 사람을 다른 쪽이 승인하는 일이 생긴다.
+ *
+ * 여기서는 아무것도 고칠 수 없다 — DB에도 쓰기 정책이 없다.
+ */
+function HistoryTab({ rows, missing }: { rows: UserDecision[]; missing: boolean }) {
+  return (
+    <Section
+      title={`이력 ${rows.length}건`}
+      desc="누가 언제 승인·거절·차단했는지, 역할을 바꿨는지 남습니다. 지우거나 고칠 수 없습니다."
+    >
+      {missing ? (
+        <Hint>
+          이력을 담을 표가 아직 없습니다. Supabase SQL Editor에서
+          011_decision_log.sql 을 실행하면 이때부터 쌓입니다.
+        </Hint>
+      ) : rows.length === 0 ? (
+        <Hint>아직 남은 이력이 없습니다.</Hint>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {rows.map((r) => {
+            const { text, danger } = decisionLabel(r);
+            return (
+              <Row key={r.id}>
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-center gap-1.5 text-[13px]">
+                    <span className="font-bold">{r.user_name || r.user_email || "(지워진 계정)"}</span>
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                      style={
+                        danger
+                          ? { background: "#fff5f5", color: "#c92a2a" }
+                          : { background: "#ebfbee", color: "#2b8a3e" }
+                      }
+                    >
+                      {text}
+                    </span>
+                  </p>
+
+                  {/* 사유는 이 표의 알맹이다. 줄여 접지 않고 그대로 보여준다. */}
+                  {r.reason && (
+                    <p className="mt-0.5 text-[12px]" style={{ color: "var(--ui-text)" }}>
+                      {r.reason}
+                    </p>
+                  )}
+
+                  <p className="mt-0.5 truncate text-[11px]" style={{ color: "var(--ui-muted)" }}>
+                    {r.user_email}
+                    {" · "}
+                    {/*
+                      '누가'가 비어 있는 줄은 화면 밖에서 바뀐 것이다 —
+                      SQL 편집기나 서버 열쇠로 고치면 누른 사람이 없다.
+                      초대코드로 스스로 승인된 줄은 본인 이름이 그대로 찍힌다.
+                    */}
+                    {r.actor_name || r.actor_email || "화면 밖에서 변경"}
+                    {" · "}
+                    {new Date(r.created_at).toLocaleString("ko-KR")}
+                  </p>
+                </div>
+              </Row>
+            );
+          })}
+        </div>
+      )}
+
+      <Hint>최근 200건까지 보여줍니다.</Hint>
     </Section>
   );
 }
@@ -386,6 +612,7 @@ function MembersTab({
   meId,
   busy,
   canSetRole,
+  ask,
   onRole,
   onStatus,
 }: {
@@ -393,6 +620,7 @@ function MembersTab({
   meId: string;
   busy: boolean;
   canSetRole: boolean;
+  ask: AskCtl;
   onRole: (id: string, role: AppUser["role"]) => void;
   onStatus: (id: string, status: AppUser["status"]) => void;
 }) {
@@ -468,6 +696,8 @@ function MembersTab({
                     </Btn>
                   </>
                 ))}
+
+              {ask.asking?.id === u.id && <ReasonBox ctl={ask} />}
             </Row>
           ))}
         </div>

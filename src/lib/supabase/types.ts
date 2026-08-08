@@ -37,6 +37,30 @@ export type InviteCode = {
   created_at: string;
 };
 
+/**
+ * 승인·거절·차단의 이력 한 줄. 관리자만 읽을 수 있고 아무도 고치지 못한다.
+ *
+ * 사람 이름과 메일을 따로 새겨두는 까닭:
+ * 계정이 지워져도 '누가 누구를 어떻게 했는지'는 남아야 이력이다.
+ */
+export type UserDecision = {
+  id: string;
+  user_id: string | null;
+  user_name: string;
+  user_email: string;
+  from_status: UserStatus | null;
+  to_status: UserStatus;
+  /** 역할이 바뀐 줄에만 채워진다. 둘 다 null이면 상태만 바뀐 줄이다. */
+  from_role: UserRole | null;
+  to_role: UserRole | null;
+  /** 거절·차단에만 있다. 승인은 적을 것이 없다. */
+  reason: string | null;
+  actor_id: string | null;
+  actor_name: string;
+  actor_email: string;
+  created_at: string;
+};
+
 /** QR 주소가 지금 보여주는 주보. 한 줄만 있다. */
 export type PublishedRow = {
   id: number;
@@ -113,10 +137,29 @@ export type Database = {
         Update: Partial<PublishedRow>;
         Relationships: [];
       };
+      /**
+       * 읽기만 한다. 넣고 고치는 정책이 DB에 아예 없어 화면에서는 손댈 수 없고,
+       * 기록은 users의 트리거만이 남긴다.
+       */
+      user_decisions: {
+        Row: UserDecision;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
       redeem_invite_code: { Args: { p_code: string }; Returns: boolean };
+      /**
+       * 가입 상태를 바꾸고 그 까닭을 이력에 남긴다.
+       * 화면은 users.status를 직접 고치지 않고 반드시 이것을 부른다 — 그래야 빠뜨릴 자리가 없다.
+       * 거절·차단은 사유가 비어 있으면 DB가 되돌려 보낸다.
+       */
+      decide_user: {
+        Args: { p_user: string; p_status: UserStatus; p_reason?: string | null };
+        Returns: void;
+      };
       /** 코드가 살아 있는지 확인만 한다. 계정을 만들기 전에 물어보는 용도라 로그인 없이도 부른다. */
       check_invite_code: { Args: { p_code: string }; Returns: boolean };
       /** 초대코드가 있어야 가입할 수 있는 상태인가 (아무도 없는 새 DB에서만 false) */
