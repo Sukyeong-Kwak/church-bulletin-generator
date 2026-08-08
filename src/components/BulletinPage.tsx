@@ -199,6 +199,22 @@ export function WorshipContent({ doc }: { doc: BulletinDoc }) {
         ))}
       </div>
 
+      {/*
+        차량운행처럼 매주 같은 안내.
+        예배 안내 바로 아래에 둔다 — 예배가 끝나고 이어지는 일이라 그 옆에 붙어야 읽히고,
+        생일은 그 달에만 해당하는 것이라 뒤로 물러난다.
+      */}
+      {w.noticeHeading?.trim() ? (
+        <Txt role="noticeHeading" theme={theme} override={w.noticeHeadingStyle}>
+          {w.noticeHeading}
+        </Txt>
+      ) : null}
+      {w.noticeBody?.trim() ? (
+        <Txt role="noticeLine" theme={theme} override={w.noticeBodyStyle} preserveLines>
+          {w.noticeBody}
+        </Txt>
+      ) : null}
+
       {w.birthdayHeading && (
         <Txt role="birthdayHeading" theme={theme}>
           {w.birthdayHeading.replace("{month}", String(monthOf(serviceDate)))}

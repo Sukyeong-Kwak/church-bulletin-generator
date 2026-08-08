@@ -525,6 +525,37 @@ function WorshipEditor() {
       </Section>
 
       <Section
+        title="고정 안내"
+        desc="예배 안내 아래, 생일 위에 들어갑니다. 한 번 적어두면 모든 주보에 그대로 따라갑니다."
+      >
+        <div className="flex flex-col gap-2">
+          <Field label="제목">
+            <input
+              type="text"
+              value={w.noticeHeading}
+              placeholder="차량운행"
+              onChange={(e) => setWorship({ noticeHeading: e.target.value })}
+            />
+          </Field>
+          <Field label="내용">
+            <textarea
+              rows={4}
+              value={w.noticeBody}
+              placeholder={
+                "청년부 예배 후 오후 5시 10분경 출발합니다.\n신갈역과 신갈오거리에 정차합니다."
+              }
+              style={{ resize: "vertical" }}
+              onChange={(e) => setWorship({ noticeBody: e.target.value })}
+            />
+          </Field>
+          <Hint>
+            줄바꿈은 적은 그대로 주보에 나옵니다. 제목과 내용을 모두 비우면 이 자리는 빠집니다 —
+            운행이 없는 기간에는 비워두세요.
+          </Hint>
+        </div>
+      </Section>
+
+      <Section
         title="생일 명단"
         desc="월별로 계속 보관됩니다. 같은 달 주보에는 자동으로 들어갑니다."
       >
@@ -609,6 +640,20 @@ function WorshipEditor() {
         theme={settings.theme}
         value={w.valueStyle}
         onChange={(v) => setWorship({ valueStyle: v })}
+      />
+      <Inspector
+        label="고정 안내 · 제목"
+        role="noticeHeading"
+        theme={settings.theme}
+        value={w.noticeHeadingStyle}
+        onChange={(v) => setWorship({ noticeHeadingStyle: v })}
+      />
+      <Inspector
+        label="고정 안내 · 내용"
+        role="noticeLine"
+        theme={settings.theme}
+        value={w.noticeBodyStyle}
+        onChange={(v) => setWorship({ noticeBodyStyle: v })}
       />
     </>
   );

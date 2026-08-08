@@ -117,8 +117,17 @@ export interface FixedPages {
     birthdayHeading: string;
     /** '2026-07' → 이름 목록 */
     birthdays: Record<string, string[]>;
+    /**
+     * 예배 안내와 생일 사이에 서는 고정 안내 — 차량운행처럼 매주 같은 것.
+     * 매주 바뀌는 광고와 달리 한 번 적어두면 계속 따라오므로 여기(고정 페이지)에 둔다.
+     * 제목·본문을 모두 비우면 넣지 않는다.
+     */
+    noticeHeading: string;
+    noticeBody: string;
     labelStyle?: TextStyle;
     valueStyle?: TextStyle;
+    noticeHeadingStyle?: TextStyle;
+    noticeBodyStyle?: TextStyle;
   };
 }
 

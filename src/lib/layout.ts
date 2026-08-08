@@ -39,6 +39,8 @@ export type Role =
   | "worshipValue"
   | "birthdayHeading"
   | "birthdayName"
+  | "noticeHeading"
+  | "noticeLine"
   | "scheduleHeading"
   | "scheduleItem"
   | "sermonHeading"
@@ -56,11 +58,16 @@ export const DEFAULT_STYLES: Record<Role, FullStyle> = {
   adsHeader: f({ fontSize: 52, lineHeight: 1.3, align: "center", bold: true, title: true, marginBottom: 0 }),
   blockTitle: f({ fontSize: 28, lineHeight: 1.4, align: "center", title: true, highlight: true, marginBottom: 10 }),
   blockBody: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
-  worshipHeading: f({ fontSize: 52, lineHeight: 1.3, align: "center", bold: true, title: true, marginBottom: 24 }),
-  worshipLabel: f({ fontSize: 27, lineHeight: 1.5, align: "right" }),
-  worshipValue: f({ fontSize: 27, lineHeight: 1.5, align: "left" }),
-  birthdayHeading: f({ fontSize: 46, lineHeight: 1.3, align: "center", bold: true, title: true, marginTop: 40, marginBottom: 20 }),
-  birthdayName: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
+  // 청년부 일정 한 장에 예배 안내·생일·차량운행 셋이 함께 선다.
+  // 글자 크기는 그대로 두고 줄 사이와 마디 사이만 줄여 셋째 자리를 만들었다 —
+  // 크기를 줄이면 멀리서 읽히지 않는데, 이 장은 벽에 붙여두고 보는 장이다.
+  worshipHeading: f({ fontSize: 52, lineHeight: 1.3, align: "center", bold: true, title: true, marginBottom: 18 }),
+  worshipLabel: f({ fontSize: 27, lineHeight: 1.25, align: "right" }),
+  worshipValue: f({ fontSize: 27, lineHeight: 1.25, align: "left" }),
+  birthdayHeading: f({ fontSize: 46, lineHeight: 1.3, align: "center", bold: true, title: true, marginTop: 26, marginBottom: 12 }),
+  birthdayName: f({ fontSize: 27, lineHeight: 1.35, align: "center" }),
+  noticeHeading: f({ fontSize: 46, lineHeight: 1.3, align: "center", bold: true, title: true, marginTop: 26, marginBottom: 12 }),
+  noticeLine: f({ fontSize: 27, lineHeight: 1.35, align: "center" }),
   scheduleHeading: f({ fontSize: 30, lineHeight: 1.4, align: "center", title: true, highlight: true, marginBottom: 12 }),
   scheduleItem: f({ fontSize: 27, lineHeight: 1.6, align: "center" }),
   sermonHeading: f({ fontSize: 46, lineHeight: 1.3, align: "center", bold: true, title: true, marginTop: 24, marginBottom: 14 }),
@@ -73,6 +80,7 @@ const TITLE_COLOR_ROLES = new Set<Role>([
   "adsHeader",
   "worshipHeading",
   "birthdayHeading",
+  "noticeHeading",
   "sermonHeading",
 ]);
 

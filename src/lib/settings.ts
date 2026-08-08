@@ -149,6 +149,9 @@ export function makeDefaultSettings(): Settings {
         ],
         birthdayHeading: "{month}월 생일",
         birthdays: {},
+        // 매주 같은 안내라 여기 한 번 적어두면 모든 주보에 따라 들어간다
+        noticeHeading: "차량운행",
+        noticeBody: "청년부 예배 후 오후 5시 10분경 출발합니다.\n신갈역과 신갈오거리에 정차합니다.",
       },
     },
     theme: { ...DEFAULT_THEME },
