@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -12,6 +11,7 @@ import {
 import { FlowBlockView } from "@/components/FlowBlocks";
 import { Txt } from "@/components/Txt";
 import { BLOCK_GAP, CONTENT, HEADER_GAP } from "./layout";
+import { useFontsReady } from "./useFontsReady";
 import type { BulletinDoc, FlowBlock, LaidOutPage } from "./types";
 
 interface WorkingPage {
@@ -113,26 +113,10 @@ export function useFlowPages(doc: BulletinDoc): {
 } {
   const [heights, setHeights] = useState<Record<string, number>>({});
   const [headerH, setHeaderH] = useState(0);
-  const [fontsReady, setFontsReady] = useState(false);
+  const fontsReady = useFontsReady();
 
   const refs = useRef(new Map<string, HTMLDivElement | null>());
   const headerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
-    if (fonts?.ready) {
-      fonts.ready.then(() => {
-        if (alive) setFontsReady(true);
-      });
-    } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 폰트 API가 없는 환경에서 즉시 측정을 시작한다
-      setFontsReady(true);
-    }
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   const blocks = useMemo(() => doc.blocks.filter(isRenderable), [doc.blocks]);
 
