@@ -1,16 +1,8 @@
 /**
- * Supabase가 돌려주는 영어 오류를 화면에 쓸 말로 옮긴다.
- *
- * 옮기지 못한 것은 원문 그대로 내보낸다. 감추는 것보다 낫다 —
- * 가입이 막혔을 때 무엇이 막았는지는 화면에 남아야 물어볼 수 있다.
- *
- * DB 트리거가 올리는 말(이름·초대코드)은 이미 우리말이라 그대로 지나간다.
- */
-/**
  * 초대코드를 넣었는데 통하지 않았을 때 할 말.
  *
- * redeem_invite_code 는 두 가지를 한 가지 답(false)으로 돌려준다 —
- * '코드가 죽었다'와 '이 계정은 코드로 살아날 수 없다'.
+ * redeem_invite_code 는 여러 가지를 한 가지 답(false)으로 돌려준다 —
+ * '코드가 죽었다'와 '이 계정은 코드로 열리지 않는다'.
  * 그 둘을 갈라주지 않으면, 거절당한 사람이 멀쩡한 코드를 들고 몇 번이고 다시 넣게 된다.
  */
 export function redeemFailMessage(status: string | null | undefined): string {
@@ -27,6 +19,14 @@ export function redeemFailMessage(status: string | null | undefined): string {
   return "초대코드가 유효하지 않거나 24시간이 지났습니다. 발급한 분께 다시 받아 넣어주세요.";
 }
 
+/**
+ * Supabase가 돌려주는 영어 오류를 화면에 쓸 말로 옮긴다.
+ *
+ * 옮기지 못한 것은 원문 그대로 내보낸다. 감추는 것보다 낫다 —
+ * 가입이 막혔을 때 무엇이 막았는지는 화면에 남아야 물어볼 수 있다.
+ *
+ * DB 트리거가 올리는 말(이름)은 이미 우리말이라 그대로 지나간다.
+ */
 export function authMessage(message: string): string {
   const m = message.toLowerCase();
 
@@ -61,8 +61,9 @@ export function authMessage(message: string): string {
   if (m.includes("signups not allowed") || m.includes("signup is disabled"))
     return "지금은 가입 신청을 받지 않도록 되어 있습니다. 관리자에게 문의해주세요.";
 
-  // 트리거가 올린 예외가 뭉뚱그려 돌아오는 경우
-  if (m.includes("database error")) return "이름과 초대코드를 다시 확인해주세요.";
+  // 트리거가 올린 예외가 뭉뚱그려 돌아오는 경우.
+  // 계정을 만들 때 막는 것은 이제 이름뿐이다 — 초대코드는 인증을 마친 뒤에 받는다(010).
+  if (m.includes("database error")) return "이름을 다시 확인해주세요.";
 
   return message;
 }

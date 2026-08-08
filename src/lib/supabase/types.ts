@@ -160,7 +160,11 @@ export type Database = {
         Args: { p_user: string; p_status: UserStatus; p_reason?: string | null };
         Returns: void;
       };
-      /** 코드가 살아 있는지 확인만 한다. 계정을 만들기 전에 물어보는 용도라 로그인 없이도 부른다. */
+      /**
+       * 코드가 살아 있는지 확인만 한다(소모하지 않음).
+       * 지금은 화면에서 부르지 않는다 — 코드를 인증 뒤에 받게 되면서(010) 미리 물어볼 일이 없어졌고,
+       * 로그인 없이 코드를 하나씩 넣어보는 일을 막으려 anon 권한도 거뒀다(011).
+       */
       check_invite_code: { Args: { p_code: string }; Returns: boolean };
       /** 초대코드가 있어야 가입할 수 있는 상태인가 (아무도 없는 새 DB에서만 false) */
       invite_required: { Args: Record<string, never>; Returns: boolean };
