@@ -196,7 +196,7 @@ export default function SignupPage() {
       }
     >
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <Field label="이름 (주보에 남는 이름이 아니라, 관리자가 누구인지 알아보는 용도입니다)">
+        <Field label="이름">
           <input
             type="text"
             value={name}
