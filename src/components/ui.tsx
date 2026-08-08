@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
-import { useSectionGroup } from "./SectionGroup";
+import { useSectionActions, useSectionState } from "./SectionGroup";
 
 export function Section({
   title,
@@ -20,12 +20,18 @@ export function Section({
    */
   anchor?: string;
 }) {
-  const group = useSectionGroup();
   /* 이름표가 있으면 그것을 열쇠로 쓴다 — 미리보기에서 찾아올 때와 같은 이름이라야 열린다 */
   const key = anchor ?? title;
-  const open = group ? group.isOpen(key) : true;
 
-  useEffect(() => group?.register(key), [group, key]);
+  /*
+   * 등록은 '하는 일' 쪽에만 기댄다. 그쪽은 처음 한 번 만들어지고 끝까지 같은 것이라
+   * 이 효과가 다시 돌지 않는다 — 상태까지 함께 잡으면 등록과 해제가 끝없이 되풀이된다.
+   */
+  const actions = useSectionActions();
+  const state = useSectionState();
+  const open = state ? state.open.has(key) : true;
+
+  useEffect(() => actions?.register(key), [actions, key]);
 
   return (
     <section
@@ -43,8 +49,8 @@ export function Section({
       >
         <button
           type="button"
-          onClick={() => group?.toggle(key)}
-          disabled={!group}
+          onClick={() => actions?.toggle(key)}
+          disabled={!actions}
           className="flex min-w-0 flex-1 items-start gap-2 text-left"
         >
           {/* 훑을 때 눈이 걸리는 자리 — 펴져 있으면 색이 살고, 접히면 물러난다 */}
@@ -65,7 +71,7 @@ export function Section({
               </span>
             )}
           </span>
-          {group && (
+          {actions && (
             <span
               aria-hidden
               className="mt-[3px] ml-auto shrink-0 text-[11px] transition-transform"

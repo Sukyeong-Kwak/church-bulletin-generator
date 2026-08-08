@@ -2,10 +2,10 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,7 +17,6 @@ import { Btn } from "./ui";
  *
  * 처음에는 모두 접혀 있다. 그러면 왼쪽이 '무엇을 고칠 수 있는가'의 목록이 되어,
  * 굴리지 않고도 이 화면이 맡는 일이 한눈에 들어온다.
- * 예닐곱 개가 모두 펼쳐진 채 쌓여 있던 것이 원래 문제였다.
  *
  * 펴는 길은 둘이다.
  *   제목 줄을 누른다
@@ -25,43 +24,57 @@ import { Btn } from "./ui";
  *
  * 한 번 편 것은 접을 때까지 그대로 둔다. 다른 곳을 펴도 닫지 않는다 —
  * 두 곳을 견주며 고치는 일이 잦은데, 하나만 열리면 오갈 때마다 다시 펴야 한다.
+ *
+ * ---------------------------------------------------------------- 왜 둘로 나눠 담는가
+ *
+ * '하는 일'과 '지금 상태'를 한 그릇에 담으면, 상태가 바뀔 때마다 그릇 자체가 새것이 된다.
+ * 칸들은 자기를 등록하려고 그 그릇을 의존성으로 잡고 있어서,
+ *
+ *     등록 → 상태 바뀜 → 그릇 새로 생김 → 해제 → 다시 등록 → ...
+ *
+ * 이 되어 끝없이 돈다(Maximum update depth exceeded). 실제로 그렇게 났다.
+ * 그래서 '하는 일'은 한 번 만들고 끝까지 같은 것을 쓰고, 바뀌는 것만 따로 담는다.
  */
-interface SectionGroupApi {
-  isOpen: (key: string) => boolean;
+interface Actions {
   toggle: (key: string) => void;
+  /** 칸이 스스로를 알린다. 돌려받은 것을 부르면 등록이 풀린다. */
   register: (key: string) => () => void;
   openAll: () => void;
   closeAll: () => void;
-  total: number;
-  openCount: number;
 }
 
-const Ctx = createContext<SectionGroupApi | null>(null);
+interface GroupState {
+  open: ReadonlySet<string>;
+  total: number;
+}
+
+const ActionsCtx = createContext<Actions | null>(null);
+const StateCtx = createContext<GroupState | null>(null);
 
 /** 묶음 밖에 있는 칸은 늘 펼쳐진 것으로 본다 — 감출 방법이 없는 자리이기 때문이다 */
-export function useSectionGroup(): SectionGroupApi | null {
-  return useContext(Ctx);
+export function useSectionActions(): Actions | null {
+  return useContext(ActionsCtx);
+}
+
+export function useSectionState(): GroupState | null {
+  return useContext(StateCtx);
 }
 
 export function SectionGroup({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState<Set<string>>(() => new Set());
-  const [all, setAll] = useState<Set<string>>(() => new Set());
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
+  const [total, setTotal] = useState(0);
 
-  const register = useCallback((key: string) => {
-    setAll((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
-    return () => {
-      setAll((prev) => {
-        if (!prev.has(key)) return prev;
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    };
-  }, []);
+  /**
+   * 등록된 이름들.
+   *
+   * 화면을 다시 그릴 까닭이 없는 값이라 ref 에 둔다 — 상태로 두면 그것이 바뀔 때마다
+   * 아래 actions 가 새것이 되어 위에 적은 그 루프로 돌아간다.
+   * 개수만 따로 상태로 들고 있어 '3개 항목' 같은 표시가 따라 바뀐다.
+   */
+  const keys = useRef(new Set<string>());
 
-  const api = useMemo<SectionGroupApi>(
+  const actions = useMemo<Actions>(
     () => ({
-      isOpen: (key) => open.has(key),
       toggle: (key) =>
         setOpen((prev) => {
           const next = new Set(prev);
@@ -69,13 +82,20 @@ export function SectionGroup({ children }: { children: ReactNode }) {
           else next.add(key);
           return next;
         }),
-      register,
-      openAll: () => setOpen(new Set(all)),
+
+      register: (key) => {
+        keys.current.add(key);
+        setTotal(keys.current.size);
+        return () => {
+          keys.current.delete(key);
+          setTotal(keys.current.size);
+        };
+      },
+
+      openAll: () => setOpen(new Set(keys.current)),
       closeAll: () => setOpen(new Set()),
-      total: all.size,
-      openCount: open.size,
     }),
-    [open, all, register],
+    [],
   );
 
   // 미리보기에서 어느 구역을 눌러 찾아오는 중이면, 그 칸을 미리 펴 둔다
@@ -89,7 +109,13 @@ export function SectionGroup({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(EDIT_FOCUS_EVENT, onFocus);
   }, []);
 
-  return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
+  const state = useMemo<GroupState>(() => ({ open, total }), [open, total]);
+
+  return (
+    <ActionsCtx.Provider value={actions}>
+      <StateCtx.Provider value={state}>{children}</StateCtx.Provider>
+    </ActionsCtx.Provider>
+  );
 }
 
 /**
@@ -99,21 +125,23 @@ export function SectionGroup({ children }: { children: ReactNode }) {
  * 접을 칸이 하나도 없으면 이 줄 자체를 내놓지 않는다 — 누를 것이 없는 버튼은 군더더기다.
  */
 export function SectionGroupBar() {
-  const group = useSectionGroup();
-  if (!group || group.total === 0) return null;
+  const actions = useSectionActions();
+  const state = useSectionState();
+  if (!actions || !state || state.total === 0) return null;
 
-  const allOpen = group.openCount >= group.total;
+  const openCount = state.open.size;
+  const allOpen = openCount >= state.total;
 
   return (
     <div className="flex items-center gap-2 px-0.5">
       <span className="text-[12px]" style={{ color: "var(--ui-muted)" }}>
-        {group.openCount > 0 ? `${group.openCount}/${group.total}개 펼침` : `${group.total}개 항목`}
+        {openCount > 0 ? `${openCount}/${state.total}개 펼침` : `${state.total}개 항목`}
       </span>
       <Btn
         size="sm"
         variant="ghost"
         className="ml-auto"
-        onClick={() => (allOpen ? group.closeAll() : group.openAll())}
+        onClick={() => (allOpen ? actions.closeAll() : actions.openAll())}
       >
         {allOpen ? "모두 접기" : "모두 펼치기"}
       </Btn>
