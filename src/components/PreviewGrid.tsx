@@ -37,8 +37,32 @@ export function PreviewGrid({
   selectedIndex,
   showCaption = true,
 }: Props) {
+  /*
+   * 쪽 크기를 정수로 끊는다.
+   * 배율이 0.42 같은 값이라 그냥 곱하면 폭이 374.2px 처럼 나오는데, 그 반 픽셀이 쪽마다
+   * 다르게 반올림되어 세로줄이 미세하게 어긋난다. 눈에 '뭔가 안 맞는' 느낌으로 남는 자리다.
+   */
+  const pw = Math.round(CANVAS.w * scale);
+  const ph = Math.round(CANVAS.h * scale);
+
   return (
-    <div className="flex flex-wrap gap-4">
+    /*
+     * 흘려 놓지 않고 격자에 앉힌다.
+     *
+     * flex-wrap 은 줄마다 가장 큰 것에 맞춰 높이가 달라져 세로 간격이 들쭉날쭉했고,
+     * 남는 자리가 늘 오른쪽에만 몰려 한쪽으로 쏠려 보였다.
+     * 칸 너비를 쪽 너비로 고정한 격자에 앉히고 가운데로 모으면 줄과 칸이 모두 맞는다.
+     * auto-fit 이라 화면이 좁아지면 칸 수가 저절로 줄어든다.
+     */
+    <div
+      className="grid gap-x-4 gap-y-5"
+      style={{
+        gridTemplateColumns: `repeat(auto-fit, ${pw}px)`,
+        // safe 를 붙이면 쪽이 화면보다 넓어졌을 때 가운데 대신 왼쪽부터 붙는다.
+        // 그냥 center 로 두면 넘친 만큼이 양쪽으로 갈라져 왼쪽 끝이 굴려도 닿지 않는다.
+        justifyContent: "safe center",
+      }}
+    >
       {pages.map((page) => (
         <div key={page.index} className="flex flex-col gap-1.5">
           <div
@@ -58,8 +82,8 @@ export function PreviewGrid({
             }}
             className="relative overflow-hidden rounded-lg border bg-white"
             style={{
-              width: CANVAS.w * scale,
-              height: CANVAS.h * scale,
+              width: pw,
+              height: ph,
               borderColor:
                 selectedIndex === page.index ? "var(--ui-accent)" : "var(--ui-border)",
               boxShadow:
@@ -95,8 +119,13 @@ export function PreviewGrid({
           </div>
 
           {showCaption && (
+            /*
+             * 설명줄 높이를 고정한다.
+             * 이름이 길어 두 줄로 접히면 그 쪽만 키가 커지고, 격자에서는 그 줄 전체가
+             * 따라 내려가 아래 줄과 간격이 벌어진다. 넘치면 접지 않고 잘라 보낸다.
+             */
             <div
-              className="flex items-center gap-1.5 text-[11px]"
+              className="flex h-[18px] items-center gap-1.5 overflow-hidden text-[11px] whitespace-nowrap"
               style={{ color: "var(--ui-muted)" }}
             >
               <span className="font-semibold">{page.index + 1}</span>
