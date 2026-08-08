@@ -6,6 +6,24 @@
  *
  * DB 트리거가 올리는 말(이름·초대코드)은 이미 우리말이라 그대로 지나간다.
  */
+/**
+ * 초대코드를 넣었는데 통하지 않았을 때 할 말.
+ *
+ * redeem_invite_code 는 두 가지를 한 가지 답(false)으로 돌려준다 —
+ * '코드가 죽었다'와 '이 계정은 코드로 살아날 수 없다'.
+ * 그 둘을 갈라주지 않으면, 거절당한 사람이 멀쩡한 코드를 들고 몇 번이고 다시 넣게 된다.
+ */
+export function redeemFailMessage(status: string | null | undefined): string {
+  // 차단은 코드로 풀리지 않는다. '코드가 틀렸다'고 하면 멀쩡한 코드를 계속 넣어보게 된다.
+  if (status === "blocked")
+    return "관리자가 이 계정의 이용을 중지했습니다. 초대코드로는 다시 열리지 않습니다. 담당자에게 문의해주세요.";
+
+  if (status === "approved") return "이미 가입이 끝난 계정입니다. 로그인해주세요.";
+
+  // 거절된 사람도 살아 있는 코드면 통과한다 — 여기까지 왔다면 코드 쪽이 문제다
+  return "초대코드가 유효하지 않거나 24시간이 지났습니다. 발급한 분께 다시 받아 넣어주세요.";
+}
+
 export function authMessage(message: string): string {
   const m = message.toLowerCase();
 

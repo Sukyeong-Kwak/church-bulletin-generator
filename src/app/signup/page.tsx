@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthError, AuthNotice, AuthShell } from "@/components/auth/AuthShell";
-import { authMessage } from "@/components/auth/messages";
+import { authMessage, redeemFailMessage } from "@/components/auth/messages";
 import { Btn, Field, Hint } from "@/components/ui";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { supabaseConfigured } from "@/lib/supabase/config";
@@ -20,17 +20,21 @@ const RESEND_WAIT = 60;
 
 /**
  * 가입은 세 걸음이다.
- *   1. 적는다      — 이름·이메일·비밀번호·초대코드
- *   2. 인증한다    — 메일로 온 6자리 번호를 넣어 이 주소가 제 것임을 보인다
- *   3. 신청한다    — 인증을 마쳐야 이 버튼이 열린다
+ *   1. 적는다      — 이름·이메일·비밀번호
+ *   2. 인증한다    — 메일로 온 번호를 넣어 이 주소가 제 것임을 보인다
+ *   3. 신청한다    — 초대코드를 넣고 누른다. 인증을 마쳐야 이 걸음이 열린다
  *
  * 걸음을 나눈 까닭:
  * 한 번에 다 하면 무엇 때문에 막혔는지가 뭉뚱그려진다. 메일이 안 왔는지, 번호가 틀렸는지,
  * 코드가 지났는지를 각자의 자리에서 알려주려면 누르는 자리도 나뉘어 있어야 한다.
  *
- * 다만 Supabase는 '계정을 만들면서' 인증번호를 보낸다 — 주소만 먼저 확인하는 길이 없다.
- * 그래서 계정 행은 1번이 아니라 2번을 누르는 순간에 생긴다. 인증을 마치지 못한 행은
- * 승인되지 않으므로 아무것도 하지 못하고, 같은 주소로 다시 신청하면 이어서 쓴다.
+ * 초대코드를 인증보다 뒤에 두는 까닭:
+ * Supabase는 '계정을 만들면서' 인증번호를 보낸다 — 주소만 먼저 확인하는 길이 없다.
+ * 그래서 코드로 계정 만들기를 막아두면, 코드를 받으러 간 사이에 적어둔 것이 다 날아가고
+ * 돌아와 처음부터 다시 적어야 했다. 이제 코드는 인증을 마친 뒤에 받는다 (010 마이그레이션).
+ *
+ * 코드 없이 만들어진 계정은 pending 으로 남아 아무것도 하지 못한다.
+ * 코드를 넣으면 그 자리에서 승인되고, 없으면 관리자 승인을 기다린다.
  */
 type Step = "idle" | "sent" | "verified";
 
@@ -57,6 +61,10 @@ export default function SignupPage() {
   const [notice, setNotice] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [left, setLeft] = useState(0);
+
+  /** 코드 없이 신청을 눌러 한 번 안내를 받았는가 — 그때부터 '코드 없이 신청' 길을 함께 연다 */
+  const [codeAsked, setCodeAsked] = useState(false);
+  const codeRef = useRef<HTMLInputElement>(null);
 
   /**
    * 초대코드가 있어야 하는가.
@@ -92,13 +100,16 @@ export default function SignupPage() {
 
   if (!supabaseConfigured) return <NotConfigured />;
 
-  /** 적는 칸이 다 찼는가 — 인증번호를 보내려면 계정을 만들 수 있어야 하고, 그러려면 다 있어야 한다 */
+  /**
+   * 인증번호를 보낼 수 있는가.
+   * 번호를 보내는 순간 계정이 만들어지므로, 계정에 새길 것은 그 전에 다 있어야 한다.
+   * 초대코드는 여기 들어가지 않는다 — 그것은 인증을 마친 뒤에 받는다.
+   */
   const filled =
     name.trim() !== "" &&
     email.trim() !== "" &&
     password.length >= MIN_PASSWORD &&
-    password === password2 &&
-    (!needCode || code.trim() !== "");
+    password === password2;
 
   /**
    * 이메일을 고치면 인증은 없던 일이 된다.
@@ -111,6 +122,8 @@ export default function SignupPage() {
       setOtp("");
       setNotice(undefined);
       setError(undefined);
+      // 초대코드 칸이 붉게 선 채로 잠기지 않게 — 아직 물어본 적 없는 상태로 되돌린다
+      setCodeAsked(false);
     }
   };
 
@@ -131,26 +144,6 @@ export default function SignupPage() {
 
     setBusy(true);
     const supabase = supabaseBrowser()!;
-    const entered = code.trim();
-
-    // 계정을 만들기 전에 코드부터 본다. 여기서는 쓰지 않고 살아 있는지만 확인한다.
-    if (needCode) {
-      const { data: valid, error: checkError } = await supabase.rpc("check_invite_code", {
-        p_code: entered,
-      });
-      // 못 물어본 것과 '아니다'라는 답은 다르다.
-      // 한데 묶으면 잠깐 끊긴 인터넷 때문에 멀쩡한 코드를 버리고 다시 받으러 가게 된다.
-      if (checkError) {
-        setError(`초대코드를 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요. (${checkError.message})`);
-        setBusy(false);
-        return;
-      }
-      if (!valid) {
-        setError("초대코드가 유효하지 않거나 24시간이 지났습니다. 발급한 분께 다시 받아주세요.");
-        setBusy(false);
-        return;
-      }
-    }
 
     // 같은 주소로 이미 보낸 적이 있으면 계정을 또 만들지 않고 번호만 다시 보낸다
     if (sentWith?.email === email) {
@@ -169,7 +162,8 @@ export default function SignupPage() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name: name.trim(), invite_code: entered || null } },
+      // 초대코드는 아직 받지 않았다 — 이름만 계정에 새긴다
+      options: { data: { name: name.trim() } },
     });
 
     if (signUpError) {
@@ -229,14 +223,12 @@ export default function SignupPage() {
   // ---------------------------------------------------------------- 3. 가입 신청
 
   /**
-   * 인증을 마친 뒤라 이미 로그인 상태다. 여기서 하는 일은 둘.
+   * 인증을 마친 뒤라 이미 로그인 상태다. 여기서 하는 일은 셋.
    *   - 번호를 받은 뒤에 고친 칸이 있으면 계정에 실제로 반영한다
-   *   - 초대코드를 쓴다 (여기서 처음 사용 횟수가 올라간다)
+   *   - 초대코드를 쓴다 (여기서 처음 사용 횟수가 올라가고, 그 자리에서 승인된다)
+   *   - 코드가 없으면 관리자 승인을 기다리는 자리로 보낸다
    */
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (step !== "verified") return;
-
+  const apply = async (entered: string) => {
     setBusy(true);
     setError(undefined);
     setNotice(undefined);
@@ -267,31 +259,67 @@ export default function SignupPage() {
       await supabase.from("users").update({ name: name.trim() }).eq("id", user.id);
     }
 
-    const entered = code.trim();
     if (entered) {
       const { data: ok } = await supabase.rpc("redeem_invite_code", { p_code: entered });
-      // 한 번 쓴 코드는 지운다 — 승인 대기 화면이 다시 시도하지 않게
-      await supabase.auth.updateUser({ data: { invite_code: null } });
-
       if (ok) {
         router.replace("/");
         router.refresh();
         return;
       }
-      // 번호를 넣는 사이에 코드가 만료됐다. 관리자 승인으로 돌린다.
-      router.replace("/pending?code=invalid");
-      router.refresh();
+
+      // 코드가 안 통했다. 다른 화면으로 넘겨버리면 방금 적은 것을 고쳐 넣을 자리가 없어진다 —
+      // 여기서 알려주고 이 자리에 세워둔다.
+      //
+      // 다만 '코드가 틀렸다'고만 말하면 안 된다. 거절·차단된 사람에게도 코드는 통하지 않는데,
+      // 그 사람은 멀쩡한 코드를 들고 몇 번이고 다시 넣어보게 된다.
+      const { data: mine } = await supabase
+        .from("users")
+        .select("status")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setError(redeemFailMessage(mine?.status));
+      setCodeAsked(true);
+      setBusy(false);
+      codeRef.current?.focus();
       return;
     }
 
-    router.replace("/pending");
+    // 첫 가입자는 코드 없이도 그 자리에서 승인된다 (트리거가 그렇게 만든다).
+    // 그 사람까지 승인 대기 화면으로 보내면 아무도 열어줄 사람이 없는 문 앞에 세우는 셈이다.
+    const { data: row } = await supabase
+      .from("users")
+      .select("status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    router.replace(row?.status === "approved" ? "/" : "/pending");
     router.refresh();
+  };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (step !== "verified" || busy) return;
+
+    const entered = code.trim();
+
+    // 코드 없이 눌렀다. 막지 말고 먼저 물어본다 —
+    // 대부분은 칸을 못 본 것이고, 정말 없는 사람에게는 아래에 다른 길을 열어준다.
+    if (needCode && !entered) {
+      setNotice(undefined);
+      setError("초대코드를 넣어주세요. 관리자에게 받으신 코드입니다.");
+      setCodeAsked(true);
+      codeRef.current?.focus();
+      return;
+    }
+
+    void apply(entered);
   };
 
   return (
     <AuthShell
       title="가입 신청"
-      desc="초대코드와 메일 인증이 모두 있어야 가입됩니다. 코드는 관리자에게 받으세요."
+      desc="메일 인증을 먼저 마치고, 그다음 초대코드를 넣으시면 됩니다. 코드는 관리자에게 받으세요."
       footer={
         <span style={{ color: "var(--ui-muted)" }}>
           이미 계정이 있나요?{" "}
@@ -340,16 +368,6 @@ export default function SignupPage() {
             onChange={(e) => setPassword2(e.target.value)}
           />
         </Field>
-        <Field label={needCode ? "초대코드" : "초대코드 (첫 관리자는 비워두세요)"}>
-          <input
-            type="text"
-            value={code}
-            required={needCode}
-            placeholder="관리자에게 받은 코드"
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-          />
-        </Field>
-
         {/*
           메일 인증은 따로 선 안에 둔다.
           위 칸들과 섞어두면 '적기'와 '확인받기'가 한 덩어리로 보여,
@@ -435,6 +453,44 @@ export default function SignupPage() {
           )}
         </div>
 
+        {/*
+          초대코드는 인증을 마친 뒤에 받는다.
+          코드가 없어도 자기 메일 주소가 제 것임은 보일 수 있어야 하기 때문이다 —
+          둘을 한 자리에 묶어두면 코드를 받으러 간 사이에 적어둔 것이 다 날아간다.
+          칸을 미리 보여두되 잠가둔다. 감춰버리면 인증을 마치는 순간 없던 칸이 튀어나온다.
+        */}
+        {needCode && (
+          <div
+            className="flex flex-col gap-2 rounded-xl border p-3"
+            style={{
+              borderColor: codeAsked && !code.trim() ? "#ffc9c9" : "var(--ui-border)",
+              background: step === "verified" ? "#fff" : "#fbfbfc",
+            }}
+          >
+            <span className="text-[11px] font-bold" style={{ color: "var(--ui-muted)" }}>
+              초대코드
+            </span>
+            <input
+              ref={codeRef}
+              type="text"
+              value={code}
+              disabled={step !== "verified"}
+              placeholder={step === "verified" ? "관리자에게 받은 코드" : "이메일 인증 뒤에 넣습니다"}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              style={{
+                opacity: step === "verified" ? 1 : 0.55,
+                letterSpacing: 1,
+                textTransform: "uppercase",
+              }}
+            />
+            <span className="text-[11px]" style={{ color: "var(--ui-muted)" }}>
+              {step === "verified"
+                ? "코드를 넣으면 승인을 기다리지 않고 바로 시작합니다."
+                : "이메일 인증을 마치면 넣을 수 있습니다."}
+            </span>
+          </div>
+        )}
+
         <AuthNotice message={notice} />
         <AuthError message={error} />
 
@@ -452,6 +508,18 @@ export default function SignupPage() {
           <span className="text-center text-[11px]" style={{ color: "var(--ui-muted)" }}>
             이메일 인증을 마치면 눌립니다.
           </span>
+        )}
+
+        {/*
+          코드가 정말 없는 사람의 길.
+          인증을 마친 순간 계정은 이미 만들어져 있다 — 여기서 막아 세우면
+          자기 계정이 어딘가에 있는데 화면만 보고 있게 된다.
+          한 번 물어본 뒤에만 보여준다. 처음부터 나란히 두면 코드를 가진 사람도 이쪽을 누른다.
+        */}
+        {step === "verified" && codeAsked && !code.trim() && (
+          <Btn type="button" variant="ghost" disabled={busy} onClick={() => void apply("")}>
+            코드가 없습니다 — 관리자 승인 기다리기
+          </Btn>
         )}
 
         <Hint>
