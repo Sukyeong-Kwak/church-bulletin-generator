@@ -21,18 +21,13 @@ export default function CommonPage() {
   const { pages: flowPages, measurer } = useFlowPages(doc);
 
   /*
-   * 표지 · 일정 · 본문 한 장씩 세운다.
+   * 모든 장을 세운다.
    *
    * 여기서 고치는 것(날짜·배경·카드·교회 정보)은 모든 장에 똑같이 들어간다.
-   * 그런데 고정 두 장만 보여주면 본문 장에 어떻게 앉는지가 안 보여
-   * '여기 것이 저기에도 들어가는가'가 애매해진다.
-   * 그렇다고 다 세우면 전체 보기와 같은 화면이 되므로, 종류마다 하나씩만 세운다.
+   * 한때는 종류마다 한 장씩만 세웠는데, 배경 덮기와 글자색은 글이 빽빽한 장에서 먼저 묻힌다 —
+   * 한산한 장만 보고 있으면 멀쩡해 보이다가 내보낸 뒤에야 알게 된다. 그래서 다 세운다.
    */
-  const samplePages = useMemo(() => {
-    const all = withFixedPages(flowPages);
-    const first = all.find((p) => p.kind === "flow");
-    return first ? [...all.slice(0, 2), first] : all.slice(0, 2);
-  }, [flowPages]);
+  const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
   const previewScale = useFitScale(0.4, 0.5, 60);
   const { goEdit } = useEditFocus();
@@ -169,9 +164,9 @@ export default function CommonPage() {
         preview={
           <div className="min-h-0 flex-1 overflow-auto p-5">
             <p className="mb-2 text-[12px] font-bold">
-              장 종류마다 한 장씩 · 여기서 고친 것은 모든 장에 똑같이 들어갑니다
+              전체 {pages.length}장 · 여기서 고친 것은 모든 장에 똑같이 들어갑니다
             </p>
-            <PreviewGrid doc={doc} pages={samplePages} urls={urls} scale={previewScale} onEdit={goEdit} />
+            <PreviewGrid doc={doc} pages={pages} urls={urls} scale={previewScale} onEdit={goEdit} />
             <div className="mt-2">
               <Hint>고치고 싶은 자리를 주보에서 바로 누르면 그 칸으로 갑니다.</Hint>
             </div>
