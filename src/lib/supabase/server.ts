@@ -22,16 +22,28 @@ export async function supabaseServer() {
   });
 }
 
-/** 지금 로그인한 사용자의 승인 상태까지 함께 가져온다 */
-export async function currentUser(): Promise<AppUser | null> {
+/**
+ * 지금 로그인한 사람의 상태.
+ *
+ * '로그인하지 않았다'와 '로그인했지만 가입 행이 없다'는 다른 일이라 따로 돌려준다.
+ * 둘을 뭉뚱그려 null 하나로 보내면, 가입 행이 없는 사람을 로그인 화면으로 보내게 되고
+ * proxy.ts가 그를 다시 안으로 되돌려 화면이 끝없이 튕긴다.
+ */
+export async function currentSession(): Promise<{ authed: boolean; profile: AppUser | null }> {
   const supabase = await supabaseServer();
-  if (!supabase) return null;
+  if (!supabase) return { authed: false, profile: null };
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) return { authed: false, profile: null };
 
-  const { data } = await supabase.from("users").select("*").eq("id", user.id).single();
-  return data ?? null;
+  // 행이 없을 수 있다(트리거가 못 만든 계정). single()은 그걸 오류로 치므로 maybeSingle을 쓴다.
+  const { data } = await supabase.from("users").select("*").eq("id", user.id).maybeSingle();
+  return { authed: true, profile: data ?? null };
+}
+
+/** 지금 로그인한 사용자의 승인 상태까지 함께 가져온다 */
+export async function currentUser(): Promise<AppUser | null> {
+  return (await currentSession()).profile;
 }

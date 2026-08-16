@@ -37,18 +37,31 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  /**
+   * 리다이렉트하면서 방금 갱신한 세션 쿠키를 함께 실어 보낸다.
+   *
+   * getUser가 토큰을 새로 받으면 리프레시 토큰이 한 번 쓰고 버려진다(회전).
+   * 새 쿠키를 응답에 담지 않으면 브라우저에는 이미 죽은 토큰만 남아, 다음 요청에서
+   * 로그인하지 않은 사람으로 보인다 — 방금 로그인했는데 다시 튕기는 꼴이 된다.
+   */
+  const redirectTo = (target: URL) => {
+    const redirect = NextResponse.redirect(target);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  };
+
   if (!user && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    return redirectTo(url);
   }
 
   if (user && (pathname === "/login" || pathname === "/signup")) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.search = "";
-    return NextResponse.redirect(url);
+    return redirectTo(url);
   }
 
   return response;
