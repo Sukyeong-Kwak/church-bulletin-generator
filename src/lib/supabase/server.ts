@@ -39,7 +39,15 @@ export async function currentSession(): Promise<{ authed: boolean; profile: AppU
   if (!user) return { authed: false, profile: null };
 
   // 행이 없을 수 있다(트리거가 못 만든 계정). single()은 그걸 오류로 치므로 maybeSingle을 쓴다.
-  const { data } = await supabase.from("users").select("*").eq("id", user.id).maybeSingle();
+  const { data, error } = await supabase.from("users").select("*").eq("id", user.id).maybeSingle();
+
+  /*
+   * 못 읽은 것과 없는 것은 다르다.
+   * 여기서 오류를 삼키면 권한(GRANT)이나 정책 문제가 '가입 안 한 사람'으로 둔갑해,
+   * 로그인은 되는데 화면만 계속 튕기는 알 수 없는 증상으로 나타난다. 반드시 남긴다.
+   */
+  if (error) console.error("[auth] users 행을 읽지 못했습니다:", error.code, error.message);
+
   return { authed: true, profile: data ?? null };
 }
 
