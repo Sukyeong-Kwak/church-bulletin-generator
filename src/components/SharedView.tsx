@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getBackend } from "@/lib/backend";
 import { imagePairUrls } from "@/lib/backend/images";
 import { fileNameFor, saveBlob, saveZip } from "@/lib/exportImages";
@@ -17,9 +17,9 @@ import { Btn } from "./ui";
  * 조판을 다시 계산하지 않아도 되니 바로 뜨고, 인쇄물·밴드에 올린 그림과 한 픽셀도 다르지 않다.
  * 이미지가 없는 옛 주보는 예전처럼 화면에서 다시 그린다.
  */
-export function SharedView({ doc }: { doc: BulletinDoc }) {
-  if (doc.imageKeys?.length) return <SharedImages doc={doc} />;
-  return <SharedBulletin doc={doc} />;
+export function SharedView({ doc, nav }: { doc: BulletinDoc; nav?: ReactNode }) {
+  if (doc.imageKeys?.length) return <SharedImages doc={doc} nav={nav} />;
+  return <SharedBulletin doc={doc} nav={nav} />;
 }
 
 /**
@@ -36,7 +36,7 @@ const MAX_RESIGN = 3;
  * 대부분 예배 직전에 한 손으로 스치듯 넘겨 본다. 그래서 버튼을 늘어놓지 않고
  * 주보 자체를 화면 폭 가득 채워 세로로 이어 놓았다. 확대는 손가락으로 벌리면 된다.
  */
-function SharedImages({ doc }: { doc: BulletinDoc }) {
+function SharedImages({ doc, nav }: { doc: BulletinDoc; nav?: ReactNode }) {
   const keys = doc.imageKeys ?? [];
   const [busy, setBusy] = useState(false);
   /**
@@ -130,6 +130,7 @@ function SharedImages({ doc }: { doc: BulletinDoc }) {
     <NowFrame
       doc={doc}
       pageCount={keys.length}
+      nav={nav}
       action={
         <Btn size="sm" variant="primary" disabled={busy} onClick={download}>
           {busy ? "준비 중…" : "저장"}

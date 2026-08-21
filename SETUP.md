@@ -58,6 +58,9 @@
 | 011 | [`011_decision_log.sql`](./supabase/migrations/011_decision_log.sql) | 승인·거절·차단·역할 변경의 **이력**을 남깁니다 |
 | 012 | [`012_image_window.sql`](./supabase/migrations/012_image_window.sql) | 주보 이미지도 **그날 그 주보만** 열립니다 |
 | 013 | [`013_reject_is_final.sql`](./supabase/migrations/013_reject_is_final.sql) | 거절을 되돌리는 것은 관리자만 |
+| 014 | [`014_table_grants.sql`](./supabase/migrations/014_table_grants.sql) | 로그인한 사람에게 표 권한을 엽니다 |
+| 015 | [`015_web_copies.sql`](./supabase/migrations/015_web_copies.sql) | 폰에서 볼 **화면용 축소본**도 QR로 열어줍니다 |
+| 016 | [`016_recent_bulletins.sql`](./supabase/migrations/016_recent_bulletins.sql) | QR 화면에서 **지난 주보**(이번 주 포함 5부)를 넘겨볼 수 있게 합니다 |
 
 > **순서를 지켜야 합니다.** 뒤 파일이 앞 파일이 만든 것을 고쳐 쓰기 때문에,
 > 건너뛰면 "그런 표가 없다" 같은 오류가 납니다.

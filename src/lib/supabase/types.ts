@@ -173,6 +173,12 @@ export type Database = {
        * 주일이 아니면 교인에게는 빈 배열을 준다 — 만드는 사람에게만 그대로 보인다.
        */
       get_current_bulletin: { Args: Record<string, never>; Returns: BulletinRow[] };
+      /**
+       * 한 번이라도 QR에 올렸던 주보를 최근 날짜부터. 올린 것이 하나도 없거나
+       * 지금 아무것도 올라가 있지 않으면 빈 배열.
+       * 016 마이그레이션 전 서버에는 이 함수가 없다 — 부르는 쪽이 오류를 빈 배열로 받는다.
+       */
+      get_recent_bulletins: { Args: Record<string, never>; Returns: BulletinRow[] };
       /** 지금 교인에게 열려 있는가 (주일이거나, 관리자가 오늘 하루 열어두었거나) */
       qr_is_open: { Args: Record<string, never>; Returns: boolean };
       /** 주일이 아닌 날 오늘 하루만 연다. 닫히는 시각을 돌려준다. 관리자만. */

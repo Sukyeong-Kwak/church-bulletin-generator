@@ -11,6 +11,8 @@ interface Props {
   pageCount: number;
   /** 머리에 놓을 것 (저장 버튼·확대 조절기) */
   action?: ReactNode;
+  /** 날짜 줄 아래에 놓을 것 — 지난 주보로 넘어가는 자리 */
+  nav?: ReactNode;
   /** 아래 마무리에 놓을 것 */
   footerAction?: ReactNode;
   /** 주보가 놓이는 자리 */
@@ -27,7 +29,7 @@ interface Props {
  * 틀은 여기까지다. 날짜도 설교 제목도 화면이 따로 크게 적지 않는다 — 바로 아래 표지 그림에
  * 이미 인쇄되어 있고, 그 그림이 이 교회의 것이다. 화면이 그 앞을 가리지 않게 한다.
  */
-export function NowFrame({ doc, pageCount, action, footerAction, children }: Props) {
+export function NowFrame({ doc, pageCount, action, nav, footerAction, children }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLElement | null>(null);
   /** 얼마나 내려왔는지 (0~100). 머리띠의 네 조각이 그만큼 채워진다. */
@@ -114,6 +116,9 @@ export function NowFrame({ doc, pageCount, action, footerAction, children }: Pro
       >
         {longDate(doc.serviceDate)} · 모두 {pageCount}쪽
       </p>
+
+      {/* 지난 주보로 넘어가는 줄. 볼 것이 이번 주뿐이면 아무것도 놓이지 않는다. */}
+      {nav}
 
       <div className="mx-auto w-full max-w-[720px] px-3 pb-10">
         {children}

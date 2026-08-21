@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { CANVAS } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { useFitScale } from "@/lib/useFitScale";
@@ -16,7 +16,7 @@ import { PreviewGrid } from "./PreviewGrid";
  * 만들어지기 전에 적용됐거나 옛 방식으로 저장된 주보인데, 보는 사람에게는 둘이 같은
  * 이번 주 주보다. 그래서 겉틀은 NowFrame으로 똑같이 두고 가운데만 다르게 채운다.
  */
-export function SharedBulletin({ doc }: { doc: BulletinDoc }) {
+export function SharedBulletin({ doc, nav }: { doc: BulletinDoc; nav?: ReactNode }) {
   const { pages: flowPages, measurer } = useFlowPages(doc);
   const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
@@ -31,6 +31,7 @@ export function SharedBulletin({ doc }: { doc: BulletinDoc }) {
     <NowFrame
       doc={doc}
       pageCount={pages.length}
+      nav={nav}
       action={
         // 폰에서는 손가락으로 벌리면 되므로, 조절기는 그럴 수 없는 큰 화면에서만 내놓는다
         <label

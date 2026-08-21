@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { ShareMessage } from "@/components/ShareMessage";
+import { WeekTabs, type WeekChoice } from "@/components/WeekTabs";
 import { SharedView } from "@/components/SharedView";
 import { rowToDoc } from "@/lib/backend/map";
+import type { BulletinRow } from "@/lib/supabase/types";
 import { supabaseServer } from "@/lib/supabase/server";
 
 /**
@@ -23,7 +25,11 @@ export const metadata: Metadata = {
  */
 export const dynamic = "force-dynamic";
 
-export default async function NowPage() {
+export default async function NowPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ w?: string }>;
+}) {
   const supabase = await supabaseServer();
 
   if (!supabase) {
@@ -38,13 +44,23 @@ export default async function NowPage() {
    * 왜 안 보이는지(아직 안 올라왔나 · 오늘이 주일이 아닌가)를 이것 없이는 가릴 수 없다.
    * 009 마이그레이션 전이면 이 함수가 없다 — 그때는 요일 제한도 없으므로 '열림'으로 본다.
    */
-  const [bulletin, openState] = await Promise.all([
+  const [bulletin, openState, recentState, asked] = await Promise.all([
     supabase.rpc("get_current_bulletin"),
     supabase.rpc("qr_is_open"),
+    /*
+     * 넘겨볼 수 있는 주보들. 몇 부까지인지는 DB(open_bulletin_ids)가 정한다 —
+     * 그 수는 저장소 파일이 열리는 범위와 같아야 해서 화면이 정할 수 있는 것이 아니다.
+     *
+     * 016 마이그레이션 전이면 이 함수가 없어 오류로 돌아오는데, 그때는 '지난 것 없음'으로
+     * 두고 이번 주만 보여준다 — 지난 주보를 못 넘겨볼 뿐, 이 화면이 하던 일은 그대로다.
+     */
+    supabase.rpc("get_recent_bulletins"),
+    searchParams,
   ]);
 
   const row = bulletin.data?.[0];
   const open = openState.error ? true : openState.data !== false;
+  const recent: BulletinRow[] = recentState.error ? [] : (recentState.data ?? []);
 
   if (!row) {
     return open ? (
@@ -61,13 +77,37 @@ export default async function NowPage() {
   }
 
   /*
+   * 넘겨볼 수 있는 주보들.
+   *
+   * 이번 주(올라가 있는 것)를 맨 앞에 세우고 그 뒤로 날짜가 가까운 것부터 놓는다.
+   * 목록에는 이번 주도 함께 들어 있으므로 겹치지 않게 걸러낸다 — 올린 것이 반드시
+   * 날짜가 가장 최근인 것은 아니라(지난 주보를 다시 올릴 수도 있다) 순서로 가릴 수 없다.
+   */
+  const weeks: WeekChoice[] = [
+    { id: row.id, serviceDate: row.service_date },
+    ...recent
+      .filter((r) => r.id !== row.id)
+      .map((r) => ({ id: r.id, serviceDate: r.service_date })),
+  ];
+
+  /*
+   * 어느 주보를 펼칠지. 주소에 실려온 것이 목록에 있을 때만 받아들인다 —
+   * 아무 id 나 적어 넣어도 올린 적 없는 주보는 열리지 않아야 한다.
+   * (DB 함수도 같은 것을 지키지만, 여기서 한 번 더 거른다)
+   */
+  const picked = recent.find((r) => r.id === asked.w) ?? row;
+
+  /*
    * 주보가 나왔는데 닫혀 있다면, 보고 있는 사람은 만드는 사람이다(함수가 승인된 사람만 통과시킨다).
    * 이 사실을 알리지 않으면 "나는 보이는데 왜 교인은 안 보인다지?"가 된다.
    */
   return (
     <>
       {!open && <StaffOnlyNotice />}
-      <SharedView doc={rowToDoc(row)} />
+      <SharedView
+        doc={rowToDoc(picked)}
+        nav={<WeekTabs weeks={weeks} current={picked.id} />}
+      />
     </>
   );
 }
