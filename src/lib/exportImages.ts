@@ -92,7 +92,8 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
  */
 export async function renderPage(
   node: HTMLElement,
-  scale: ExportScale,
+  /** 내보내기 배율(2·3·4배)이거나, 아래 예열에 쓰는 더 작은 값 */
+  scale: number,
   fonts: string,
   format: ExportFormat = "png",
 ): Promise<Blob> {
@@ -182,6 +183,19 @@ export async function afterPaint(): Promise<void> {
 }
 
 /**
+ * 예열용 배율.
+ *
+ * 첫 호출에서 이미지·폰트가 덜 붙는 경우가 있어 한 장을 버리는 셈 치고 미리 굽는다.
+ * 그 일이 필요한 까닭은 굽는 과정의 앞부분 — DOM을 복제하고 배경 사진과 글꼴을 data URL로
+ * 심는 자리 — 이 처음 한 번만 비싸기 때문이다(그 뒤로는 html-to-image가 주소별로 기억해 둔다).
+ * 그 앞부분은 배율과 아무 상관이 없다. 뒷부분인 '몇 픽셀짜리 그림으로 굽느냐'만 배율을 탄다.
+ *
+ * 그래서 예열은 가장 작게 굽는다. 예전에는 2배(1782×2520)로 구웠는데, 여덟 장짜리 주보라면
+ * 아홉 장을 굽고 그중 한 장을 버리는 셈이었다. 이 크기로도 글꼴과 사진은 똑같이 한 번 풀린다.
+ */
+const WARMUP_SCALE = 0.25;
+
+/**
  * html-to-image는 첫 호출에서 이미지·폰트가 덜 붙는 경우가 있어
  * 한 번 예열한 뒤 실제 결과를 받는다.
  */
@@ -195,7 +209,7 @@ export async function renderAll(
   const out: Blob[] = [];
 
   if (nodes.length > 0) {
-    await renderPage(nodes[0], 2, fonts, format).catch(() => null);
+    await renderPage(nodes[0], WARMUP_SCALE, fonts, format).catch(() => null);
   }
   for (let i = 0; i < nodes.length; i++) {
     out.push(await renderPage(nodes[i], scale, fonts, format));

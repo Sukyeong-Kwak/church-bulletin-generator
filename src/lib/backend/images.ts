@@ -38,6 +38,67 @@ export async function putWithWebCopy(
   return key;
 }
 
+/** 동시에 열어둘 올리기 줄 수 */
+const UPLOAD_LANES = 3;
+
+/**
+ * 여러 장을 한꺼번에 올린다. 원본 키를 넣은 순서 그대로 돌려준다.
+ *
+ * 한 장씩 차례로 올리던 자리다. 내보내기 한 번에 여덟 장, 3배 화질이면 장당 5~15MB 라,
+ * 교회 인터넷에서는 그 줄서기가 '저장하는 중'의 대부분이었다 — 한 장을 다 올릴 때까지
+ * 다음 장은 아무것도 하지 않고 기다린다.
+ *
+ * 몇 장을 동시에 올리되 한꺼번에 다 풀지는 않는다. 여덟 줄을 한 번에 열면 서로 대역폭을
+ * 나눠 가져 전체는 빨라지지 않으면서 느린 회선에서는 죄다 시간 초과로 넘어간다.
+ * 셋이면 왕복 대기는 거의 사라지고 한 줄에 돌아가는 몫도 남는다.
+ *
+ * 겹치는 것은 올리기뿐이다. 그림을 줄이는 일은 아래 oneAtATime 이 한 줄로 세운다 —
+ * 큰 그림 셋을 한꺼번에 펼치면 태블릿의 기억 자리가 모자란다.
+ *
+ * 한 장이라도 실패하면 통째로 실패한다 — 차례로 올리던 때와 같다. 그 사이 이미 올라간
+ * 것은 아무도 가리키지 않는 파일로 남는데, 저장·삭제 뒤에 도는 정리(prune)가 거둬 간다.
+ */
+export async function putAllWithWebCopy(
+  backend: Backend,
+  blobs: Blob[],
+  prefix: string,
+): Promise<string[]> {
+  const keys: string[] = new Array(blobs.length);
+  let next = 0;
+
+  // 줄마다 '다음 것'을 집어 간다 — 장마다 크기가 달라도 빈 줄이 생기지 않는다
+  const lane = async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= blobs.length) return;
+      keys[i] = await putWithWebCopy(backend, blobs[i], prefix);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(UPLOAD_LANES, blobs.length) }, lane));
+  return keys;
+}
+
+/**
+ * 그림을 줄이는 일만은 한 번에 하나씩 지나간다.
+ *
+ * 올리기는 여러 줄로 나눠도 좋다 — 그동안 하는 일이 기다리는 것뿐이라 겹쳐도 값이 들지 않는다.
+ * 그런데 축소본을 만드는 일은 다르다. 3배 화질 한 장(2673×3780)을 펼치면 그림 하나가
+ * 40MB 남짓을 차지하고, 절반씩 접어 내려가는 동안 캔버스가 몇 장 더 붙는다.
+ * 줄 셋이 동시에 펼치면 그만큼 세 배가 되어, 태블릿에서는 그 자리에서 탭이 죽는다.
+ *
+ * 그래서 올리기는 겹치게 두고 이 일만 줄을 세운다. 어차피 CPU 한 몫을 쓰는 일이라
+ * 겹쳐 봐야 빨라지지도 않는다.
+ */
+let shrinking: Promise<unknown> = Promise.resolve();
+
+function oneAtATime<T>(work: () => Promise<T>): Promise<T> {
+  // 앞의 것이 실패했더라도 줄은 계속 나아간다
+  const mine = shrinking.then(work, work);
+  shrinking = mine.catch(() => undefined);
+  return mine;
+}
+
 /**
  * 이미 올라간 원본에 축소본을 붙인다.
  *
@@ -46,7 +107,7 @@ export async function putWithWebCopy(
  */
 export async function attachWebCopy(backend: Backend, key: string, blob: Blob): Promise<void> {
   try {
-    const small = await makeWebCopy(blob);
+    const small = await oneAtATime(() => makeWebCopy(blob));
     if (small) await backend.putImageAt(webKeyFor(key), small);
   } catch {
     // 원본은 이미 자리를 잡았다. 축소본이 없다고 내보내기를 되돌리지 않는다.

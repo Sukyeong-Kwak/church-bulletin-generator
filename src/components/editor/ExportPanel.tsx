@@ -10,7 +10,7 @@ import {
   saveZip,
 } from "@/lib/exportImages";
 import { getBackend } from "@/lib/backend";
-import { putWithWebCopy } from "@/lib/backend/images";
+import { putAllWithWebCopy } from "@/lib/backend/images";
 import type { BulletinDoc, ExportScale } from "@/lib/types";
 import { Btn } from "../ui";
 // QR 공유는 미리보기 화면의 `공유 QR` 버튼에 있다.
@@ -42,13 +42,9 @@ export function ExportPanel({ doc, setDoc, runWithNodes, onImagesReady, pageCoun
    * 다시 내보내면 이 한 벌이 통째로 새것으로 바뀐다 — 지난 내보내기는 남기지 않는다.
    */
   async function keep(blobs: Blob[]) {
-    const backend = getBackend();
-    const keys: string[] = [];
-    for (const b of blobs) {
-      // 인쇄용 원본 옆에 화면용 축소본을 함께 둔다.
-      // 폰으로 QR을 찍고 들어온 사람과 보관함 목록이 받는 것은 그 축소본이다.
-      keys.push(await putWithWebCopy(backend, b, "export"));
-    }
+    // 인쇄용 원본 옆에 화면용 축소본을 함께 둔다.
+    // 폰으로 QR을 찍고 들어온 사람과 보관함 목록이 받는 것은 그 축소본이다.
+    const keys = await putAllWithWebCopy(getBackend(), blobs, "export");
     await onImagesReady(doc.id, keys);
   }
 

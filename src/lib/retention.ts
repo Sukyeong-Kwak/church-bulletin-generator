@@ -31,6 +31,26 @@ export function pastKeepWindow(serviceDate: string, now: number = Date.now()): b
 }
 
 /**
+ * 이 주보의 이미지가 정리되기까지 몇 주 남았는가. 이미 지났으면 0, 날짜를 못 읽으면 null.
+ *
+ * 정리 자체는 조용히 도는 것이 맞다 — 주보는 그대로 남고 사라지는 것은 '다시 받기' 하나뿐이라
+ * 매번 알릴 일이 아니다. 다만 '이미지 6장 보관'이라고 적혀 있던 줄이 어느 날 그냥 비어 있으면,
+ * 보는 쪽에서는 고장으로 읽힌다. 그래서 얼마 안 남은 것만 미리 말해준다.
+ */
+export function weeksUntilImageCleanup(
+  serviceDate: string,
+  now: number = Date.now(),
+): number | null {
+  const at = Date.parse(serviceDate);
+  if (Number.isNaN(at)) return null;
+  const left = KEEP_WEEKS * WEEK_MS - (now - at);
+  return left <= 0 ? 0 : Math.ceil(left / WEEK_MS);
+}
+
+/** 이만큼 남았을 때부터 목록에 적어준다 — 그보다 멀면 알려봐야 할 일이 없다 */
+export const CLEANUP_NOTICE_WEEKS = 4;
+
+/**
  * 쓸 수 있는 저장 공간.
  *
  * Storage API는 '이 통이 얼마까지 담을 수 있는지'를 알려주지 않는다. 플랜에 딸린 값이라

@@ -28,6 +28,25 @@ const nextConfig: NextConfig = {
         source: "/manual/:path*",
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
       },
+
+      /*
+       * 글꼴은 한 번 받으면 다시 묻지 않는다.
+       *
+       * public/ 에 둔 파일에 Next 가 붙이는 기본값은 `max-age=0` 이다 — 내용이 바뀔 수 있다고
+       * 보기 때문인데, 그래서 화면을 열 때마다 글꼴 여섯 개를 '그대로냐'고 서버에 물어본다.
+       * 파일은 오지 않아도(304) 왕복은 그대로 들고, 폰에서는 그 왕복이 주보가 제 글꼴로
+       * 자리 잡는 시간이 된다.
+       *
+       * 주보 글꼴은 파일 이름이 곧 글꼴 이름이라 내용이 바뀔 일이 없다. 그래서 immutable —
+       * 브라우저는 묻지도 않고 제 것을 쓴다.
+       *
+       * 다만 그 약속 때문에, 글꼴 파일을 갈아 끼울 때는 반드시 이름을 함께 바꿔야 한다.
+       * 같은 이름으로 덮으면 이미 받아 간 사람에게는 1년 동안 옛 글꼴이 남는다.
+       */
+      {
+        source: "/fonts/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
     ];
   },
 };

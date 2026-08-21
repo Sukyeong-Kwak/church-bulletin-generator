@@ -13,10 +13,13 @@ export function SplitView({
   panel,
   previewToolbar,
   preview,
+  openByDefault,
 }: {
   panel: ReactNode;
   previewToolbar?: ReactNode;
   preview: ReactNode;
+  /** 들어오자마자 펴둘 칸의 이름 (Section 의 anchor, 없으면 title) */
+  openByDefault?: readonly string[];
 }) {
   const [tab, setTab] = useState<"edit" | "preview">("edit");
 
@@ -64,7 +67,7 @@ export function SplitView({
             칸을 접었다 폈다 하는 일은 세 화면이 똑같이 한다.
             여기서 한 번 감싸두면 화면마다 따로 챙길 것이 없다.
           */}
-          <SectionGroup>
+          <SectionGroup initialOpen={openByDefault}>
             <SectionGroupBar />
             {panel}
           </SectionGroup>

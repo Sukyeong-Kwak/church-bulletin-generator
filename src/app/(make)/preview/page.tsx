@@ -6,6 +6,8 @@ import { ExportPanel } from "@/components/editor/ExportPanel";
 import { QrPoster } from "@/components/editor/QrPoster";
 import { ShareCard } from "@/components/editor/ShareCard";
 import { PreviewGrid } from "@/components/PreviewGrid";
+import { OverflowNotice } from "@/components/editor/OverflowNotice";
+import { ZoomSlider } from "@/components/editor/ZoomSlider";
 import { Btn, Hint } from "@/components/ui";
 import { afterPaint, waitForNodes } from "@/lib/exportImages";
 import { formatServiceDate } from "@/lib/layout";
@@ -13,7 +15,7 @@ import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { nowUrl } from "@/lib/publish";
 import { useDoc } from "@/lib/store";
 import { useEditFocus } from "@/lib/useEditFocus";
-import { useFitScale } from "@/lib/useFitScale";
+import { useZoom } from "@/lib/useZoom";
 import { loadFullThemeImages, type ThemeUrls } from "@/lib/useThemeImages";
 
 /**
@@ -47,11 +49,9 @@ export default function PreviewPage() {
     setShowShare((v) => !v);
   };
 
-  // 화면 폭에 맞춰 두다가, 사용자가 손대는 순간부터 그 값을 지킨다
-  const fit = useFitScale(0.42);
+  // 화면 폭에 맞춰 두다가, 손대는 순간부터 그 값을 지키고 다음에 올 때도 그대로 맞이한다
+  const { zoom, setZoom } = useZoom("preview", 0.42);
   const { goEdit } = useEditFocus();
-  const [picked, setPicked] = useState<number | null>(null);
-  const zoom = picked ?? fit;
 
   /**
    * 내보내기 레이어를 잠깐 띄우고, 그 위에서 할 일을 한 뒤 도로 걷는다.
@@ -94,8 +94,6 @@ export default function PreviewPage() {
     }
   }
 
-  const overflowCount = pages.filter((p) => p.overflow).length;
-
   if (!loaded) return null;
 
   return (
@@ -120,34 +118,12 @@ export default function PreviewPage() {
             조판 계산 중…
           </span>
         )}
-        {overflowCount > 0 && (
-          <span
-            className="rounded px-2 py-0.5 text-[11px] font-semibold"
-            style={{ background: "#fff4e6", color: "#b45309" }}
-          >
-            {overflowCount}개 페이지에서 내용이 넘칩니다
-          </span>
-        )}
+        <OverflowNotice setDoc={setDoc} pages={pages} />
         <Btn size="sm" variant={showShare ? "primary" : "default"} onClick={toggleShare}>
           교회 QR
         </Btn>
 
-        <label
-          className="ml-auto flex items-center gap-1.5 text-[11px]"
-          style={{ color: "var(--ui-muted)" }}
-        >
-          확대
-          <input
-            type="range"
-            min={0.15}
-            max={0.9}
-            step={0.05}
-            value={zoom}
-            onChange={(e) => setPicked(Number(e.target.value))}
-            style={{ width: 110 }}
-          />
-          {Math.round(zoom * 100)}%
-        </label>
+        <ZoomSlider zoom={zoom} onChange={setZoom} />
       </div>
 
       <div ref={scroller} className="min-h-0 flex-1 overflow-auto p-4">

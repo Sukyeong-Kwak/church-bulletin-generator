@@ -6,13 +6,18 @@ import { SplitView } from "@/components/SplitView";
 import { AdPaste } from "@/components/editor/AdPaste";
 import { BlockEditor } from "@/components/editor/BlockEditor";
 import { PreviewGrid } from "@/components/PreviewGrid";
+import { OverflowNotice } from "@/components/editor/OverflowNotice";
+import { ZoomSlider } from "@/components/editor/ZoomSlider";
 import { Btn, Hint, Section } from "@/components/ui";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { SERMON_HEADING } from "@/lib/settings";
 import { useDoc } from "@/lib/store";
 import { useEditFocus } from "@/lib/useEditFocus";
-import { useFitScale } from "@/lib/useFitScale";
+import { useZoom } from "@/lib/useZoom";
 import type { FlowBlock, ScheduleBlock, SermonBlock } from "@/lib/types";
+
+/** 광고 칸의 이름 — 제목이자 접었다 펴는 열쇠라 한 자리에 둔다 */
+const ADS_SECTION = "광고";
 
 export default function EditorPage() {
   const { doc, setDoc, urls, loaded } = useDoc();
@@ -31,12 +36,9 @@ export default function EditorPage() {
   const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
   const [pasteOpen, setPasteOpen] = useState(false);
-  // 확대는 화면 폭에 맞춰 두다가, 사용자가 손대는 순간부터 그 값을 지킨다.
-  // 그래야 태블릿을 돌려도 알아서 맞으면서 직접 맞춘 배율이 되돌아가지 않는다.
-  const fit = useFitScale(0.3);
+  // 화면 폭에 맞춰 두다가, 손대는 순간부터 그 값을 지키고 다음에 올 때도 그대로 맞이한다
+  const { zoom, setZoom } = useZoom("make", 0.3);
   const { goEdit } = useEditFocus();
-  const [picked, setPicked] = useState<number | null>(null);
-  const zoom = picked ?? fit;
 
   /**
    * 붙여넣기 결과를 문서에 얹는다.
@@ -95,16 +97,21 @@ export default function EditorPage() {
 
   // 이 화면은 본문(광고·주요일정·설교) 작성에 집중한다. 고정 페이지는 전체 보기에서 확인한다.
   const visiblePages = pages.filter((p) => p.kind === "flow");
-  const overflowCount = visiblePages.filter((p) => p.overflow).length;
 
   if (!loaded) return null;
 
   return (
     <>
       <SplitView
+        /*
+         * 이 화면에서 접을 수 있는 칸은 광고 하나뿐이다.
+         * 접힌 채로 시작하면 들어오자마자 그 한 줄을 눌러 펴는 일부터 하게 되는데,
+         * 본문을 쓰러 온 사람에게 그 한 번은 그냥 걸림돌이다. 펴둔 채로 맞이한다.
+         */
+        openByDefault={[ADS_SECTION]}
         panel={<>
         <Section
-          title="광고"
+          title={ADS_SECTION}
           desc="구글 문서 내용을 붙여넣으면 블록으로 자동 변환됩니다."
           right={
             <Btn size="sm" variant="primary" onClick={() => setPasteOpen(true)}>
@@ -139,30 +146,8 @@ export default function EditorPage() {
                 조판 계산 중…
               </span>
             )}
-            {overflowCount > 0 && (
-              <span
-                className="rounded px-2 py-0.5 text-[11px] font-semibold"
-                style={{ background: "#fff4e6", color: "#b45309" }}
-              >
-                {overflowCount}개 페이지에서 내용이 넘칩니다 — 폰트 크기를 줄이거나 블록을 나눠주세요
-              </span>
-            )}
-            <label
-              className="ml-auto flex items-center gap-1.5 text-[11px]"
-              style={{ color: "var(--ui-muted)" }}
-            >
-              확대
-              <input
-                type="range"
-                min={0.15}
-                max={0.9}
-                step={0.05}
-                value={zoom}
-                onChange={(e) => setPicked(Number(e.target.value))}
-                style={{ width: 110 }}
-              />
-              {Math.round(zoom * 100)}%
-            </label>
+            <OverflowNotice setDoc={setDoc} pages={visiblePages} />
+            <ZoomSlider zoom={zoom} onChange={setZoom} />
           </div>
         }
         preview={

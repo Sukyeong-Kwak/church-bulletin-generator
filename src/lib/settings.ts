@@ -10,6 +10,9 @@ import type { BulletinDoc, ChurchInfo, CoverText, FixedPages, Theme } from "./ty
  */
 export const SERMON_HEADING = "본문 말씀";
 
+/** 주요일정 블록의 소제목. 새 주보와 '직접 추가'가 같은 값을 써야 한다. */
+export const SCHEDULE_HEADING = "주요일정";
+
 /** 다음 주보에 상속되는 기본값. 고정 페이지·교회 정보·테마. */
 export interface Settings {
   church: ChurchInfo;
@@ -166,7 +169,7 @@ export function makeDraft(settings: Settings, serviceDate = upcomingSunday()): B
     church: { ...settings.church },
     fixed: deepCopy(settings.fixed),
     blocks: [
-      { id: newId("sch"), kind: "schedule", heading: "주요일정", items: [] },
+      { id: newId("sch"), kind: "schedule", heading: SCHEDULE_HEADING, items: [] },
       { id: newId("ser"), kind: "sermon", heading: SERMON_HEADING, title: "", verse: "" },
     ],
     exportScale: 3,

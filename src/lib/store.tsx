@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { getBackend } from "./backend";
-import { putWithWebCopy, URL_TTL } from "./backend/images";
+import { putAllWithWebCopy, URL_TTL } from "./backend/images";
 import { useThemeImages, type ThemeUrls } from "./useThemeImages";
 import { pastKeepWindow } from "./retention";
 import { webKeyFor } from "./webImage";
@@ -60,6 +60,12 @@ interface DocContextValue {
    * 하나가 막혀도 나머지는 지운다 — 열 부를 고르고 눌렀는데 첫 부에서 멈추면 다시 아홉 번을 해야 한다.
    */
   removeMany: (ids: string[]) => Promise<{ removed: number; failed: number }>;
+  /** 바로 앞 상태로 한 걸음 되돌린다 */
+  undo: () => void;
+  /** 되돌린 것을 다시 앞으로 */
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   /** 저장 뒤에 고친 것을 모두 버리고 마지막으로 저장한 상태로 되돌린다 */
   revertToSaved: () => void;
   /** 되돌릴 저장본이 있고, 되돌릴 변경도 있는지 */
@@ -135,6 +141,31 @@ function referencedKeys(
   return keep;
 }
 
+/**
+ * 되돌리기 한 걸음의 크기.
+ *
+ * 글자 한 자마다 한 걸음이면 Cmd+Z 를 스무 번 눌러야 한 낱말이 지워진다. 그래서 손이 멈출
+ * 때까지를 한 걸음으로 묶는다. 다만 계속 치는 사람에게는 그 묶음이 끝없이 자라므로,
+ * 아무리 이어 쳐도 이만큼이 지나면 거기서 한 번 끊는다.
+ */
+const UNDO_IDLE_MS = 700;
+const UNDO_BURST_MS = 4000;
+
+/**
+ * 몇 걸음까지 들고 있을지.
+ *
+ * 한 걸음은 그때의 주보와 기본값 한 벌인데, 고친 자리만 새 객체이고 나머지는 이전 것을
+ * 그대로 가리킨다(퍼뜨리기로 고치기 때문이다). 그래서 예순 걸음이라도 주보 예순 부가 아니라
+ * 고친 자리 예순 개 만큼만 든다.
+ */
+const UNDO_MAX = 60;
+
+/** 되돌리기 한 걸음에 담기는 것 — 주보와 기본값은 함께 움직인다 */
+interface Step {
+  doc: BulletinDoc;
+  settings: Settings;
+}
+
 export function DocProvider({ children }: { children: ReactNode }) {
   const backend = useMemo(() => getBackend(), []);
 
@@ -155,6 +186,63 @@ export function DocProvider({ children }: { children: ReactNode }) {
    */
   const librarySynced = useRef(false);
   const [published, setPublished] = useState<PublishState | null>(null);
+
+  /*
+   * 되돌리기 이력.
+   *
+   * 걸음을 쌓는 자리를 setDoc 안에 두지 않는다. 그쪽은 React 가 같은 갱신 함수를 두 번 부를 수
+   * 있는 자리라(개발 모드의 이중 호출) 걸음이 두 벌씩 쌓인다. 대신 '주보가 실제로 달라졌다'는
+   * 사실을 아래 효과에서 보고 그때 한 걸음 적는다 — 어느 길로 고쳤든 한 곳에서 걸린다.
+   *
+   * seen 은 이력에 이미 반영한 마지막 한 벌이다. 되돌리기·보관함 열기처럼 이력을 직접
+   * 손보는 길은 여기를 먼저 맞춰두어, 그 효과가 자기 발자국을 다시 밟지 않게 한다.
+   */
+  const past = useRef<Step[]>([]);
+  const future = useRef<Step[]>([]);
+  const seen = useRef<Step | null>(null);
+  const stepAt = useRef({ last: 0, start: 0 });
+  const [depth, setDepth] = useState({ past: 0, future: 0 });
+
+  /**
+   * 다음 한 번의 바뀜은 걸음으로 세지 않는다는 표시.
+   *
+   * 내보낸 이미지 목록을 주보에 붙이는 일(attachImages)이 그렇다. 사람이 고친 것이 아니라
+   * 방금 만든 파일의 이름을 적어두는 살림이고, 옛 이름이 가리키던 파일은 그때 이미 지워졌다.
+   * 그것까지 걸음으로 세면 되돌리기 한 번에 없는 파일을 가리키는 주보가 되고,
+   * 그대로 저장하면 서버에도 그 이름이 적힌다.
+   */
+  const bookkeeping = useRef(false);
+
+  /**
+   * 마지막으로 저장한 그 주보.
+   *
+   * 되돌리기로 여기까지 물러났으면 저장할 것이 없다. 그때도 '저장'이라고 적혀 있으면
+   * 눌러야 할 것 같은데 눌러도 달라지는 것이 없고, '초기화' 버튼까지 함께 서 있게 된다.
+   * 걸음에 담기는 것은 저장 그 순간의 주보 객체 그대로라, 같은 것인지는 견주면 바로 안다.
+   */
+  const clean = useRef<BulletinDoc | null>(null);
+
+  /**
+   * 이력을 통째로 비우고 이 한 벌에서 다시 시작한다 — 다른 주보를 펼쳤을 때.
+   * saved 는 '여기가 고칠 것 없는 자리인가'다 — 되돌아왔을 때 '저장됨'으로 돌아갈 자리.
+   */
+  const resetHistory = useCallback((step: Step, saved = true) => {
+    past.current = [];
+    future.current = [];
+    seen.current = step;
+    clean.current = saved ? step.doc : null;
+    setDepth({ past: 0, future: 0 });
+  }, []);
+
+  /**
+   * 걸음으로는 세지 않고 지금 자리만 새 값에 맞춘다.
+   * 저장하면 서버가 다듬은 주보가 돌아오는데, 그것은 사람이 고친 것이 아니라
+   * 방금 것의 다른 이름이라 되돌릴 자리가 아니다.
+   */
+  const settle = useCallback((step: Step) => {
+    seen.current = step;
+    clean.current = step.doc;
+  }, []);
 
   // 저장소를 읽는 일은 첫 렌더 뒤에만 가능하다.
   // 초기값에서 바로 읽으면 서버 렌더 결과와 달라져 하이드레이션이 깨진다.
@@ -178,16 +266,18 @@ export function DocProvider({ children }: { children: ReactNode }) {
 
         const raw = localStorage.getItem(DRAFT_KEY);
         const draft = raw ? (JSON.parse(raw) as BulletinDoc) : null;
-        setDocState(
-          draft
-            ? {
-                ...makeDraft(next),
-                ...draft,
-                fixed: normalizeFixed(draft.fixed ?? next.fixed),
-                theme: normalizeTheme(draft.theme ?? next.theme),
-              }
-            : makeDraft(next),
-        );
+        const opened: BulletinDoc = draft
+          ? {
+              ...makeDraft(next),
+              ...draft,
+              fixed: normalizeFixed(draft.fixed ?? next.fixed),
+              theme: normalizeTheme(draft.theme ?? next.theme),
+            }
+          : makeDraft(next);
+        setDocState(opened);
+        // 여기가 이력의 출발점이다 — 불러오기 자체를 되돌릴 걸음으로 세면
+        // Cmd+Z 한 번에 빈 주보로 떨어진다
+        resetHistory({ doc: opened, settings: next });
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "불러오지 못했습니다.");
       } finally {
@@ -198,7 +288,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [backend]);
+  }, [backend, resetHistory]);
 
   // 작성 중인 내용은 브라우저에 임시 보관한다 (저장을 누르면 보관함으로 들어간다)
   useEffect(() => {
@@ -215,6 +305,75 @@ export function DocProvider({ children }: { children: ReactNode }) {
 
   // 배경·표지·로고를 화면에 걸 주소. 축소본을 한 번에 받아오고, 내려받기는 브라우저가 맡는다.
   const urls = useThemeImages(doc.theme, loaded, URL_TTL.edit);
+
+  /*
+   * 주보나 기본값이 달라졌으면 그 직전 한 벌을 걸음으로 적는다.
+   *
+   * 주보만 적지 않고 기본값까지 함께 적는다. 고정 페이지·교회 정보·테마는 저장을 누르지 않아도
+   * 곧바로 반영되는 '기본값'이라, 주보만 되돌리면 왼쪽 조절기와 오른쪽 미리보기가 서로 다른
+   * 값을 가리킨다 — revertToSaved 가 같은 까닭으로 둘을 함께 되돌린다.
+   */
+  useEffect(() => {
+    const prev = seen.current;
+    if (!prev) {
+      seen.current = { doc, settings };
+      return;
+    }
+    if (prev.doc === doc && prev.settings === settings) return;
+    seen.current = { doc, settings };
+
+    if (bookkeeping.current) {
+      bookkeeping.current = false;
+      return;
+    }
+
+    const now = Date.now();
+    const t = stepAt.current;
+    // 손이 멈췄거나, 이어 친 지 한참 되었으면 거기서 한 걸음을 끊는다
+    const fresh = now - t.last > UNDO_IDLE_MS || now - t.start > UNDO_BURST_MS;
+    if (fresh || past.current.length === 0) {
+      past.current.push(prev);
+      if (past.current.length > UNDO_MAX) past.current.shift();
+      t.start = now;
+    }
+    t.last = now;
+    // 되돌렸다가 다시 고치면 앞으로 갈 길은 사라진다 — 갈라진 가지를 들고 있지 않는다
+    future.current = [];
+    setDepth({ past: past.current.length, future: 0 });
+  }, [doc, settings]);
+
+  /** 걸음 하나를 그대로 펼친다. 기본값이 달라진 걸음일 때만 서버에도 알린다. */
+  const applyStep = useCallback(
+    (step: Step, from: Step | null) => {
+      seen.current = step;
+      // 다음에 고치는 것은 새 걸음으로 센다 — 되돌린 직후의 한 자가 앞 걸음에 묻히지 않게
+      stepAt.current = { last: 0, start: 0 };
+      setDocState(step.doc);
+      setDirty(step.doc !== clean.current);
+      if (from && from.settings === step.settings) return;
+      setSettingsState(step.settings);
+      void backend.saveSettings(step.settings).catch(() => setError("설정을 되돌리지 못했습니다."));
+    },
+    [backend],
+  );
+
+  const undo = useCallback(() => {
+    const step = past.current.pop();
+    if (!step) return;
+    const from = seen.current;
+    if (from) future.current.push(from);
+    applyStep(step, from);
+    setDepth({ past: past.current.length, future: future.current.length });
+  }, [applyStep]);
+
+  const redo = useCallback(() => {
+    const step = future.current.pop();
+    if (!step) return;
+    const from = seen.current;
+    if (from) past.current.push(from);
+    applyStep(step, from);
+    setDepth({ past: past.current.length, future: future.current.length });
+  }, [applyStep]);
 
   const setDoc = useCallback((updater: (prev: BulletinDoc) => BulletinDoc) => {
     setDocState((prev) => updater(prev));
@@ -312,6 +471,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
       const nextLibrary = [saved, ...library.filter((b) => b.id !== saved.id)].sort((a, b) =>
         b.serviceDate.localeCompare(a.serviceDate),
       );
+      settle({ doc: saved, settings });
       setDocState(saved);
       setLibrary(nextLibrary);
       setDirty(false);
@@ -323,16 +483,19 @@ export function DocProvider({ children }: { children: ReactNode }) {
     } finally {
       setSaving(false);
     }
-  }, [doc, library, settings, backend, prune]);
+  }, [doc, library, settings, backend, prune, settle]);
 
   const openSaved = useCallback(
     (id: string) => {
       const found = library.find((b) => b.id === id);
       if (!found) return;
-      setDocState(deepCopy(found));
+      const opened = deepCopy(found);
+      setDocState(opened);
       setDirty(false);
+      // 다른 주보다 — 앞의 주보에서 밟아온 걸음으로 되돌아갈 수는 없다
+      resetHistory({ doc: opened, settings });
     },
-    [library],
+    [library, settings, resetHistory],
   );
 
   /** 지난주 주보 복사 — 날짜만 바꾸고 달라진 광고만 수정하면 된다 */
@@ -351,8 +514,9 @@ export function DocProvider({ children }: { children: ReactNode }) {
 
       setDocState(copy);
       setDirty(true);
+      resetHistory({ doc: copy, settings }, false);
     },
-    [library],
+    [library, settings, resetHistory],
   );
 
   const removeSaved = useCallback(
@@ -436,15 +600,21 @@ export function DocProvider({ children }: { children: ReactNode }) {
     setSettingsState(next);
     setDirty(false);
     setError(undefined);
+    // 저장한 자리로 통째로 돌아온 것이라 그 전의 걸음은 뜻을 잃는다
+    resetHistory({ doc: copy, settings: next });
     void backend.saveSettings(next).catch(() => setError("설정을 되돌리지 못했습니다."));
-  }, [library, doc.id, backend]);
+  }, [library, doc.id, backend, resetHistory]);
 
   const canRevert = dirty && library.some((b) => b.id === doc.id);
+  const canUndo = depth.past > 0;
+  const canRedo = depth.future > 0;
 
   const startNew = useCallback(() => {
-    setDocState(makeDraft(settings));
+    const fresh = makeDraft(settings);
+    setDocState(fresh);
     setDirty(false);
-  }, [settings]);
+    resetHistory({ doc: fresh, settings });
+  }, [settings, resetHistory]);
 
   /**
    * 내보낸 이미지를 주보에 붙여 과거 조회에서 그대로 다시 받을 수 있게 한다.
@@ -458,6 +628,10 @@ export function DocProvider({ children }: { children: ReactNode }) {
       const before =
         (docId === doc.id ? doc.imageKeys : library.find((b) => b.id === docId)?.imageKeys) ?? [];
 
+      // 되돌리기로 이 이름을 물릴 수는 없다 — 옛 이름이 가리키던 파일은 아래에서 지운다.
+      // 손대고 있는 주보가 그것일 때만 세운다. 아니면 아래에서 주보가 바뀌지 않아,
+      // 세워둔 표시가 그대로 남아 다음에 진짜로 고친 것을 한 번 삼킨다.
+      if (doc.id === docId) bookkeeping.current = true;
       setDocState((d) => (d.id === docId ? { ...d, imageKeys: keys } : d));
       setLibrary((lib) => lib.map((b) => (b.id === docId ? { ...b, imageKeys: keys } : b)));
 
@@ -501,8 +675,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
 
         const blobs = await makeImages();
         // 원본 옆에 폰에서 볼 축소본을 함께 둔다 — QR로 들어온 사람이 받는 것은 그쪽이다
-        const keys: string[] = [];
-        for (const b of blobs) keys.push(await putWithWebCopy(backend, b, "export"));
+        const keys = await putAllWithWebCopy(backend, blobs, "export");
 
         const saved = await backend.saveBulletin({ ...doc, imageKeys: keys });
         const at = await publishBulletin(saved.id);
@@ -515,6 +688,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
         const nextLibrary = [saved, ...library.filter((b) => b.id !== saved.id)].sort((a, b) =>
           b.serviceDate.localeCompare(a.serviceDate),
         );
+        settle({ doc: saved, settings });
         setDocState(saved);
         setLibrary(nextLibrary);
         setDirty(false);
@@ -530,7 +704,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
         setSaving(false);
       }
     },
-    [doc, library, settings, backend, prune],
+    [doc, library, settings, backend, prune, settle],
   );
 
   /** 보관함에 있는 주보로 갈아 끼운다 */
@@ -594,6 +768,10 @@ export function DocProvider({ children }: { children: ReactNode }) {
       openSaved,
       duplicateSaved,
       removeSaved,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
       revertToSaved,
       canRevert,
       startNew,
@@ -621,6 +799,10 @@ export function DocProvider({ children }: { children: ReactNode }) {
       openSaved,
       duplicateSaved,
       removeSaved,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
       revertToSaved,
       canRevert,
       startNew,
@@ -656,6 +838,24 @@ export function updateBlock(
   patch: (b: FlowBlock) => FlowBlock,
 ): FlowBlock[] {
   return blocks.map((b) => (b.id === id ? patch(b) : b));
+}
+
+/**
+ * 블록 하나를 집어 그 자리에 놓는다 (끌어 옮기기).
+ *
+ * ↑↓ 로만 옮기던 자리다. 다섯 번째를 맨 위로 올리려면 네 번을 눌러야 했고,
+ * 그동안 목록이 한 칸씩 움직여 어디까지 왔는지 눈으로 좇아야 했다.
+ */
+export function moveBlockTo(blocks: FlowBlock[], id: string, toIndex: number): FlowBlock[] {
+  const from = blocks.findIndex((b) => b.id === id);
+  if (from < 0) return blocks;
+  const to = Math.min(blocks.length - 1, Math.max(0, toIndex));
+  if (from === to) return blocks;
+
+  const next = [...blocks];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
 }
 
 export function moveBlock(blocks: FlowBlock[], id: string, dir: -1 | 1): FlowBlock[] {

@@ -17,6 +17,7 @@ import { Btn } from "./ui";
  *
  * 처음에는 모두 접혀 있다. 그러면 왼쪽이 '무엇을 고칠 수 있는가'의 목록이 되어,
  * 굴리지 않고도 이 화면이 맡는 일이 한눈에 들어온다.
+ * (칸이 하나뿐이라 목록이 될 것이 없는 화면은 initialOpen 으로 펴둔 채 시작한다)
  *
  * 펴는 길은 둘이다.
  *   제목 줄을 누른다
@@ -60,8 +61,22 @@ export function useSectionState(): GroupState | null {
   return useContext(StateCtx);
 }
 
-export function SectionGroup({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
+export function SectionGroup({
+  children,
+  initialOpen,
+}: {
+  children: ReactNode;
+  /**
+   * 처음부터 펴둘 칸의 이름(Section 의 anchor, 없으면 title).
+   *
+   * 접혀 있는 것이 기본인 까닭은 칸이 여럿일 때 목록으로 훑히게 하려는 것이다.
+   * 그런데 칸이 하나뿐인 화면에서는 그 목록이 한 줄짜리라, 들어오자마자 그 한 줄을
+   * 눌러 펴는 일만 남는다 — 그 화면이 할 일이 그것 하나인데 한 번을 더 누르게 된다.
+   */
+  initialOpen?: readonly string[];
+}) {
+  // 첫 그림에서만 본다. 뒤에 값이 달라져도 사람이 접어둔 것을 도로 펴지 않는다.
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(initialOpen));
   const [total, setTotal] = useState(0);
 
   /**

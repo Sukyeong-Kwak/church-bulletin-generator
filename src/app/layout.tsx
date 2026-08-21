@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { DocProvider } from "@/lib/store";
 import { Nav } from "@/components/Nav";
+import { PreloadFonts } from "@/components/PreloadFonts";
 import { PopupProvider } from "@/components/Popup";
+import { Shortcuts } from "@/components/Shortcuts";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
@@ -39,12 +41,16 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
       <body className="h-full flex flex-col overflow-hidden" suppressHydrationWarning>
+        {/* 주보 글꼴을 자바스크립트와 나란히 내려받게 한다 — <head>의 preload로 올라간다 */}
+        <PreloadFonts />
         {/*
           팝업은 가장 바깥에 둔다. 어느 화면에서 부르든 같은 자리에 뜨고,
           화면이 바뀌어도 떠 있던 안내가 함께 사라지지 않는다.
         */}
         <PopupProvider>
           <DocProvider>
+            {/* Cmd/Ctrl+Z 되돌리기 · Cmd/Ctrl+S 저장 — 어느 화면에서든 같게 듣는다 */}
+            <Shortcuts />
             <Nav />
             <main className="flex-1 min-h-0 overflow-auto">{children}</main>
           </DocProvider>

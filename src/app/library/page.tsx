@@ -9,6 +9,7 @@ import { getBackend } from "@/lib/backend";
 import { imagePairUrls, URL_TTL } from "@/lib/backend/images";
 import { fileNameFor, saveBlob, saveZip } from "@/lib/exportImages";
 import { formatServiceDate } from "@/lib/layout";
+import { CLEANUP_NOTICE_WEEKS, weeksUntilImageCleanup } from "@/lib/retention";
 import { useDoc } from "@/lib/store";
 import { useAuth } from "@/lib/supabase/useAuth";
 import type { BulletinDoc } from "@/lib/types";
@@ -88,6 +89,36 @@ function useThumbs(library: BulletinDoc[]): Record<string, string> {
   return thumbs;
 }
 
+/**
+ * 목록을 좁히는 말.
+ *
+ * 매주 한 부씩 쌓이는 목록이라 한 해만 지나도 쉰 줄이 넘는다. 그중 하나를 찾는 길이
+ * 굴려서 눈으로 훑는 것뿐이었다.
+ *
+ * 날짜는 두 가지 모양으로 찾는다 — '2026-08' 처럼 적힌 그대로도, '8월' 처럼 화면에 보이는
+ * 대로도. 사람은 화면에서 읽은 말로 찾지, 저장된 모양을 알지 못한다.
+ * 광고 제목까지 함께 본다 — '성탄절 주보'를 날짜로 기억하는 사람은 없다.
+ */
+function matches(b: BulletinDoc, q: string): boolean {
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+
+  const hay = [b.serviceDate, formatServiceDate(b.serviceDate), ...b.blocks.map(blockText)]
+    .join(" ")
+    .toLowerCase();
+  // 띄어 적은 말은 모두 들어 있어야 한다 — '8월 성탄' 처럼 좁혀 갈 수 있게
+  return words.every((word) => hay.includes(word));
+}
+
+function blockText(b: BulletinDoc["blocks"][number]): string {
+  if (b.kind === "ad") return `${b.title} ${b.body}`;
+  if (b.kind === "schedule") return `${b.heading} ${b.items.map((i) => i.name).join(" ")}`;
+  return `${b.heading} ${b.title} ${b.verse}`;
+}
+
+/** 이 줄 수를 넘으면 찾는 칸을 내놓는다 — 몇 줄 안 될 때는 눈으로 훑는 편이 빠르다 */
+const SEARCH_FROM = 5;
+
 /** 보관함 — 저장한 주보를 다시 열거나, 만들었던 이미지를 그대로 다시 받는다. */
 export default function LibraryPage() {
   const {
@@ -118,6 +149,10 @@ export default function LibraryPage() {
    */
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [removing, setRemoving] = useState(false);
+  const [query, setQuery] = useState("");
+
+  /** 지금 목록에 보이는 것 */
+  const shown = useMemo(() => library.filter((b) => matches(b, query)), [library, query]);
 
   const toggle = (id: string) =>
     setPicked((prev) => {
@@ -134,6 +169,16 @@ export default function LibraryPage() {
    * 화면에 나오는 수와 지우러 가는 목록이 같은 곳에서 나오므로 둘이 어긋날 자리가 없다.
    */
   const pickedList = useMemo(() => library.filter((b) => picked.has(b.id)), [library, picked]);
+
+  /**
+   * 골라두었는데 지금 검색에 가려 보이지 않는 것.
+   *
+   * 고른 뒤에 검색어를 바꾸면 화면에서는 사라져도 고른 것으로는 남아 있다. 그대로 지우기를
+   * 누르면 눈에 없던 것까지 지워진다 — 확인창이 날짜를 하나하나 적어 주기는 하지만,
+   * 그 앞에서 미리 몇 부가 숨어 있는지 알려주는 편이 낫다.
+   */
+  const shownPicked = shown.filter((b) => picked.has(b.id)).length;
+  const hiddenPicked = pickedList.length - shownPicked;
 
   /**
    * 고른 것을 한꺼번에 지운다.
@@ -285,7 +330,31 @@ export default function LibraryPage() {
           <Hint>아직 저장한 주보가 없습니다. 작성 화면에서 저장을 누르면 여기에 쌓입니다.</Hint>
         ) : (
           <div className="flex flex-col gap-2">
-            {canDelete && (
+            {/*
+              찾는 칸은 검색어가 남아 있는 동안에도 자리를 지킨다.
+              줄 수만 보고 감추면, 다섯 부에서 걸러 놓고 지우다가 세 부가 되는 순간
+              칸이 사라진다 — 걸러진 채로 남은 목록을 되돌릴 손잡이가 없어진다.
+            */}
+            {(library.length >= SEARCH_FROM || query) && (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="search"
+                  value={query}
+                  placeholder="날짜나 광고 제목으로 찾기 — 8월, 2026-08, 성탄절"
+                  className="min-w-0 flex-1"
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <span className="shrink-0 text-[12px]" style={{ color: "var(--ui-muted)" }}>
+                  {query ? `${library.length}부 중 ${shown.length}부` : `${library.length}부`}
+                </span>
+              </div>
+            )}
+
+            {query && shown.length === 0 && (
+              <Hint>찾는 주보가 없습니다. 다른 말로 찾아보세요.</Hint>
+            )}
+
+            {canDelete && (shown.length > 0 || pickedList.length > 0) && (
               /*
                * 고르기 줄.
                *
@@ -293,23 +362,35 @@ export default function LibraryPage() {
                * 지우기 버튼이 나온다. 늘 빨간 버튼이 떠 있으면 목록을 훑는 내내 눈에 걸린다.
                */
               <div className="flex flex-wrap items-center gap-2 px-0.5">
+                {/* 고르고 푸는 일은 지금 보이는 것에만 건다 — 검색으로 좁혀 놓고 고르는 자리다 */}
                 <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
                   <input
                     type="checkbox"
                     className="size-4 cursor-pointer"
-                    checked={pickedList.length > 0 && pickedList.length === library.length}
+                    // 걸러낸 것이 하나도 없으면 '전체'라고 할 것이 없다.
+                    // 그래도 줄 자체는 남긴다 — 검색 밖에 골라둔 것을 풀 자리가 여기뿐이다.
+                    disabled={shown.length === 0}
+                    checked={shown.length > 0 && shownPicked === shown.length}
                     ref={(el) => {
                       // 일부만 골랐을 때는 켜짐도 꺼짐도 아닌 표시로 둔다
-                      if (el)
-                        el.indeterminate =
-                          pickedList.length > 0 && pickedList.length < library.length;
+                      if (el) el.indeterminate = shownPicked > 0 && shownPicked < shown.length;
                     }}
                     onChange={(e) =>
-                      setPicked(e.target.checked ? new Set(library.map((b) => b.id)) : new Set())
+                      setPicked((prev) => {
+                        const next = new Set(prev);
+                        for (const b of shown) {
+                          if (e.target.checked) next.add(b.id);
+                          else next.delete(b.id);
+                        }
+                        return next;
+                      })
                     }
                   />
                   <span style={{ color: "var(--ui-muted)" }}>
                     {pickedList.length > 0 ? `${pickedList.length}부 선택됨` : "전체 선택"}
+                    {hiddenPicked > 0 && (
+                      <span style={{ color: "#b45309" }}> · 검색 밖 {hiddenPicked}부 포함</span>
+                    )}
                   </span>
                 </label>
 
@@ -331,7 +412,7 @@ export default function LibraryPage() {
               </div>
             )}
 
-            {library.map((b) => (
+            {shown.map((b) => (
               <Row
                 key={b.id}
                 bulletin={b}
@@ -394,6 +475,17 @@ function Row({
 
   const adCount = bulletin.blocks.filter((b) => b.kind === "ad").length;
   const imageCount = bulletin.imageKeys?.length ?? 0;
+
+  /*
+   * 보관해둔 이미지가 곧 정리될 참이면 미리 적어준다.
+   *
+   * 정리는 주보를 건드리지 않고 '이미지 그대로 다시 받기'만 거둬 간다. 그래도 그 줄에
+   * '이미지 6장 보관'이라고 적혀 있다가 어느 날 그냥 없어지면 무슨 일이 난 것처럼 읽힌다.
+   * 필요한 사람은 남은 동안 받아두면 되고, 지나간 뒤에도 주보를 열어 다시 내보내면
+   * 원본 화질로 새로 나온다.
+   */
+  const weeksLeft = imageCount > 0 ? weeksUntilImageCleanup(bulletin.serviceDate) : null;
+  const cleanupSoon = weeksLeft !== null && weeksLeft <= CLEANUP_NOTICE_WEEKS;
 
   const downloadImages = async () => {
     if (!bulletin.imageKeys?.length) return;
@@ -478,6 +570,14 @@ function Row({
         <p className="text-[11px]" style={{ color: "var(--ui-muted)" }}>
           광고 {adCount}개
           {imageCount > 0 && ` · 이미지 ${imageCount}장 보관`}
+          {cleanupSoon && (
+            <span
+              style={{ color: "#b45309", fontWeight: 600 }}
+              title="보관 기간이 지나면 이미지만 정리됩니다. 주보는 그대로 남고, 다시 열어 내보내면 새로 만들 수 있습니다."
+            >
+              {weeksLeft === 0 ? " (곧 정리)" : ` (${weeksLeft}주 뒤 정리)`}
+            </span>
+          )}
           {bulletin.updatedAt && ` · ${new Date(bulletin.updatedAt).toLocaleString("ko-KR")}`}
         </p>
       </div>

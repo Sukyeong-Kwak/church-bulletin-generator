@@ -4,10 +4,11 @@ import { useState } from "react";
 import { FontSelect, Inspector } from "../Inspector";
 import { Btn, Hint } from "../ui";
 import { blockLabel } from "../FlowBlocks";
-import { DEFAULT_STYLES, FONT_SIZE, resolveStyle, type Role } from "@/lib/layout";
-import { SERMON_HEADING } from "@/lib/settings";
+import { DEFAULT_STYLES, FONT_SIZE, resolveStyle } from "@/lib/layout";
+import { SCHEDULE_HEADING, SERMON_HEADING } from "@/lib/settings";
+import { bodySlot } from "@/lib/blockStyle";
 import { blockTarget } from "@/lib/editTargets";
-import { moveBlock, newId, updateBlock } from "@/lib/store";
+import { moveBlock, moveBlockTo, newId, updateBlock } from "@/lib/store";
 import type {
   AdBlock,
   BulletinDoc,
@@ -25,6 +26,15 @@ interface Props {
 
 export function BlockEditor({ doc, setDoc }: Props) {
   const [openStyle, setOpenStyle] = useState<string | null>(null);
+
+  /*
+   * 끌어 옮기는 중인 블록과, 지금 손이 머물러 있는 자리.
+   *
+   * 손가락으로는 이 길이 열리지 않는다 — HTML 의 끌어놓기는 마우스만 안다.
+   * 그래서 ↑↓ 버튼을 그대로 둔다. 태블릿에서 만드는 사람에게는 그쪽이 유일한 길이다.
+   */
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   const patch = (id: string, fn: (b: FlowBlock) => FlowBlock) =>
     setDoc((d) => ({ ...d, blocks: updateBlock(d.blocks, id, fn) }));
@@ -52,18 +62,102 @@ export function BlockEditor({ doc, setDoc }: Props) {
       return { ...d, blocks: [...d.blocks.slice(0, at), ad, ...d.blocks.slice(at)] };
     });
 
+  /*
+   * 주요일정과 본문 말씀은 새 주보에 처음부터 한 자리씩 들어 있다(makeDraft).
+   * 그런데 그 자리가 생기기 전에 저장해둔 옛 주보를 열거나, 필요 없다고 지웠다가
+   * 다시 쓰려 하면 만들 길이 없었다 — 광고를 붙여넣어야 딸려 오는 것이 전부였다.
+   *
+   * 한 벌씩만 만든다. 같은 종류가 둘이면 주보에 같은 소제목이 두 번 선다.
+   */
+  const hasSchedule = doc.blocks.some((b) => b.kind === "schedule");
+  const hasSermon = doc.blocks.some((b) => b.kind === "sermon");
+
+  const addSchedule = () =>
+    setDoc((d) => {
+      if (d.blocks.some((b) => b.kind === "schedule")) return d;
+      const block: ScheduleBlock = {
+        id: newId("sch"),
+        kind: "schedule",
+        heading: SCHEDULE_HEADING,
+        items: [],
+      };
+      return { ...d, blocks: [...d.blocks, block] };
+    });
+
+  const addSermon = () =>
+    setDoc((d) => {
+      if (d.blocks.some((b) => b.kind === "sermon")) return d;
+      const block: SermonBlock = {
+        id: newId("ser"),
+        kind: "sermon",
+        heading: SERMON_HEADING,
+        title: "",
+        verse: "",
+      };
+      return { ...d, blocks: [...d.blocks, block] };
+    });
+
+  const drop = (toIndex: number) => {
+    if (dragId) setDoc((d) => ({ ...d, blocks: moveBlockTo(d.blocks, dragId, toIndex) }));
+    setDragId(null);
+    setOverId(null);
+  };
+
   return (
     <div className="flex flex-col gap-2">
       {doc.blocks.map((b, i) => {
         const styleOpen = openStyle === b.id;
+        const dragging = dragId === b.id;
+        const landing = !!dragId && overId === b.id && !dragging;
         return (
           <div
             key={b.id}
             data-edit-target={blockTarget(b.id)}
             className="rounded-xl border bg-white"
-            style={{ borderColor: "var(--ui-border)" }}
+            onDragOver={(e) => {
+              if (!dragId) return;
+              // 막지 않으면 브라우저가 '여기에는 놓을 수 없다'고 판단해 놓기 자체가 일어나지 않는다
+              e.preventDefault();
+              setOverId(b.id);
+            }}
+            onDrop={(e) => {
+              // 블록을 끌고 있을 때만 가로챈다. 그냥 막으면 광고 글상자에 글을 끌어다
+              // 놓는 것까지 이 자리에서 삼켜, 놓아도 아무 일이 없는 칸이 된다.
+              if (!dragId) return;
+              e.preventDefault();
+              drop(i);
+            }}
+            style={{
+              borderColor: landing ? "var(--ui-accent)" : "var(--ui-border)",
+              boxShadow: landing ? "0 0 0 2px var(--ui-accent-soft)" : undefined,
+              // 집어 든 것은 옅게 남겨 어느 것을 옮기는 중인지 보이게 한다
+              opacity: dragging ? 0.45 : 1,
+            }}
           >
-            <div className="flex items-center gap-1 border-b px-2.5 py-1.5" style={{ borderColor: "var(--ui-border)" }}>
+            <div
+              className="flex items-center gap-1 border-b px-2.5 py-1.5"
+              style={{ borderColor: "var(--ui-border)" }}
+              // 제목 줄을 잡아 끈다. 안쪽 글상자까지 끌리지 않도록 이 줄에만 건다.
+              draggable
+              onDragStart={(e) => {
+                setDragId(b.id);
+                e.dataTransfer.effectAllowed = "move";
+                // 파이어폭스는 실어 보내는 것이 없으면 끌기를 시작조차 하지 않는다
+                e.dataTransfer.setData("text/plain", b.id);
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setOverId(null);
+              }}
+            >
+              <span
+                aria-hidden
+                className="select-none text-[12px]"
+                style={{ color: "var(--ui-muted)", cursor: "grab" }}
+                title="끌어서 순서를 바꿉니다"
+              >
+                ⠿
+              </span>
               <span className="mr-auto truncate text-[12px] font-bold">
                 {i + 1}. {blockLabel(b)}
               </span>
@@ -117,8 +211,15 @@ export function BlockEditor({ doc, setDoc }: Props) {
         );
       })}
 
-      <Btn onClick={addAd}>+ 광고 직접 추가</Btn>
-      <Hint>제목과 본문은 한 덩어리로 움직이며 페이지 경계에서 잘리지 않습니다.</Hint>
+      <div className="flex flex-wrap gap-1.5">
+        <Btn onClick={addAd}>+ 광고 직접 추가</Btn>
+        {!hasSchedule && <Btn onClick={addSchedule}>+ {SCHEDULE_HEADING}</Btn>}
+        {!hasSermon && <Btn onClick={addSermon}>+ {SERMON_HEADING}</Btn>}
+      </div>
+      <Hint>
+        제목과 본문은 한 덩어리로 움직이며 페이지 경계에서 잘리지 않습니다. 제목 줄을 끌어
+        순서를 바꿀 수 있습니다 (태블릿에서는 ↑↓ 버튼).
+      </Hint>
     </div>
   );
 }
@@ -158,22 +259,6 @@ function NudgeY({ offsetY, onChange }: { offsetY: number; onChange: (v: number) 
 
 function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
-}
-
-/** 블록에서 '본문'에 해당하는 자리 — 광고는 본문, 주요일정은 항목, 본문 말씀은 본문 줄 */
-function bodySlot(block: FlowBlock): {
-  key: "bodyStyle" | "itemStyle" | "lineStyle";
-  role: Role;
-  style?: TextStyle;
-} {
-  switch (block.kind) {
-    case "ad":
-      return { key: "bodyStyle", role: "blockBody", style: block.bodyStyle };
-    case "schedule":
-      return { key: "itemStyle", role: "scheduleItem", style: block.itemStyle };
-    case "sermon":
-      return { key: "lineStyle", role: "sermonLine", style: block.lineStyle };
-  }
 }
 
 /**

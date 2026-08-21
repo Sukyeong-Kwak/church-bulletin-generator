@@ -247,6 +247,8 @@ function ConfirmLayer({
 
   return (
     <div
+      // 단축키(Shortcuts)가 이 표식을 보고 물러선다 — 묻고 있는 동안 Cmd+Z 가 뒤에서 돌면 안 된다
+      data-modal
       className="fixed inset-0 z-[210] flex items-center justify-center p-4"
       style={{ background: "rgba(16,18,22,0.38)" }}
       // 바깥을 눌러도 물러선다. 실수로 띄웠을 때 빠져나갈 길이 여럿이어야 한다.

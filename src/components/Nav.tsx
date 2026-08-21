@@ -9,7 +9,8 @@ import { useAuth } from "@/lib/supabase/useAuth";
 import { usePopup } from "./Popup";
 import { Btn } from "./ui";
 
-const MAKE_PATHS = ["/", "/common", "/fixed", "/preview"];
+/** 주보 한 부를 고치는 화면들. 되돌리기 단축키가 듣는 범위이기도 하다(Shortcuts). */
+export const MAKE_PATHS = ["/", "/common", "/fixed", "/preview"];
 
 interface Tab {
   href: string;
@@ -35,7 +36,8 @@ const ADMIN_TAB: Tab = { href: "/admin", label: "관리자", match: ["/admin"], 
 export function Nav() {
   const path = usePathname();
   const router = useRouter();
-  const { saveCurrent, revertToSaved, canRevert, dirty, loaded } = useDoc();
+  const { saveCurrent, revertToSaved, canRevert, dirty, loaded, undo, redo, canUndo, canRedo } =
+    useDoc();
   const { user, enabled, signOut } = useAuth();
   const { notify, confirm } = usePopup();
   const inMake = MAKE_PATHS.includes(path);
@@ -119,12 +121,48 @@ export function Nav() {
       <div className="ml-auto flex min-w-0 items-center gap-2">
         {loaded && inMake && (
           <>
+            {/*
+              되돌리기는 단축키(Cmd/Ctrl+Z)가 본자리지만, 버튼도 함께 둔다.
+              단축키는 아는 사람만 쓰고, 태블릿에는 누를 자판이 아예 없다.
+              쓸 수 없을 때도 자리는 지킨다 — 버튼이 나타났다 사라지면 옆 버튼들이 밀린다.
+
+              폰에서만 접는다. 이 머리줄에는 이미 메뉴·저장·계정·로그아웃이 서 있어
+              두 개를 더 놓으면 화면 밖으로 밀려나는데, 폰으로 주보를 만드는 일은 드물다.
+            */}
+            <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
+              <Btn
+                size="sm"
+                variant="ghost"
+                disabled={!canUndo}
+                onClick={undo}
+                title="되돌리기 (Cmd/Ctrl+Z)"
+                aria-label="되돌리기"
+              >
+                ↶
+              </Btn>
+              <Btn
+                size="sm"
+                variant="ghost"
+                disabled={!canRedo}
+                onClick={redo}
+                title="다시 앞으로 (Shift+Cmd/Ctrl+Z)"
+                aria-label="다시 앞으로"
+              >
+                ↷
+              </Btn>
+            </div>
+
             {canRevert && (
               <Btn size="sm" onClick={() => void handleRevert()} title="마지막으로 저장한 상태로 되돌립니다">
                 초기화
               </Btn>
             )}
-            <Btn variant={dirty ? "primary" : "default"} size="sm" onClick={() => void handleSave()}>
+            <Btn
+              variant={dirty ? "primary" : "default"}
+              size="sm"
+              onClick={() => void handleSave()}
+              title="저장 (Cmd/Ctrl+S)"
+            >
               {dirty ? "저장" : "저장됨"}
             </Btn>
           </>
@@ -176,42 +214,67 @@ const MAKE_TABS = [
 export function MakeTabs() {
   const path = usePathname();
   const { doc, loaded } = useDoc();
+  const here = MAKE_TABS.find((t) => t.href === path);
 
   return (
-    <div
-      className="scroll-x flex shrink-0 items-center gap-1 border-b bg-white px-2 sm:px-4"
-      style={{ borderColor: "var(--ui-border)" }}
-    >
-      {MAKE_TABS.map((t) => {
-        const active = path === t.href;
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            title={t.hint}
-            className="whitespace-nowrap border-b-2 px-2.5 py-2.5 text-[13px] transition-colors"
-            style={{
-              borderColor: active ? "var(--ui-accent)" : "transparent",
-              color: active ? "var(--ui-accent)" : "var(--ui-muted)",
-              fontWeight: active ? 700 : 500,
-            }}
+    <div className="shrink-0 border-b bg-white" style={{ borderColor: "var(--ui-border)" }}>
+      <div className="scroll-x flex items-center gap-1 px-2 sm:px-4">
+        {MAKE_TABS.map((t, i) => {
+          const active = path === t.href;
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              title={t.hint}
+              className="flex items-center gap-1.5 border-b-2 px-2.5 py-2.5 text-[13px] whitespace-nowrap transition-colors"
+              style={{
+                borderColor: active ? "var(--ui-accent)" : "transparent",
+                color: active ? "var(--ui-accent)" : "var(--ui-muted)",
+                fontWeight: active ? 700 : 500,
+              }}
+            >
+              {/*
+                번호를 붙인다. 이 네 칸은 아무 데나 들러도 되는 메뉴가 아니라 주보 한 부를
+                만드는 순서인데, 이름만 늘어놓으면 그것이 순서라는 것을 알 길이 없다.
+              */}
+              <span
+                aria-hidden
+                className="flex h-[17px] w-[17px] items-center justify-center rounded-full text-[10px] font-bold"
+                style={{
+                  background: active ? "var(--ui-accent)" : "#f1f2f5",
+                  color: active ? "#fff" : "var(--ui-subtle)",
+                }}
+              >
+                {i + 1}
+              </span>
+              {t.label}
+            </Link>
+          );
+        })}
+
+        {/*
+          지금 몇 주차 주보를 고치는 중인지.
+          보관함에서 지난 주보를 열면 이 표시 말고는 알 길이 없어, 고치는 화면들 옆에 붙여 둔다.
+        */}
+        {loaded && (
+          <span
+            className="ml-auto whitespace-nowrap pl-3 text-[12px] font-semibold"
+            style={{ color: "var(--ui-muted)" }}
           >
-            {t.label}
-          </Link>
-        );
-      })}
+            {formatServiceDate(doc.serviceDate)}
+          </span>
+        )}
+      </div>
 
       {/*
-        지금 몇 주차 주보를 고치는 중인지.
-        보관함에서 지난 주보를 열면 이 표시 말고는 알 길이 없어, 고치는 화면들 옆에 붙여 둔다.
+        이 화면이 무엇을 맡는지 한 줄로 적어 둔다.
+        예전에는 툴팁(title)에만 있었는데, 태블릿에는 마우스를 올려둘 방법이 없어
+        처음 쓰는 사람에게는 없는 것이나 마찬가지였다.
       */}
-      {loaded && (
-        <span
-          className="ml-auto whitespace-nowrap pl-3 text-[12px] font-semibold"
-          style={{ color: "var(--ui-muted)" }}
-        >
-          {formatServiceDate(doc.serviceDate)}
-        </span>
+      {here && (
+        <p className="px-3 pb-2 text-[11.5px] sm:px-5" style={{ color: "var(--ui-subtle)" }}>
+          {here.hint}
+        </p>
       )}
     </div>
   );

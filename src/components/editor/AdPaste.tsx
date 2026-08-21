@@ -97,6 +97,9 @@ export function AdPaste({ onApply, onClose }: Props) {
   return (
     // 폰에서는 화면을 통째로 쓴다 — 좁은 화면에 창을 띄우면 정작 글 넣을 자리가 남지 않는다
     <div
+      // 이 창이 떠 있는 동안 Cmd+Z 는 브라우저에 맡긴다 — 붙여넣은 원문을 고치는 자리라
+      // 주보를 되돌리는 것이 아니라 그 글상자를 되돌려야 한다
+      data-modal
       className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6"
       style={{ background: "rgba(15,23,42,.45)" }}
     >
