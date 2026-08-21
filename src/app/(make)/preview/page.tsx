@@ -7,12 +7,14 @@ import { QrPoster } from "@/components/editor/QrPoster";
 import { ShareCard } from "@/components/editor/ShareCard";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { Btn, Hint } from "@/components/ui";
+import { afterPaint, waitForNodes } from "@/lib/exportImages";
 import { formatServiceDate } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { nowUrl } from "@/lib/publish";
 import { useDoc } from "@/lib/store";
 import { useEditFocus } from "@/lib/useEditFocus";
 import { useFitScale } from "@/lib/useFitScale";
+import { loadFullThemeImages, type ThemeUrls } from "@/lib/useThemeImages";
 
 /**
  * 주보 전체 보기 — 표지부터 마지막 장까지 순서대로 확인하고 이미지로 내보낸다.
@@ -24,6 +26,17 @@ export default function PreviewPage() {
   const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
   const nodes = useRef(new Map<number, HTMLDivElement | null>());
+  /**
+   * 내보내기용 원본 크기 레이어는 내보낼 때만 붙인다.
+   *
+   * 예전에는 편집하는 내내 화면 밖에 같은 페이지를 한 벌 더 그려두었다. 여덟 장짜리 주보라면
+   * 보이는 여덟 장과 보이지 않는 여덟 장을 글자 한 자 칠 때마다 다시 그린 셈이다.
+   * 배경 사진까지 원본 크기로 딸려 있어 값이 가장 비싼 쪽이 보이지 않는 쪽이었다.
+   *
+   * 여기에 값이 담겨 있는 동안만 레이어가 산다. 담기는 것은 원본 주소다 —
+   * 캡처는 화면용 축소본이 아니라 원본을 찍어야 인쇄 화질이 나온다.
+   */
+  const [exportUrls, setExportUrls] = useState<ThemeUrls | null>(null);
   // 저장하면 공유 링크가 생기므로 QR을 바로 펼쳐 보여준다
   const [showShare, setShowShare] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
@@ -40,8 +53,46 @@ export default function PreviewPage() {
   const [picked, setPicked] = useState<number | null>(null);
   const zoom = picked ?? fit;
 
-  const getNodes = (): HTMLElement[] =>
-    pages.map((p) => nodes.current.get(p.index)).filter((el): el is HTMLDivElement => !!el);
+  /**
+   * 내보내기 레이어를 잠깐 띄우고, 그 위에서 할 일을 한 뒤 도로 걷는다.
+   * 내보내기와 QR 올리기가 똑같이 이 길로 지나가므로 레이어를 챙기는 자리는 여기 하나뿐이다.
+   *
+   * 한 번에 하나씩만 지나간다.
+   *
+   * 레이어도, 그 안의 원본 주소도 한 벌뿐이다. 두 곳이 겹쳐 들어오면 — 내보내기가 8장을 굽는
+   * 십여 초 사이에 교회 QR을 열어 올리기를 누르는 식으로 — 먼저 끝난 쪽이 마무리하면서
+   * 상대가 아직 찍고 있는 레이어를 걷고 주소를 거둬버린다. 남은 쪽은 빈 장을 찍는다.
+   * 두 버튼이 서로의 사정을 모르므로(각자 다른 표시로 잠근다) 순서는 여기서 세운다.
+   */
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+
+  function runWithNodes<T>(run: (nodes: HTMLElement[]) => Promise<T>): Promise<T> {
+    // 앞의 것이 실패했더라도 줄은 계속 나아간다
+    const mine = queue.current.then(
+      () => captureWith(run),
+      () => captureWith(run),
+    );
+    queue.current = mine.catch(() => undefined);
+    return mine;
+  }
+
+  async function captureWith<T>(run: (nodes: HTMLElement[]) => Promise<T>): Promise<T> {
+    const full = await loadFullThemeImages(doc.theme);
+    setExportUrls(full.urls);
+    try {
+      const ready = await waitForNodes(
+        () => pages.map((p) => nodes.current.get(p.index)).filter((el): el is HTMLDivElement => !!el),
+        pages.length,
+      );
+      return await run(ready);
+    } finally {
+      setExportUrls(null);
+      nodes.current.clear();
+      // 레이어가 실제로 걷힌 뒤에 주소를 거둔다 — 아직 보고 있는데 지우면 빈칸이 스친다
+      await afterPaint();
+      full.release();
+    }
+  }
 
   const overflowCount = pages.filter((p) => p.overflow).length;
 
@@ -52,7 +103,7 @@ export default function PreviewPage() {
       <ExportPanel
         doc={doc}
         setDoc={setDoc}
-        getNodes={getNodes}
+        runWithNodes={runWithNodes}
         onImagesReady={attachImages}
         pageCount={pages.length}
       />
@@ -107,7 +158,7 @@ export default function PreviewPage() {
          */}
         {showShare && (
           <div className="mb-4 flex flex-col gap-3">
-            <ShareCard getNodes={getNodes} />
+            <ShareCard runWithNodes={runWithNodes} />
             <QrPoster url={nowUrl()} />
           </div>
         )}
@@ -122,13 +173,15 @@ export default function PreviewPage() {
         )}
       </div>
 
-      {/* 표시와 무관하게 항상 전체 페이지를 원본 크기로 캡처한다 */}
-      <ExportLayer
-        doc={doc}
-        pages={pages}
-        urls={urls}
-        registerRef={(i, el) => nodes.current.set(i, el)}
-      />
+      {/* 내보내는 동안에만. 전체 페이지를 축소 없이 원본 크기 그대로 그려 캡처에 넘긴다. */}
+      {exportUrls && (
+        <ExportLayer
+          doc={doc}
+          pages={pages}
+          urls={exportUrls}
+          registerRef={(i, el) => nodes.current.set(i, el)}
+        />
+      )}
       {measurer}
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   BIRTHDAY_COLS,
@@ -52,6 +52,18 @@ const TAB_OF: Record<string, Tab> = {
 export default function FixedPagesPage() {
   const { doc, urls, loaded } = useDoc();
   const params = useSearchParams();
+
+  /*
+   * 미리보기는 한 박자 늦게 따라온다.
+   *
+   * 이 화면이 특히 무겁다. 생일 명단은 1열부터 5열까지 다섯 벌을 몰래 그려보고 어느 짜임이
+   * 가장 덜 줄여도 되는지 재는데, 그 일이 글자 한 자마다 벌어진다. 이름을 붙여넣거나
+   * 안내 문구를 고치는 동안 손이 화면보다 앞서가던 자리다.
+   *
+   * useDeferredValue 는 그 순서를 갈라 준다 — 입력칸은 바로 반응하고, 미리보기는 손이 멈춘
+   * 틈에 따라잡는다. 값은 결국 같은 것이 되므로 보이는 결과는 달라지지 않는다.
+   */
+  const shown = useDeferredValue(doc);
 
   /*
    * 다른 화면에서 이름표를 달고 넘어왔으면 그 칸이 있는 탭에서 시작한다.
@@ -121,7 +133,7 @@ export default function FixedPagesPage() {
           <p className="mb-2 text-[12px] font-bold">
             고정 페이지 미리보기 · 날짜는 작성 중인 주보({doc.serviceDate}) 기준입니다
           </p>
-          <PreviewGrid doc={doc} pages={fixedPages} urls={urls} scale={previewScale} onEdit={goEdit} />
+          <PreviewGrid doc={shown} pages={fixedPages} urls={urls} scale={previewScale} onEdit={goEdit} />
         </div>
       }
     />

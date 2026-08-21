@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { ImageUpload } from "@/components/editor/ImageUpload";
 import { PreviewGrid } from "@/components/PreviewGrid";
 import { SplitView } from "@/components/SplitView";
@@ -18,7 +18,18 @@ import { useFitScale } from "@/lib/useFitScale";
  */
 export default function CommonPage() {
   const { doc, setDoc, settings, setSettings, urls, loaded } = useDoc();
-  const { pages: flowPages, measurer } = useFlowPages(doc);
+
+/*
+ * 미리보기는 한 박자 늦게 따라온다.
+ *
+ * 글자 한 자를 칠 때마다 조판을 다시 재고 주보 여러 장을 다시 그린다. 그 일이 끝나야
+ * 다음 글자가 화면에 나타나므로, 빠르게 치면 손이 화면보다 앞서간다.
+ *
+ * useDeferredValue 는 그 순서를 갈라 준다 — 입력칸은 바로 반응하고, 미리보기는 손이 멈춘
+ * 틈에 따라잡는다. 값은 결국 같은 것이 되므로 보이는 결과는 달라지지 않는다.
+ */
+  const shown = useDeferredValue(doc);
+  const { pages: flowPages, measurer } = useFlowPages(shown);
 
   /*
    * 모든 장을 세운다.
@@ -166,7 +177,7 @@ export default function CommonPage() {
             <p className="mb-2 text-[12px] font-bold">
               전체 {pages.length}장 · 여기서 고친 것은 모든 장에 똑같이 들어갑니다
             </p>
-            <PreviewGrid doc={doc} pages={pages} urls={urls} scale={previewScale} onEdit={goEdit} />
+            <PreviewGrid doc={shown} pages={pages} urls={urls} scale={previewScale} onEdit={goEdit} />
             <div className="mt-2">
               <Hint>고치고 싶은 자리를 주보에서 바로 누르면 그 칸으로 갑니다.</Hint>
             </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { editRoute } from "@/lib/editTargets";
 import { CANVAS } from "@/lib/layout";
 import type { BulletinDoc, LaidOutPage } from "@/lib/types";
@@ -84,6 +85,7 @@ export function PreviewGrid({
             style={{
               width: pw,
               height: ph,
+              ...skipWhenOffscreen(page, pw, ph),
               borderColor:
                 selectedIndex === page.index ? "var(--ui-accent)" : "var(--ui-border)",
               boxShadow:
@@ -154,6 +156,25 @@ export function PreviewGrid({
       ))}
     </div>
   );
+}
+
+/**
+ * 화면에 보이지 않는 쪽은 그리지 않는다.
+ *
+ * 여덟 장짜리 주보라면 통 안에 실제로 보이는 것은 두세 장인데, 나머지도 891×1260 짜리를
+ * 제 크기로 다 그린 뒤 줄여 놓는다. 안 보이는 다섯 장 값을 늘 치르는 셈이다.
+ * 폭과 높이를 미리 일러두므로 건너뛴 쪽도 자리는 그대로 차지한다 — 굴림 막대가 튀지 않는다.
+ *
+ * 청년부 일정 장만은 뺀다.
+ *
+ * 그 장은 스스로를 재서 짜임을 정한다 — 생일 명단을 1열부터 5열까지 몰래 그려 보고
+ * 어느 것이 가장 덜 줄여도 되는지 고른다. 그런데 그리기를 건너뛴 자리는 배치가 계산되지 않아
+ * 재면 전부 0으로 나온다. 0을 받아 고른 짜임은 굴려서 그 장이 나타나도 다시 고쳐지지 않는다 —
+ * 명단 글자 크기가 엉뚱하게 잡힌 채로 남는다. 다른 장들은 재는 일이 없어 안전하다.
+ */
+function skipWhenOffscreen(page: LaidOutPage, pw: number, ph: number): CSSProperties {
+  if (page.kind === "worship") return {};
+  return { contentVisibility: "auto", containIntrinsicSize: `${pw}px ${ph}px` };
 }
 
 function pageLabel(page: LaidOutPage): string {

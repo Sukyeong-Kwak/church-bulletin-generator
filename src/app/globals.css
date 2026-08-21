@@ -5,19 +5,24 @@
  *   제목  HS새마을체         → HSSaemaul.woff
  *   본문  ACC어린이마음고운체 → ACCKidsHeart.woff
  * 두 폰트 모두 상업적 이용과 웹 임베딩이 허용된 무료 폰트다.
+ *
+ * 이 둘은 woff 만 있다. woff2 로 바꿔 넣으면 절반 크기로 줄어든다(README 참고) —
+ * 특히 ACCKidsHeart 는 1.5MB 라 주보 화면이 처음 뜨는 시간에 그대로 얹힌다.
+ *
+ * 없는 woff2 를 먼저 적어두면 브라우저가 그것부터 받으러 갔다가 404 를 맞고 되돌아온다.
+ * 폰트마다 왕복이 한 번씩 더 드는 셈이라, 있는 것만 적는다.
+ * 나중에 woff2 를 넣으면 여기와 exportImages.ts 의 FONT_SOURCES 두 곳에 함께 적어준다.
  */
 @font-face {
   font-family: "HSSaemaul";
-  src: url("/fonts/HSSaemaul.woff2") format("woff2"),
-    url("/fonts/HSSaemaul.woff") format("woff");
+  src: url("/fonts/HSSaemaul.woff") format("woff");
   font-weight: 400 700;
   font-display: swap;
 }
 
 @font-face {
   font-family: "ACCKidsHeart";
-  src: url("/fonts/ACCKidsHeart.woff2") format("woff2"),
-    url("/fonts/ACCKidsHeart.woff") format("woff");
+  src: url("/fonts/ACCKidsHeart.woff") format("woff");
   font-weight: 400 700;
   font-display: swap;
 }

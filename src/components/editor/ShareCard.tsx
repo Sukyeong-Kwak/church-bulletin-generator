@@ -115,7 +115,12 @@ function OpenState({
  * 저장은 공개가 아니다. 올리기 전에는 QR을 찍어도 아무것도 보이지 않는다 —
  * 작성 중인 주보가 새어 나가지 않게 하기 위해서다.
  */
-export function ShareCard({ getNodes }: { getNodes: () => HTMLElement[] }) {
+export function ShareCard({
+  runWithNodes,
+}: {
+  /** 내보내기 레이어를 띄운 채로 넘겨준 일을 해준다 (미리보기 화면이 챙긴다) */
+  runWithNodes: <T>(run: (nodes: HTMLElement[]) => Promise<T>) => Promise<T>;
+}) {
   const { doc, library, published, publishCurrent, unpublish, openToday, closeToday, saving, error } =
     useDoc();
   const { user } = useAuth();
@@ -245,11 +250,11 @@ export function ShareCard({ getNodes }: { getNodes: () => HTMLElement[] }) {
   };
 
   /** 폰에서 보여줄 페이지 이미지. 내보내기와 같은 그림이다. */
-  const makeImages = async () => {
-    const nodes = getNodes();
-    if (nodes.length === 0) throw new Error("올릴 페이지가 없습니다.");
-    return renderAll(nodes, doc.exportScale, doc.exportFormat);
-  };
+  const makeImages = () =>
+    runWithNodes((nodes) => {
+      if (nodes.length === 0) throw new Error("올릴 페이지가 없습니다.");
+      return renderAll(nodes, doc.exportScale, doc.exportFormat);
+    });
 
   return (
     <Section title="교회 QR" desc="코드는 하나입니다. 매주 올리기만 누르면 같은 코드가 새 주보를 보여줍니다.">

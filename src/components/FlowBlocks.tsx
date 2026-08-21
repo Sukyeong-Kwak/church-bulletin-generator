@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { memo, type CSSProperties } from "react";
 import { Txt } from "./Txt";
 import { bracketTitle } from "@/lib/layout";
 import { SERMON_HEADING } from "@/lib/settings";
@@ -11,8 +11,13 @@ interface Props {
   theme: Theme;
 }
 
-/** 블록 하나를 렌더. 제목과 본문은 한 덩어리로 움직이며 페이지 경계에서 쪼개지지 않는다. */
-export function FlowBlockView({ block, theme }: Props) {
+/**
+ * 블록 하나를 렌더. 제목과 본문은 한 덩어리로 움직이며 페이지 경계에서 쪼개지지 않는다.
+ *
+ * 고친 블록 하나만 다시 그린다. 조판은 블록을 하나하나 몰래 그려 높이를 재는데,
+ * 그냥 두면 광고 한 줄을 고칠 때마다 스무 개짜리 목록을 전부 다시 그리고 전부 다시 잰다.
+ */
+export const FlowBlockView = memo(function FlowBlockView({ block, theme }: Props) {
   switch (block.kind) {
     case "ad":
       return <AdBlockView block={block} theme={theme} />;
@@ -21,7 +26,7 @@ export function FlowBlockView({ block, theme }: Props) {
     case "sermon":
       return <SermonBlockView block={block} theme={theme} />;
   }
-}
+});
 
 function AdBlockView({ block, theme }: { block: AdBlock; theme: Theme }) {
   return (

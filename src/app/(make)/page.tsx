@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import Link from "next/link";
 import { SplitView } from "@/components/SplitView";
 import { AdPaste } from "@/components/editor/AdPaste";
@@ -16,7 +16,18 @@ import type { FlowBlock, ScheduleBlock, SermonBlock } from "@/lib/types";
 
 export default function EditorPage() {
   const { doc, setDoc, urls, loaded } = useDoc();
-  const { pages: flowPages, measurer, measuring } = useFlowPages(doc);
+
+/*
+ * 미리보기는 한 박자 늦게 따라온다.
+ *
+ * 글자 한 자를 칠 때마다 조판을 다시 재고 주보 여러 장을 다시 그린다. 그 일이 끝나야
+ * 다음 글자가 화면에 나타나므로, 빠르게 치면 손이 화면보다 앞서간다.
+ *
+ * useDeferredValue 는 그 순서를 갈라 준다 — 입력칸은 바로 반응하고, 미리보기는 손이 멈춘
+ * 틈에 따라잡는다. 값은 결국 같은 것이 되므로 보이는 결과는 달라지지 않는다.
+ */
+  const shown = useDeferredValue(doc);
+  const { pages: flowPages, measurer, measuring } = useFlowPages(shown);
   const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -156,7 +167,7 @@ export default function EditorPage() {
         }
         preview={
           <div className="min-h-0 flex-1 overflow-auto p-4">
-            <PreviewGrid doc={doc} pages={visiblePages} urls={urls} scale={zoom} onEdit={goEdit} />
+            <PreviewGrid doc={shown} pages={visiblePages} urls={urls} scale={zoom} onEdit={goEdit} />
             {visiblePages.length === 0 && (
               <Hint>
                 본문 내용이 아직 없습니다. 광고를 붙여넣거나 본문 말씀을 입력하면 여기에 나타납니다.

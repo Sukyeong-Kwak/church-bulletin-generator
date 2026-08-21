@@ -11,6 +11,10 @@ import {
   type ReactNode,
 } from "react";
 import { getBackend } from "./backend";
+import { putWithWebCopy, URL_TTL } from "./backend/images";
+import { useThemeImages, type ThemeUrls } from "./useThemeImages";
+import { pastKeepWindow } from "./retention";
+import { webKeyFor } from "./webImage";
 import {
   closeToday as closeTodayRpc,
   loadPublished,
@@ -51,6 +55,11 @@ interface DocContextValue {
   duplicateSaved: (id: string) => void;
   /** 지웠으면 true. 실패는 화면에서 알려야 하므로 조용히 삼키지 않는다. */
   removeSaved: (id: string) => Promise<boolean>;
+  /**
+   * 고른 주보를 한꺼번에 지운다. 지운 수와 못 지운 수를 돌려준다.
+   * 하나가 막혀도 나머지는 지운다 — 열 부를 고르고 눌렀는데 첫 부에서 멈추면 다시 아홉 번을 해야 한다.
+   */
+  removeMany: (ids: string[]) => Promise<{ removed: number; failed: number }>;
   /** 저장 뒤에 고친 것을 모두 버리고 마지막으로 저장한 상태로 되돌린다 */
   revertToSaved: () => void;
   /** 되돌릴 저장본이 있고, 되돌릴 변경도 있는지 */
@@ -75,7 +84,11 @@ interface DocContextValue {
   openToday: () => Promise<boolean>;
   /** 오늘 따로 열어둔 것을 거둔다. 주보는 그대로 올라가 있다. */
   closeToday: () => Promise<boolean>;
-  urls: { background?: string; cover?: string; logo?: string };
+  /**
+   * 배경·표지·로고를 화면에 걸 주소. 화면용 축소본이다.
+   * 내보내기는 원본이 필요하므로 그때만 loadFullThemeImages로 따로 받는다.
+   */
+  urls: ThemeUrls;
   loaded: boolean;
   dirty: boolean;
   saving: boolean;
@@ -97,15 +110,20 @@ function referencedKeys(
   settings: Settings,
 ): Set<string> {
   const keep = new Set<string>();
+  // 원본을 지키면 그 화면용 축소본도 함께 지킨다. 짝이 끊기면 보는 쪽이 매번 원본을 받는다.
   const add = (...keys: (string | undefined)[]) => {
-    for (const k of keys) if (k) keep.add(k);
+    for (const k of keys) {
+      if (!k) continue;
+      keep.add(k);
+      keep.add(webKeyFor(k));
+    }
   };
 
   const addDoc = (d: BulletinDoc) => {
     add(d.theme.backgroundUrl, d.theme.coverUrl, d.theme.logoUrl);
     // 지금은 아무도 채우지 않지만, 채우는 순간 지워지는 일이 없도록 미리 센다
     add(d.fixed?.cover?.imageUrl);
-    d.imageKeys?.forEach((k) => keep.add(k));
+    add(...(d.imageKeys ?? []));
   };
 
   // 작성 중인 주보도 센다 — 아직 저장하지 않았다고 배경을 뺏으면 안 된다
@@ -127,7 +145,6 @@ export function DocProvider({ children }: { children: ReactNode }) {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
-  const [urls, setUrls] = useState<DocContextValue["urls"]>({});
 
   /**
    * 보관함을 서버에서 실제로 받아왔는지.
@@ -196,47 +213,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t);
   }, [doc, loaded]);
 
-  // 배경·표지·로고 이미지를 받아 화면에 쓸 주소를 만든다
-  const imgKeys = `${doc.theme.backgroundUrl ?? ""}|${doc.theme.coverUrl ?? ""}|${doc.theme.logoUrl ?? ""}`;
-  const urlsRef = useRef<string[]>([]);
-
-  useEffect(() => {
-    if (!loaded) return;
-    let alive = true;
-    const created: string[] = [];
-
-    (async () => {
-      const next: DocContextValue["urls"] = {};
-      const pairs: [keyof DocContextValue["urls"], string | undefined][] = [
-        ["background", doc.theme.backgroundUrl],
-        ["cover", doc.theme.coverUrl],
-        ["logo", doc.theme.logoUrl],
-      ];
-
-      for (const [name, key] of pairs) {
-        if (!key) continue;
-        const blob = await backend.getImage(key).catch(() => undefined);
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          next[name] = url;
-          created.push(url);
-        }
-      }
-
-      if (!alive) {
-        created.forEach((u) => URL.revokeObjectURL(u));
-        return;
-      }
-      urlsRef.current.forEach((u) => URL.revokeObjectURL(u));
-      urlsRef.current = created;
-      setUrls(next);
-    })();
-
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imgKeys, loaded, backend]);
+  // 배경·표지·로고를 화면에 걸 주소. 축소본을 한 번에 받아오고, 내려받기는 브라우저가 맡는다.
+  const urls = useThemeImages(doc.theme, loaded, URL_TTL.edit);
 
   const setDoc = useCallback((updater: (prev: BulletinDoc) => BulletinDoc) => {
     setDocState((prev) => updater(prev));
@@ -264,6 +242,50 @@ export function DocProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * 반년이 지난 주보의 내보내기 이미지를 놓아준다.
+   *
+   * 주보 자체는 그대로 남는다 — 열어보기·복사해서 새로 만들기·QR로 올리기 모두 그대로다.
+   * 사라지는 것은 '이미지 그대로 다시 받기' 하나뿐이고, 그마저도 주보를 열어 다시 내보내면
+   * 원본 화질로 새로 나온다. 매주 한 부씩 15MB 안팎이 쌓이는 것을 그대로 두면
+   * 1년 남짓에 무료 플랜 한도를 채우는데, 그 대부분이 아무도 다시 찾지 않는 것이다.
+   *
+   * 목록에서 키를 먼저 지운다. 파일부터 지우면 목록에는 '이미지 6장 보관'이라고 적혀 있는데
+   * 받기를 누르면 아무것도 오지 않는 반쪽짜리가 된다. 파일은 이어서 도는 정리가 거둬 간다.
+   */
+  const retire = useCallback(
+    async (nextDoc: BulletinDoc, nextLibrary: BulletinDoc[]): Promise<BulletinDoc[]> => {
+      const stale = nextLibrary.filter(
+        (b) =>
+          b.imageKeys?.length &&
+          pastKeepWindow(b.serviceDate) &&
+          // 지금 QR에 올라가 있는 것은 건드리지 않는다 — 보는 사람이 있을 수 있다
+          b.id !== published?.bulletinId &&
+          // 지금 손대고 있는 것도 건드리지 않는다
+          b.id !== nextDoc.id,
+      );
+      if (stale.length === 0) return nextLibrary;
+
+      const done = new Set<string>();
+      for (const b of stale) {
+        try {
+          await backend.setBulletinImages(b.id, []);
+          done.add(b.id);
+        } catch {
+          // 못 지웠으면 그대로 둔다. 다음 저장 때 다시 만난다.
+        }
+      }
+      if (done.size === 0) return nextLibrary;
+
+      const cleared = (list: BulletinDoc[]) =>
+        list.map((b) => (done.has(b.id) ? { ...b, imageKeys: [] } : b));
+
+      setLibrary(cleared);
+      return cleared(nextLibrary);
+    },
+    [backend, published?.bulletinId],
+  );
+
+  /**
    * 저장소에는 지금 쓰는 이미지만 남긴다.
    * 배경을 바꾸거나 주보를 지우면 옛 이미지는 아무도 가리키지 않게 되는데,
    * 그대로 두면 쓰지도 않는 파일이 용량만 차지한다.
@@ -272,11 +294,14 @@ export function DocProvider({ children }: { children: ReactNode }) {
   const prune = useCallback(
     (nextDoc: BulletinDoc, nextLibrary: BulletinDoc[], nextSettings: Settings) => {
       if (!librarySynced.current) return;
-      void backend.pruneImages(referencedKeys(nextDoc, nextLibrary, nextSettings)).catch(
-        () => undefined,
-      );
+      void (async () => {
+        const trimmed = await retire(nextDoc, nextLibrary);
+        await backend
+          .pruneImages(referencedKeys(nextDoc, trimmed, nextSettings))
+          .catch(() => undefined);
+      })();
     },
-    [backend],
+    [backend, retire],
   );
 
   const saveCurrent = useCallback(async (): Promise<boolean> => {
@@ -352,6 +377,43 @@ export function DocProvider({ children }: { children: ReactNode }) {
     [doc, library, settings, backend, prune],
   );
 
+  const removeMany = useCallback(
+    async (ids: string[]): Promise<{ removed: number; failed: number }> => {
+      const gone = new Set<string>();
+      let failed = 0;
+      let lastError: string | undefined;
+
+      for (const id of ids) {
+        try {
+          await backend.deleteBulletin(id);
+          gone.add(id);
+        } catch (e) {
+          failed += 1;
+          lastError = e instanceof Error ? e.message : "삭제하지 못했습니다.";
+        }
+      }
+
+      if (gone.size === 0) {
+        setError(lastError);
+        return { removed: 0, failed };
+      }
+
+      const nextLibrary = library.filter((b) => !gone.has(b.id));
+      setError(lastError);
+      setLibrary(nextLibrary);
+      // 올라가 있던 주보가 그중에 있었으면 QR도 함께 비워진다 (DB에서 연결이 끊긴다)
+      setPublished((p) =>
+        p?.bulletinId && gone.has(p.bulletinId)
+          ? { ...p, bulletinId: null, publishedAt: null }
+          : p,
+      );
+      // 지우고 나서 한 번만 정리한다 — 한 부씩 돌리면 통 훑기를 고른 수만큼 되풀이한다
+      prune(doc, nextLibrary, settings);
+      return { removed: gone.size, failed };
+    },
+    [doc, library, settings, backend, prune],
+  );
+
   /**
    * 마지막으로 저장한 상태로 되돌린다.
    *
@@ -410,7 +472,8 @@ export function DocProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const stale = before.filter((k) => !keys.includes(k));
+      // 원본과 그 축소본은 한 벌이다 — 남기면 아무도 안 보는 파일이 매주 쌓인다
+      const stale = before.filter((k) => !keys.includes(k)).flatMap((k) => [k, webKeyFor(k)]);
       if (stale.length) await backend.removeImages(stale).catch(() => undefined);
     },
     [doc, library, backend],
@@ -437,14 +500,17 @@ export function DocProvider({ children }: { children: ReactNode }) {
         const old = doc.imageKeys ?? [];
 
         const blobs = await makeImages();
+        // 원본 옆에 폰에서 볼 축소본을 함께 둔다 — QR로 들어온 사람이 받는 것은 그쪽이다
         const keys: string[] = [];
-        for (const b of blobs) keys.push(await backend.putImage(b, "export"));
+        for (const b of blobs) keys.push(await putWithWebCopy(backend, b, "export"));
 
         const saved = await backend.saveBulletin({ ...doc, imageKeys: keys });
         const at = await publishBulletin(saved.id);
 
         // 새 이미지가 무사히 자리 잡은 뒤에 옛 것을 지운다
-        void backend.removeImages(old.filter((k) => !keys.includes(k))).catch(() => {});
+        void backend
+          .removeImages(old.filter((k) => !keys.includes(k)).flatMap((k) => [k, webKeyFor(k)]))
+          .catch(() => {});
 
         const nextLibrary = [saved, ...library.filter((b) => b.id !== saved.id)].sort((a, b) =>
           b.serviceDate.localeCompare(a.serviceDate),
@@ -532,6 +598,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
       canRevert,
       startNew,
       attachImages,
+      removeMany,
       published,
       publishCurrent,
       publishSaved,
@@ -558,6 +625,7 @@ export function DocProvider({ children }: { children: ReactNode }) {
       canRevert,
       startNew,
       attachImages,
+      removeMany,
       published,
       publishCurrent,
       publishSaved,

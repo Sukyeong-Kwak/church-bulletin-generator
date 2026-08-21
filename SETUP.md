@@ -162,6 +162,11 @@ Supabase가 기본으로 주는 발송기는 **한 시간에 2통**, 그것도 *
    | `NEXT_PUBLIC_SUPABASE_URL` | 4단계에서 복사한 Project URL |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 4단계에서 복사한 anon public |
    | `GEMINI_API_KEY` (선택) | 광고 AI 자동 구분을 쓸 때만 |
+   | `NEXT_PUBLIC_STORAGE_LIMIT_MB` (선택) | Supabase 플랜의 저장 한도(MB). 안 적으면 무료 플랜 기준 `1024` |
+
+   > `NEXT_PUBLIC_STORAGE_LIMIT_MB`는 보관함의 **저장 공간** 칸이 "몇 부 더 저장할 수 있는지"를
+   > 계산하는 데 씁니다. Storage API는 플랜 한도를 알려주지 않아 여기서 일러줘야 합니다.
+   > Pro 플랜(100GB)이면 `102400`을 적으세요. 값이 틀려도 저장은 되지만 남은 양이 잘못 나옵니다.
 
    > `GEMINI_API_KEY`에는 `NEXT_PUBLIC_`을 **붙이지 마세요.** 붙이면 브라우저에 그대로 노출됩니다.
    > 이 키는 서버에서만 쓰이고, 서버 모드에서는 **승인된 사람만** 그 기능을 부를 수 있습니다.
@@ -201,6 +206,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 # 선택 — 광고 AI 자동 구분 (없으면 규칙 방식으로만 나눕니다)
 GEMINI_API_KEY=여기에_발급받은_키
+
+# 선택 — 플랜의 저장 한도(MB). 무료 1024 · Pro 102400. 안 적으면 1024로 봅니다
+NEXT_PUBLIC_STORAGE_LIMIT_MB=1024
 ```
 
 저장 후 개발 서버를 껐다 켜야 반영됩니다.

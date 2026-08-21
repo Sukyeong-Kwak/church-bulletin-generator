@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  memo,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -45,7 +46,7 @@ interface PageProps {
  * 891×1260 한 페이지. 실제 크기 그대로 그리며, 미리보기에서는 부모가 transform:scale 로 축소한다.
  * 내보내기는 이 노드를 그대로 pixelRatio 배율로 래스터화하므로 미리보기와 결과가 일치한다.
  */
-export function BulletinPage({ doc, page, backgroundUrl, coverUrl, logoUrl }: PageProps) {
+function BulletinPageView({ doc, page, backgroundUrl, coverUrl, logoUrl }: PageProps) {
   const { theme, church, fixed } = doc;
   const isCover = page.kind === "cover";
   const bg = isCover ? (coverUrl ?? backgroundUrl) : backgroundUrl;
@@ -184,6 +185,40 @@ function FlowContent({ doc, page }: { doc: BulletinDoc; page: LaidOutPage }) {
       </div>
     </div>
   );
+}
+
+/**
+ * 광고 한 줄을 고치는 동안 나머지 쪽은 가만히 둔다.
+ *
+ * 주보 문서는 어느 칸을 고치든 통째로 새것이 되므로, 그냥 두면 글자 한 자에 모든 쪽이 다시 그려진다.
+ * 그중 청년부 일정 쪽이 특히 비싸다 — 생일 명단을 1열부터 5열까지 다섯 벌 몰래 그려보고
+ * 어느 짜임이 가장 덜 줄여도 되는지 재기 때문이다. 명단이 마흔 명이면 글자 한 자마다 240칸을 잰다.
+ * 그런데 광고를 고치는 일과 생일 명단은 아무 상관이 없다.
+ *
+ * 그래서 이 쪽이 실제로 보는 것만 견준다. doc.blocks 는 보지 않는다 —
+ * 이 쪽에 앉은 블록은 page.blocks 이고, 다른 쪽 블록이 바뀐 것은 여기서 알 바가 아니다.
+ */
+export const BulletinPage = memo(BulletinPageView, samePage);
+
+function samePage(a: PageProps, b: PageProps): boolean {
+  if (a.backgroundUrl !== b.backgroundUrl) return false;
+  if (a.coverUrl !== b.coverUrl || a.logoUrl !== b.logoUrl) return false;
+
+  // 테마·교회정보·고정 페이지는 그것을 고칠 때만 새것이 된다 (본문 수정은 blocks 만 갈아 끼운다)
+  const x = a.doc;
+  const y = b.doc;
+  if (x.serviceDate !== y.serviceDate) return false;
+  if (x.theme !== y.theme || x.church !== y.church || x.fixed !== y.fixed) return false;
+
+  return samePlacement(a.page, b.page);
+}
+
+function samePlacement(a: LaidOutPage, b: LaidOutPage): boolean {
+  if (a.index !== b.index || a.kind !== b.kind) return false;
+  if (a.showAdsHeader !== b.showAdsHeader || a.overflow !== b.overflow) return false;
+  // 조판이 다시 돌면 쪽은 새 객체가 되지만 안에 든 블록은 고친 것 하나만 새것이다
+  if (a.blocks.length !== b.blocks.length) return false;
+  return a.blocks.every((block, i) => block === b.blocks[i]);
 }
 
 /** ② 청년부 일정 — 라벨은 우측, 값은 좌측 정렬. 값이 길어 줄바꿈되면 값 컬럼에서 이어진다. */

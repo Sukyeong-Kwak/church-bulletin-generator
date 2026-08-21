@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { getBackend } from "@/lib/backend";
+import { useMemo, useState } from "react";
 import { CANVAS } from "@/lib/layout";
 import { useFlowPages, withFixedPages } from "@/lib/paginate";
 import { useFitScale } from "@/lib/useFitScale";
+import { useThemeImages } from "@/lib/useThemeImages";
 import type { BulletinDoc } from "@/lib/types";
 import { NowFrame } from "./NowFrame";
 import { PreviewGrid } from "./PreviewGrid";
@@ -20,53 +20,12 @@ export function SharedBulletin({ doc }: { doc: BulletinDoc }) {
   const { pages: flowPages, measurer } = useFlowPages(doc);
   const pages = useMemo(() => withFixedPages(flowPages), [flowPages]);
 
-  const [urls, setUrls] = useState<{ background?: string; cover?: string; logo?: string }>({});
-  const created = useRef<string[]>([]);
+  const urls = useThemeImages(doc.theme);
 
   // 폰에서는 주보 한 장이 화면 폭에 통째로 들어오게 맞추고, 손대면 그 값을 지킨다
   const fit = useFitScale(0.42, 0.6, 32);
   const [picked, setPicked] = useState<number | null>(null);
   const zoom = picked ?? fit;
-
-  const keys = `${doc.theme.backgroundUrl ?? ""}|${doc.theme.coverUrl ?? ""}|${doc.theme.logoUrl ?? ""}`;
-
-  useEffect(() => {
-    let alive = true;
-    const made: string[] = [];
-
-    (async () => {
-      const backend = getBackend();
-      const next: typeof urls = {};
-      const pairs: [keyof typeof urls, string | undefined][] = [
-        ["background", doc.theme.backgroundUrl],
-        ["cover", doc.theme.coverUrl],
-        ["logo", doc.theme.logoUrl],
-      ];
-
-      for (const [name, key] of pairs) {
-        if (!key) continue;
-        const blob = await backend.getImage(key).catch(() => undefined);
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          next[name] = url;
-          made.push(url);
-        }
-      }
-
-      if (!alive) {
-        made.forEach((u) => URL.revokeObjectURL(u));
-        return;
-      }
-      created.current.forEach((u) => URL.revokeObjectURL(u));
-      created.current = made;
-      setUrls(next);
-    })();
-
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keys]);
 
   return (
     <NowFrame

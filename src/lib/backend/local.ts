@@ -9,6 +9,7 @@ import {
   type Settings,
 } from "@/lib/settings";
 import type { BulletinDoc } from "@/lib/types";
+import { webKeyFor } from "@/lib/webImage";
 import type { Backend } from "./types";
 
 const KEY = "bulletin-app-v1";
@@ -78,7 +79,10 @@ export const localBackend: Backend = {
   async deleteBulletin(id) {
     const cur = read();
     const found = cur.library.find((b) => b.id === id);
-    found?.imageKeys?.forEach((k) => void deleteImage(k));
+    found?.imageKeys?.forEach((k) => {
+      void deleteImage(k);
+      void deleteImage(webKeyFor(k));
+    });
     write({ ...cur, library: cur.library.filter((b) => b.id !== id) });
   },
 
@@ -96,12 +100,51 @@ export const localBackend: Backend = {
     return key;
   },
 
+  async putImageAt(key, blob) {
+    await putImage(key, blob);
+  },
+
   async getImage(key) {
     return getImage(key);
   },
 
+  // 만료가 없다 — 이 브라우저 안에 만든 주소라 표를 끊을 상대가 없다
+  async imageUrls(keys) {
+    // 이 브라우저 안에 있는 파일이라 받아오는 데 드는 시간이 없다.
+    // 여러 장을 한꺼번에 꺼내 곧바로 주소로 만든다.
+    return Promise.all(
+      keys.map(async (k) => {
+        const blob = await getImage(k).catch(() => undefined);
+        return blob ? URL.createObjectURL(blob) : null;
+      }),
+    );
+  },
+
+  releaseUrls(urls) {
+    for (const u of urls) if (u) URL.revokeObjectURL(u);
+  },
+
   async removeImages(keys) {
     for (const k of keys) await deleteImage(k).catch(() => {});
+  },
+
+  async storageUsage() {
+    /*
+     * 브라우저가 이 사이트에 내준 자리를 물어본다.
+     *
+     * 여기 담긴 것은 주보 이미지만이 아니라 작성 중인 내용까지 함께다. 한도도 서버처럼
+     * 정해진 값이 아니라 기기 남은 용량에 따라 브라우저가 정한다 — 물어봐야 알 수 있다.
+     */
+    const asked = navigator.storage?.estimate?.();
+    const estimate = asked ? await asked.catch(() => undefined) : undefined;
+    if (!estimate) return null;
+
+    return {
+      bytes: estimate.usage ?? 0,
+      // 파일 수는 이미지만 센다. 나머지는 파일이라 부를 만한 모양이 아니다.
+      files: (await listImageKeys().catch(() => [])).length,
+      limitBytes: estimate.quota ?? null,
+    };
   },
 
   async pruneImages(keep) {

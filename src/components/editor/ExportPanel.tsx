@@ -10,6 +10,7 @@ import {
   saveZip,
 } from "@/lib/exportImages";
 import { getBackend } from "@/lib/backend";
+import { putWithWebCopy } from "@/lib/backend/images";
 import type { BulletinDoc, ExportScale } from "@/lib/types";
 import { Btn } from "../ui";
 // QR 공유는 미리보기 화면의 `공유 QR` 버튼에 있다.
@@ -19,13 +20,17 @@ import { Btn } from "../ui";
 interface Props {
   doc: BulletinDoc;
   setDoc: (updater: (prev: BulletinDoc) => BulletinDoc) => void;
-  getNodes: () => HTMLElement[];
+  /**
+   * 내보내기 레이어를 띄운 채로 넘겨준 일을 해준다.
+   * 레이어는 이 순간에만 살아 있어, 편집하는 동안 보이지 않는 페이지까지 그리지 않는다.
+   */
+  runWithNodes: <T>(run: (nodes: HTMLElement[]) => Promise<T>) => Promise<T>;
   onImagesReady: (docId: string, keys: string[]) => Promise<void>;
   pageCount: number;
 }
 
 /** 미리보기 위에 항상 떠 있는 내보내기 바. 주보 만들기의 마지막 단계라 가장 눈에 띄는 자리에 둔다. */
-export function ExportPanel({ doc, setDoc, getNodes, onImagesReady, pageCount }: Props) {
+export function ExportPanel({ doc, setDoc, runWithNodes, onImagesReady, pageCount }: Props) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [done, setDone] = useState(false);
@@ -40,7 +45,9 @@ export function ExportPanel({ doc, setDoc, getNodes, onImagesReady, pageCount }:
     const backend = getBackend();
     const keys: string[] = [];
     for (const b of blobs) {
-      keys.push(await backend.putImage(b, "export"));
+      // 인쇄용 원본 옆에 화면용 축소본을 함께 둔다.
+      // 폰으로 QR을 찍고 들어온 사람과 보관함 목록이 받는 것은 그 축소본이다.
+      keys.push(await putWithWebCopy(backend, b, "export"));
     }
     await onImagesReady(doc.id, keys);
   }
@@ -51,12 +58,11 @@ export function ExportPanel({ doc, setDoc, getNodes, onImagesReady, pageCount }:
     setDone(false);
     setProgress(null);
     try {
-      const nodes = getNodes();
-      if (nodes.length === 0) throw new Error("내보낼 페이지가 없습니다.");
       const fmt = doc.exportFormat;
-      const blobs = await renderAll(nodes, doc.exportScale, fmt, (d, t) =>
-        setProgress({ done: d, total: t }),
-      );
+      const blobs = await runWithNodes((nodes) => {
+        if (nodes.length === 0) throw new Error("내보낼 페이지가 없습니다.");
+        return renderAll(nodes, doc.exportScale, fmt, (d, t) => setProgress({ done: d, total: t }));
+      });
       if (action === "zip") await saveZip(blobs, doc.serviceDate, fmt);
       else blobs.forEach((b, i) => saveBlob(b, fileNameFor(doc.serviceDate, i, fmt)));
       setTotalSize(blobs.reduce((sum, b) => sum + b.size, 0));
