@@ -5,15 +5,39 @@
 
 | 용도 | 폰트 | 파일 이름 |
 |---|---|---|
-| 제목 | HS새마을체 | `HSSaemaul.woff2` (또는 `HSSaemaul.ttf`) |
-| 본문 | ACC어린이마음고운체 | `ACCKidsHeart.woff2` (또는 `ACCKidsHeart.ttf`) |
+| 제목 | HS새마을체 | `HSSaemaul.woff2` |
+| 본문 | ACC어린이마음고운체 | `ACCKidsHeart.woff2` |
 
-## woff2로 변환하는 이유
+같은 이름의 `.woff` 파일은 woff2를 모르는 아주 옛 브라우저를 위해 함께 두었습니다.
+요즘 브라우저는 woff2만 받아가므로 이 파일이 있다고 느려지지는 않습니다.
 
-ttf도 동작하지만 용량이 3~5배 커서 페이지가 느려집니다.
-https://cloudconvert.com/ttf-to-woff2 같은 변환기에 ttf를 올리면 바로 받을 수 있습니다.
+## woff2로 넣는 이유
+
+한글 폰트는 글자 수가 만 자를 넘어 파일이 큽니다. 같은 글꼴이라도 담는 방식에 따라
+크기가 두 배 넘게 차이 나고, 그만큼이 주보 화면이 처음 뜨는 시간에 그대로 얹힙니다.
+
+| | ttf | woff | woff2 |
+|---|---|---|---|
+| ACC어린이마음고운체 | 3~5MB | 1.5MB | **784KB** |
+
+## 새 폰트를 넣거나 바꿀 때
+
+1. ttf(또는 otf)를 woff2로 바꿉니다.
+   - 온라인: <https://cloudconvert.com/ttf-to-woff2> 에 올리면 바로 받습니다.
+   - 명령줄: `pip install fonttools brotli` 뒤에
+     ```python
+     from fontTools.ttLib import TTFont
+     f = TTFont("입력.ttf"); f.flavor = "woff2"; f.save("출력.woff2")
+     ```
+2. 이 폴더에 넣습니다.
+3. **두 곳을 함께 고칩니다.** 한쪽만 고치면 화면과 내보낸 그림의 글꼴이 달라집니다.
+   - `src/app/globals.css` 의 `@font-face`
+   - `src/lib/exportImages.ts` 의 `FONT_SOURCES` (내보낼 때 그림 안에 폰트를 심는 목록)
+4. 여기 적은 주소는 **실제로 있어야 합니다.** 없는 파일을 적어두면 브라우저가
+   그것부터 받으러 갔다가 404를 맞고 되돌아와, 폰트마다 왕복이 한 번씩 더 듭니다.
 
 ## 라이선스
 
 두 폰트 모두 무료 배포 폰트지만, **웹 임베딩(웹폰트) 허용 여부**는
-배포처 라이선스 문구를 한 번 확인해 주세요.
+배포처 라이선스 문구를 한 번 확인해 주세요. (형식을 woff2로 바꾸는 것은
+글꼴 자체를 고치는 것이 아니라 담는 방식만 바꾸는 것이라 조건이 달라지지 않습니다.)

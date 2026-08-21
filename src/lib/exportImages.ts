@@ -12,9 +12,14 @@ import type { ExportFormat, ExportScale } from "./types";
  * 훑는데, 브라우저 확장 프로그램이 주입한 스타일시트에서 멈추는 경우가 있다.
  * 우리가 쓰는 폰트만 직접 넣으면 그 과정을 통째로 건너뛴다.
  */
-// globals.css 의 @font-face 와 같은 파일을 가리켜야 한다. 없는 주소를 적으면 404 를 한 번 맞고 지나간다.
+/*
+ * globals.css 의 @font-face 와 같은 파일을 가리켜야 한다. 없는 주소를 적으면 404 를 맞고 지나간다.
+ * 한 글꼴에 여러 줄이 있으면 먼저 성공한 것 하나만 쓴다(아래 done).
+ */
 const FONT_SOURCES = [
+  { family: "HSSaemaul", url: "/fonts/HSSaemaul.woff2", mime: "font/woff2", format: "woff2" },
   { family: "HSSaemaul", url: "/fonts/HSSaemaul.woff", mime: "font/woff", format: "woff" },
+  { family: "ACCKidsHeart", url: "/fonts/ACCKidsHeart.woff2", mime: "font/woff2", format: "woff2" },
   { family: "ACCKidsHeart", url: "/fonts/ACCKidsHeart.woff", mime: "font/woff", format: "woff" },
   {
     family: "Cafe24Ssurround",

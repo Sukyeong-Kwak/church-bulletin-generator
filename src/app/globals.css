@@ -2,27 +2,33 @@
 
 /*
  * 주보 폰트 — public/fonts/ 에 포함되어 있다. (파일이 없으면 시스템 한글 폰트로 대체)
- *   제목  HS새마을체         → HSSaemaul.woff
- *   본문  ACC어린이마음고운체 → ACCKidsHeart.woff
+ *   제목  HS새마을체         → HSSaemaul.woff2
+ *   본문  ACC어린이마음고운체 → ACCKidsHeart.woff2
  * 두 폰트 모두 상업적 이용과 웹 임베딩이 허용된 무료 폰트다.
  *
- * 이 둘은 woff 만 있다. woff2 로 바꿔 넣으면 절반 크기로 줄어든다(README 참고) —
- * 특히 ACCKidsHeart 는 1.5MB 라 주보 화면이 처음 뜨는 시간에 그대로 얹힌다.
+ * woff2 를 먼저 적고 woff 를 뒤에 남긴다.
  *
- * 없는 woff2 를 먼저 적어두면 브라우저가 그것부터 받으러 갔다가 404 를 맞고 되돌아온다.
- * 폰트마다 왕복이 한 번씩 더 드는 셈이라, 있는 것만 적는다.
- * 나중에 woff2 를 넣으면 여기와 exportImages.ts 의 FONT_SOURCES 두 곳에 함께 적어준다.
+ * 한글 폰트는 글자 수가 만 자를 넘어 파일이 크다. 같은 글꼴이라도 woff2 로 담으면
+ * 절반이 되는데(ACCKidsHeart 1.5MB → 784KB), 그만큼이 주보 화면이 처음 뜨는 시간이다.
+ * 뒤의 woff 는 woff2 를 모르는 아주 옛 브라우저를 위한 자리다 — 브라우저는 제가 아는
+ * 첫 번째 것만 받아가므로, 둘을 함께 적어도 왕복이 늘지 않는다.
+ * (다만 없는 파일을 적으면 404 를 맞고 되돌아온다. 여기 적은 것은 모두 실제로 있어야 한다.)
+ *
+ * 파일을 바꿀 때는 exportImages.ts 의 FONT_SOURCES 도 함께 고친다 —
+ * 내보내기는 그 목록을 보고 폰트를 그림 안에 심는다.
  */
 @font-face {
   font-family: "HSSaemaul";
-  src: url("/fonts/HSSaemaul.woff") format("woff");
+  src: url("/fonts/HSSaemaul.woff2") format("woff2"),
+    url("/fonts/HSSaemaul.woff") format("woff");
   font-weight: 400 700;
   font-display: swap;
 }
 
 @font-face {
   font-family: "ACCKidsHeart";
-  src: url("/fonts/ACCKidsHeart.woff") format("woff");
+  src: url("/fonts/ACCKidsHeart.woff2") format("woff2"),
+    url("/fonts/ACCKidsHeart.woff") format("woff");
   font-weight: 400 700;
   font-display: swap;
 }
