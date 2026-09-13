@@ -112,7 +112,8 @@ function matches(b: BulletinDoc, q: string): boolean {
 
 function blockText(b: BulletinDoc["blocks"][number]): string {
   if (b.kind === "ad") return `${b.title} ${b.body}`;
-  if (b.kind === "schedule") return `${b.heading} ${b.items.map((i) => i.name).join(" ")}`;
+  if (b.kind === "schedule")
+    return `${b.heading} ${b.items.map((i) => `${i.date} ${i.name}`).join(" ")}`;
   return `${b.heading} ${b.title} ${b.verse}`;
 }
 

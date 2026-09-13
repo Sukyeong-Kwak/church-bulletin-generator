@@ -48,6 +48,19 @@ const SERMON_VERSE = LABELED("(?:본문|말씀)");
 /** '8월 3일(월)' '8/3' 같은 날짜가 시작되는 자리 */
 const DATE_START = /\d{1,2}\s*월\s*\d{1,2}\s*일|\d{1,2}\s*일\s*\(|\d{1,2}\s*[./]\s*\d{1,2}/;
 
+/** 날짜 뒤에 붙는 요일 괄호 — '(수)' '(주일)' '(토요일)' */
+const WEEKDAY = String.raw`\(\s*(?:주일|[월화수목금토일](?:요일)?)\s*\)`;
+/** 날짜 한 덩어리. 긴 것부터 본다 — '9월 13일'을 '9월'로 끊어 읽지 않게. */
+const DATE_ATOM = String.raw`(?:\d{1,2}\s*월\s*\d{1,2}\s*일|\d{1,2}\s*[./]\s*\d{1,2}|\d{1,2}\s*월|\d{1,2}\s*일)`;
+/**
+ * 줄 안에서 날짜가 차지한 구간 전부.
+ * '9월 24일(목)-26일(토)' 처럼 이어진 기간도 한 덩어리로 잡아야
+ * 뒤쪽 '26일(토)'이 행사명에 끌려 들어가지 않는다.
+ */
+const DATE_RUN = new RegExp(
+  `${DATE_ATOM}(?:\\s*${WEEKDAY})?(?:\\s*[-–—~∼]\\s*${DATE_ATOM}(?:\\s*${WEEKDAY})?)*`,
+);
+
 /** 덩어리 하나가 광고인지, 주요일정인지, 본문 말씀인지 가른다. */
 export function classify(title: string, body: string): ParsedKind {
   const t = stripBrackets(title);
@@ -64,11 +77,13 @@ export function classify(title: string, body: string): ParsedKind {
   return "ad";
 }
 
+/** 줄머리 번호·글머리 기호 ('9.' '▶')를 떼어낸다 */
+export function stripListMarker(line: string): string {
+  return line.replace(/^\s*(?:\d+[.)]|[-*▶▷▪•·※◆◇○●])\s*/, "").trim();
+}
+
 function bodyLines(body: string): string[] {
-  return body
-    .split("\n")
-    .map((l) => l.replace(/^\s*(?:\d+[.)]|[-*▶▷▪•·※◆◇○●])\s*/, "").trim())
-    .filter(Boolean);
+  return body.split("\n").map(stripListMarker).filter(Boolean);
 }
 
 /** 본문 말씀 덩어리에서 설교 제목과 성경 본문을 뽑는다. */
@@ -84,16 +99,43 @@ export function parseSermon(body: string): { title: string; verse: string } {
   return { title: subject, verse };
 }
 
-/** 주요일정 덩어리에서 '행사명 + 날짜' 목록을 뽑는다. */
-export function parseScheduleItems(body: string): { name: string; date: string }[] {
-  return bodyLines(body).map((line) => {
-    const at = DATE_START.exec(line);
-    if (!at || at.index === 0) return { name: line, date: "" };
+export interface ScheduleParse {
+  items: { name: string; date: string }[];
+  /**
+   * 원문이 '날짜 먼저 → 행사명' 차례로 적혀 있었는지.
+   * 목사님이 올리는 주요일정은 날짜가 앞에 오는데, 주보에도 그 차례 그대로 찍어야
+   * 원문과 견줘 읽을 수 있다.
+   */
+  dateFirst: boolean;
+}
+
+/** 날짜 앞뒤에 남은 줄표·쌍점을 털어낸다 */
+function trimJoiner(s: string): string {
+  return s.replace(/^\s*[-–—:：]\s*/, "").replace(/\s*[-–—:：]\s*$/, "").trim();
+}
+
+/** 주요일정 덩어리에서 '날짜 + 행사명' 목록을 뽑는다. 적힌 차례도 함께 알려준다. */
+export function parseSchedule(body: string): ScheduleParse {
+  let dateFirstCount = 0;
+  let nameFirstCount = 0;
+
+  const items = bodyLines(body).map((line) => {
+    const at = DATE_RUN.exec(line);
+    if (!at) return { name: line, date: "" };
+
+    const head = line.slice(0, at.index).trim();
+    const tail = line.slice(at.index + at[0].length).trim();
+    if (head) nameFirstCount++;
+    else dateFirstCount++;
+
     return {
-      name: line.slice(0, at.index).replace(/[-–—:：]\s*$/, "").trim(),
-      date: line.slice(at.index).trim(),
+      date: at[0].trim(),
+      // 날짜가 줄 가운데 끼어 있으면 앞뒤 조각을 이어 행사명으로 삼는다
+      name: trimJoiner([trimJoiner(head), trimJoiner(tail)].filter(Boolean).join(" ")),
     };
   });
+
+  return { items, dateFirst: dateFirstCount > nameFirstCount };
 }
 
 /** 구글 문서에서 복사할 때 딸려오는 특수 공백·서식 정리 */

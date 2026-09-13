@@ -43,6 +43,11 @@ export interface ScheduleBlock {
   kind: "schedule";
   heading: string;
   items: ScheduleItem[];
+  /**
+   * 한 줄을 '날짜 → 행사명' 차례로 찍을지. 붙여넣은 원문의 차례를 그대로 따른다.
+   * 없으면(옛 저장본) 예전처럼 '행사명 → 날짜'.
+   */
+  dateFirst?: boolean;
   pageBreakBefore?: boolean;
   /** 기본 위치에서 위(−)·아래(+)로 미세 조정. 조판(페이지 나눔)에는 영향을 주지 않는다. */
   offsetY?: number;
@@ -146,6 +151,12 @@ export interface FixedPages {
 export interface ChurchInfo {
   pastorLine: string;
   accountLine: string;
+  /**
+   * 푸터 글자색. 이 두 줄만 카드 밖 배경 사진 위에 바로 얹히기 때문에
+   * 본문 글자색(theme.bodyColor)과 따로 정할 수 있어야 한다.
+   * 비어 있으면 본문 글자색을 따른다.
+   */
+  color?: string;
 }
 
 export interface Theme {

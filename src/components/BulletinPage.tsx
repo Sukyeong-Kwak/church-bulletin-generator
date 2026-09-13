@@ -57,6 +57,9 @@ function BulletinPageView({ doc, page, backgroundUrl, coverUrl, logoUrl }: PageP
   const cardLayout: CSSProperties =
     page.kind === "worship" ? {} : { display: "flex", flexDirection: "column" };
 
+  // 따로 정하지 않았으면 본문 글자색을 따른다
+  const footerStyle = church.color ? { color: church.color } : undefined;
+
   return (
     <div style={{ ...canvas }} data-page={page.index}>
       {bg ? (
@@ -136,10 +139,11 @@ function BulletinPageView({ doc, page, backgroundUrl, coverUrl, logoUrl }: PageP
           data-edit="common.church"
           style={{ position: "absolute", left: FOOTER.left, bottom: FOOTER.bottom }}
         >
-          <Txt role="footer" theme={theme}>
+          {/* 이 두 줄만 카드 밖 배경 사진 위에 바로 얹힌다 — 글자색을 따로 정할 수 있다 */}
+          <Txt role="footer" theme={theme} override={footerStyle}>
             {church.pastorLine}
           </Txt>
-          <Txt role="footer" theme={theme} style={{ marginTop: FOOTER.gap }}>
+          <Txt role="footer" theme={theme} override={footerStyle} style={{ marginTop: FOOTER.gap }}>
             {church.accountLine}
           </Txt>
         </div>

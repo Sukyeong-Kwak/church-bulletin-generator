@@ -164,6 +164,42 @@ export default function CommonPage() {
                     }
                   />
                 </Field>
+                <div>
+                  <Slider
+                    label="글자색"
+                    min={0}
+                    max={100}
+                    value={grayLevel(settings.church.color || doc.theme.bodyColor)}
+                    track="linear-gradient(to right, #000, #fff)"
+                    onChange={(v) =>
+                      setSettings((s) => ({
+                        ...s,
+                        church: { ...s.church, color: grayColor(v) },
+                      }))
+                    }
+                  />
+                  <SliderEnds left="검정" right="흰색" />
+                </div>
+
+                <Hint>
+                  이 두 줄은 카드 밖 배경 사진 위에 바로 얹힙니다. 사진이 어두워 글씨가 묻히면
+                  글자색을 흰색 쪽으로 옮기세요.
+                  {settings.church.color && (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() =>
+                          setSettings((s) => ({ ...s, church: { ...s.church, color: undefined } }))
+                        }
+                      >
+                        본문 글자색 따르기
+                      </button>
+                    </>
+                  )}
+                </Hint>
+
                 <Hint>
                   한 번 입력해두면 다음 주보에도 그대로 이어집니다. 개인정보라 나중에 로그인한
                   사람만 볼 수 있게 됩니다.

@@ -5,13 +5,14 @@ import { useAdSplit } from "@/lib/ai/useAdSplit";
 import {
   KIND_LABEL,
   flowBody,
-  parseScheduleItems,
+  parseSchedule,
   parseSermon,
   stripBrackets,
+  stripListMarker,
   summarize,
   type ParsedBlock,
 } from "@/lib/parseAds";
-import { SERMON_HEADING } from "@/lib/settings";
+import { SCHEDULE_HEADING, SERMON_HEADING } from "@/lib/settings";
 import { newId } from "@/lib/store";
 import type { FlowBlock } from "@/lib/types";
 import { usePopup } from "../Popup";
@@ -394,13 +395,25 @@ function BlockPreview({ block }: { block: ParsedBlock }) {
   }
 
   if (block.kind === "schedule") {
+    const { items, dateFirst } = parseSchedule(block.body);
     return (
       <ul className="text-[11px] leading-relaxed" style={muted}>
-        {parseScheduleItems(block.body).map((it, i) => (
-          <li key={i}>
-            {it.name} <span style={{ color: "var(--ui-subtle)" }}>{it.date || "날짜 없음"}</span>
-          </li>
-        ))}
+        {items.map((it, i) => {
+          const date = <span style={{ color: "var(--ui-subtle)" }}>{it.date || "날짜 없음"}</span>;
+          return (
+            <li key={i}>
+              {dateFirst ? (
+                <>
+                  {date} {it.name}
+                </>
+              ) : (
+                <>
+                  {it.name} {date}
+                </>
+              )}
+            </li>
+          );
+        })}
       </ul>
     );
   }
@@ -424,11 +437,14 @@ function toFlowBlock(p: ParsedBlock): FlowBlock {
   }
 
   if (p.kind === "schedule") {
+    const { items, dateFirst } = parseSchedule(p.body);
     return {
       id: newId("sch"),
       kind: "schedule",
-      heading: heading || "주요일정",
-      items: parseScheduleItems(p.body).map((it) => ({ id: newId("i"), ...it })),
+      // 원문 제목에 붙은 '9.' 같은 번호는 주보 소제목에 들어가지 않는다
+      heading: stripListMarker(heading) || SCHEDULE_HEADING,
+      items: items.map((it) => ({ id: newId("i"), ...it })),
+      dateFirst,
     };
   }
 

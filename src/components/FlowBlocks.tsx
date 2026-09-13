@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, type CSSProperties } from "react";
+import { Fragment, memo, type CSSProperties } from "react";
 import { Txt } from "./Txt";
 import { bracketTitle } from "@/lib/layout";
 import { SERMON_HEADING } from "@/lib/settings";
@@ -45,7 +45,22 @@ function AdBlockView({ block, theme }: { block: AdBlock; theme: Theme }) {
   );
 }
 
+/** 날짜 칸과 행사명 칸 사이 — 제목 글자 두어 자 폭 */
+const SCHEDULE_GAP = 24;
+
+/**
+ * 주요일정은 두 칸으로 세운다.
+ *
+ * 한 줄로 이어 가운데에 두면 줄마다 길이가 달라 왼쪽 끝이 들쭉날쭉해진다.
+ * 예배 안내와 같은 방식 — 가운데 거터를 기준으로 왼 칸은 오른쪽, 오른 칸은 왼쪽으로
+ * 붙여 두 칸이 세로로 나란히 선다. 어느 칸에 날짜가 오는지는 원문의 차례를 따른다.
+ */
 function ScheduleBlockView({ block, theme }: { block: ScheduleBlock; theme: Theme }) {
+  // 날짜가 한 줄도 없으면 나눌 칸이 없다 — 예전처럼 한 줄로 둔다
+  const twoCols = block.items.some((it) => it.date.trim());
+  // 정렬을 직접 고른 사람이 있으면 그 뜻을 덮지 않는다
+  const gutter = block.itemStyle?.align === undefined;
+
   return (
     <div style={wrap}>
       {block.heading ? (
@@ -53,11 +68,48 @@ function ScheduleBlockView({ block, theme }: { block: ScheduleBlock; theme: Them
           {bracketTitle(block.heading)}
         </Txt>
       ) : null}
-      {block.items.map((it) => (
-        <Txt key={it.id} role="scheduleItem" theme={theme} override={block.itemStyle}>
-          {[it.name, it.date].filter(Boolean).join(" ")}
-        </Txt>
-      ))}
+
+      {twoCols ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "auto auto",
+            justifyContent: "center",
+            columnGap: SCHEDULE_GAP,
+            alignItems: "start",
+          }}
+        >
+          {block.items.map((it) => {
+            const [left, right] = block.dateFirst ? [it.date, it.name] : [it.name, it.date];
+            return (
+              <Fragment key={it.id}>
+                <Txt
+                  role="scheduleItem"
+                  theme={theme}
+                  override={block.itemStyle}
+                  style={gutter ? { textAlign: "right" } : undefined}
+                >
+                  {left}
+                </Txt>
+                <Txt
+                  role="scheduleItem"
+                  theme={theme}
+                  override={block.itemStyle}
+                  style={gutter ? { textAlign: "left" } : undefined}
+                >
+                  {right}
+                </Txt>
+              </Fragment>
+            );
+          })}
+        </div>
+      ) : (
+        block.items.map((it) => (
+          <Txt key={it.id} role="scheduleItem" theme={theme} override={block.itemStyle}>
+            {it.name}
+          </Txt>
+        ))
+      )}
     </div>
   );
 }

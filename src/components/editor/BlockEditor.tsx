@@ -345,6 +345,7 @@ function AdFields({ block, patch }: { block: AdBlock; patch: Patch }) {
 function ScheduleFields({ block, patch }: { block: ScheduleBlock; patch: Patch }) {
   const setItems = (items: ScheduleBlock["items"]) =>
     patch(block.id, (b) => ({ ...(b as ScheduleBlock), items }));
+  const dateFirst = block.dateFirst ?? false;
 
   return (
     <>
@@ -354,10 +355,23 @@ function ScheduleFields({ block, patch }: { block: ScheduleBlock; patch: Patch }
         placeholder="주요일정"
         onChange={(e) => patch(block.id, (b) => ({ ...(b as ScheduleBlock), heading: e.target.value }))}
       />
-      {block.items.map((it, i) => (
-        // 좁은 화면에서는 행사명과 날짜가 한 줄에 다 못 들어가 짜부라진다 — 넘치면 줄을 바꾼다
-        <div key={it.id} className="flex flex-wrap gap-1.5">
+      {/* 주보에 찍히는 차례대로 칸을 놓는다 — 고치는 자리와 찍히는 자리가 어긋나지 않게 */}
+      <label className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--ui-muted)" }}>
+        <input
+          type="checkbox"
+          checked={dateFirst}
+          onChange={(e) =>
+            patch(block.id, (b) => ({ ...(b as ScheduleBlock), dateFirst: e.target.checked }))
+          }
+          style={{ width: "auto" }}
+        />
+        날짜를 앞에 쓰기 (9월 13일(주일) 오이코스리더모임)
+      </label>
+
+      {block.items.map((it, i) => {
+        const nameInput = (
           <input
+            key="name"
             type="text"
             value={it.name}
             placeholder="행사명"
@@ -366,7 +380,10 @@ function ScheduleFields({ block, patch }: { block: ScheduleBlock; patch: Patch }
               setItems(block.items.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
             }
           />
+        );
+        const dateInput = (
           <input
+            key="date"
             type="text"
             value={it.date}
             placeholder="6월 3일(수)"
@@ -375,11 +392,18 @@ function ScheduleFields({ block, patch }: { block: ScheduleBlock; patch: Patch }
               setItems(block.items.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)))
             }
           />
-          <Btn size="sm" variant="danger" onClick={() => setItems(block.items.filter((_, j) => j !== i))}>
-            −
-          </Btn>
-        </div>
-      ))}
+        );
+
+        return (
+          // 좁은 화면에서는 행사명과 날짜가 한 줄에 다 못 들어가 짜부라진다 — 넘치면 줄을 바꾼다
+          <div key={it.id} className="flex flex-wrap gap-1.5">
+            {dateFirst ? [dateInput, nameInput] : [nameInput, dateInput]}
+            <Btn size="sm" variant="danger" onClick={() => setItems(block.items.filter((_, j) => j !== i))}>
+              −
+            </Btn>
+          </div>
+        );
+      })}
       <Btn size="sm" onClick={() => setItems([...block.items, { id: newId("i"), name: "", date: "" }])}>
         + 일정 추가
       </Btn>

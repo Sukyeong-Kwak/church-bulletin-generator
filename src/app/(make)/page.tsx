@@ -69,6 +69,10 @@ export default function EditorPage() {
               ...b,
               heading: newSchedule.heading || b.heading,
               items: mode === "replace" ? newSchedule.items : [...b.items, ...newSchedule.items],
+              // 날짜·행사명 차례는 붙여넣은 원문을 따른다.
+              // 이어 붙이는데 이미 적어 둔 항목이 있으면 그쪽 차례를 흔들지 않는다.
+              dateFirst:
+                mode === "replace" || b.items.length === 0 ? newSchedule.dateFirst : b.dateFirst,
             };
           }
           // 소제목은 늘 '본문 말씀'으로 두고 제목·본문만 채운다.
