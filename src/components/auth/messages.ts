@@ -67,3 +67,52 @@ export function authMessage(message: string): string {
 
   return message;
 }
+
+/**
+ * 서버 탓으로 실패했으면 그 까닭을, 아니면 null 을 돌려준다.
+ *
+ * 비밀번호가 틀린 것과 서버가 죽은 것은 똑같이 '로그인 실패'로 끝난다.
+ * 앞의 것은 다시 넣으면 되지만 뒤의 것은 몇 번을 눌러도 안 된다 — 갈라서 알려야 한다.
+ *
+ *   status 0    응답 없음 — supabase-js 는 요청이 아예 못 나가거나 못 돌아오면 0 을 단다
+ *   status 5xx  응답 있음 — 서버가 오류를 돌려줬다
+ *
+ * `databaseIsServer` — 로그인에서 "Database error …" 는 데이터베이스 장애다.
+ * 가입에서는 가입 트리거가 이름을 거절한 것이라 거기서는 끈다.
+ */
+export function serverFailure(
+  error: { message: string; status?: number },
+  { databaseIsServer = true }: { databaseIsServer?: boolean } = {},
+): string | null {
+  const status = error.status ?? -1;
+  const raw = error.message;
+
+  if (status === 0)
+    return `서버가 응답하지 않아 진행하지 못했습니다. 아래 점검 결과를 확인해 주세요. (응답 없음 · ${raw})`;
+
+  const dbError = raw.toLowerCase().includes("database error");
+  if (status >= 500 && (databaseIsServer || !dbError))
+    return `서버 오류로 진행하지 못했습니다. 아래 점검 결과를 확인해 주세요. (응답 있음 · HTTP ${status} · ${raw})`;
+
+  if (dbError && databaseIsServer)
+    return `데이터베이스 오류로 진행하지 못했습니다. 아래 점검 결과를 확인해 주세요. (응답 있음 · ${raw})`;
+
+  return null;
+}
+
+/**
+ * Supabase 인증 오류를 화면에 쓸 말로. 서버 탓이면 그 까닭을, 아니면 authMessage 를 쓴다.
+ *
+ * 우리말로 옮겨 둔 오류(메일 발송 실패 등)는 5xx 로 와도 그 말이 더 정확하다 — 그쪽을 먼저 본다.
+ * 다만 로그인에서 "Database error …" 는 이름 탓이 아니라 데이터베이스 장애다.
+ */
+export function authFailure(
+  error: { message: string; status?: number },
+  opts: { databaseIsServer?: boolean } = {},
+): string {
+  const known = authMessage(error.message);
+  const isDb = error.message.toLowerCase().includes("database error");
+  const translated = known !== error.message && !(isDb && (opts.databaseIsServer ?? true));
+  if (translated && error.status !== 0) return known;
+  return serverFailure(error, opts) ?? known;
+}

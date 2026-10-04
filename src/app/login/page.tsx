@@ -4,7 +4,8 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthError, AuthShell } from "@/components/auth/AuthShell";
-import { authMessage } from "@/components/auth/messages";
+import { authFailure } from "@/components/auth/messages";
+import { ServerCheck } from "@/components/auth/ServerCheck";
 import { VerifyCode } from "@/components/auth/VerifyCode";
 import { Btn, Field, Hint } from "@/components/ui";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -43,7 +44,25 @@ function LoginForm() {
    */
   const afterAuth = async (userId: string) => {
     const supabase = supabaseBrowser()!;
-    const { data: me } = await supabase.from("users").select("status").eq("id", userId).single();
+    const { data: me, error: meError } = await supabase
+      .from("users")
+      .select("status")
+      .eq("id", userId)
+      .maybeSingle();
+
+    /*
+     * 비밀번호는 맞았는데 데이터베이스가 대답을 못 했다.
+     * 그대로 들여보내면 빈 화면이나 승인 대기 화면으로 튕겨 원인을 알 수 없다 — 여기서 멈춰 알린다.
+     * (행이 없는 것은 오류가 아니다 — 승인 대기 화면이 맡는다)
+     */
+    if (meError) {
+      await supabase.auth.signOut().catch(() => undefined);
+      setError(
+        `로그인은 됐지만 데이터베이스에서 계정 정보를 읽지 못했습니다. 아래 점검 결과를 확인해 주세요. (${meError.code ? `${meError.code} · ` : ""}${meError.message})`,
+      );
+      setBusy(false);
+      return;
+    }
 
     if (me?.status === "blocked") {
       await supabase.auth.signOut();
@@ -73,7 +92,7 @@ function LoginForm() {
         await supabase.auth.resend({ type: "signup", email });
         setUnconfirmed(true);
       } else {
-        setError(authMessage(error.message));
+        setError(authFailure(error));
       }
       setBusy(false);
       return;
@@ -126,6 +145,9 @@ function LoginForm() {
       }
     >
       <form onSubmit={submit} className="flex flex-col gap-3">
+        {/* 서버가 이상하면 로그인을 누르기 전부터 알린다. 실패할 때마다 다시 점검한다 */}
+        <ServerCheck recheck={error} />
+
         <Field label="이메일">
           <input
             type="email"

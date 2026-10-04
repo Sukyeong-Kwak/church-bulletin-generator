@@ -6,6 +6,7 @@ import { formatServiceDate } from "@/lib/layout";
 import { useDoc } from "@/lib/store";
 import { isPublicPath } from "@/lib/supabase/config";
 import { useAuth } from "@/lib/supabase/useAuth";
+import { ConnectionStatus } from "./ConnectionStatus";
 import { usePopup } from "./Popup";
 import { Btn } from "./ui";
 
@@ -79,124 +80,128 @@ export function Nav() {
   };
 
   return (
-    <header
-      className="flex h-[52px] shrink-0 items-center gap-2 border-b bg-white px-3 sm:gap-3 sm:px-4"
-      style={{ borderColor: "var(--ui-border)" }}
-    >
-      <Link href="/" className="flex shrink-0 items-center gap-2">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo/the-piece.svg" alt="" width={22} height={22} />
-        <span className="hidden text-[14px] font-bold tracking-tight sm:inline">
-          THE PIECE <span style={{ color: "var(--ui-muted)" }}>주보</span>
-        </span>
-      </Link>
-
-      <nav
-        className="flex shrink-0 gap-0.5 rounded-xl p-0.5 sm:ml-2"
-        style={{ background: "#f1f2f5" }}
+    <>
+      <header
+        className="flex h-[52px] shrink-0 items-center gap-2 border-b bg-white px-3 sm:gap-3 sm:px-4"
+        style={{ borderColor: "var(--ui-border)" }}
       >
-        {tabs.map((m) => {
-          const active = m.match.includes(path);
-          // 관리자 메뉴는 자주 쓰지 않아 회색으로 두면 있는 줄도 모른다 — 색을 살려 눈에 띄게 한다
-          const accent = m.adminOnly && !active;
-          return (
-            <Link
-              key={m.href}
-              href={m.href}
-              className="whitespace-nowrap rounded-[9px] px-3 py-1.5 text-[13px] transition-colors sm:px-3.5"
-              style={{
-                background: active ? "#fff" : accent ? "var(--ui-accent-soft)" : "transparent",
-                color: active ? "var(--ui-text)" : accent ? "var(--ui-accent)" : "var(--ui-muted)",
-                fontWeight: active || accent ? 700 : 500,
-                boxShadow: active ? "0 1px 2px rgba(16,24,40,.08)" : "none",
-              }}
-            >
-              {m.label}
-            </Link>
-          );
-        })}
-      </nav>
+        <Link href="/" className="flex shrink-0 items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo/the-piece.svg" alt="" width={22} height={22} />
+          <span className="hidden text-[14px] font-bold tracking-tight sm:inline">
+            THE PIECE <span style={{ color: "var(--ui-muted)" }}>주보</span>
+          </span>
+        </Link>
 
-      {/* 오른쪽 묶음이 줄어들 수 있어야 폰에서 메뉴를 화면 밖으로 밀어내지 않는다 */}
-      <div className="ml-auto flex min-w-0 items-center gap-2">
-        {loaded && inMake && (
-          <>
-            {/*
-              되돌리기는 단축키(Cmd/Ctrl+Z)가 본자리지만, 버튼도 함께 둔다.
-              단축키는 아는 사람만 쓰고, 태블릿에는 누를 자판이 아예 없다.
-              쓸 수 없을 때도 자리는 지킨다 — 버튼이 나타났다 사라지면 옆 버튼들이 밀린다.
-
-              폰에서만 접는다. 이 머리줄에는 이미 메뉴·저장·계정·로그아웃이 서 있어
-              두 개를 더 놓으면 화면 밖으로 밀려나는데, 폰으로 주보를 만드는 일은 드물다.
-            */}
-            <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
-              <Btn
-                size="sm"
-                variant="ghost"
-                disabled={!canUndo}
-                onClick={undo}
-                title="되돌리기 (Cmd/Ctrl+Z)"
-                aria-label="되돌리기"
+        <nav
+          className="flex shrink-0 gap-0.5 rounded-xl p-0.5 sm:ml-2"
+          style={{ background: "#f1f2f5" }}
+        >
+          {tabs.map((m) => {
+            const active = m.match.includes(path);
+            // 관리자 메뉴는 자주 쓰지 않아 회색으로 두면 있는 줄도 모른다 — 색을 살려 눈에 띄게 한다
+            const accent = m.adminOnly && !active;
+            return (
+              <Link
+                key={m.href}
+                href={m.href}
+                className="whitespace-nowrap rounded-[9px] px-3 py-1.5 text-[13px] transition-colors sm:px-3.5"
+                style={{
+                  background: active ? "#fff" : accent ? "var(--ui-accent-soft)" : "transparent",
+                  color: active ? "var(--ui-text)" : accent ? "var(--ui-accent)" : "var(--ui-muted)",
+                  fontWeight: active || accent ? 700 : 500,
+                  boxShadow: active ? "0 1px 2px rgba(16,24,40,.08)" : "none",
+                }}
               >
-                ↶
-              </Btn>
+                {m.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* 오른쪽 묶음이 줄어들 수 있어야 폰에서 메뉴를 화면 밖으로 밀어내지 않는다 */}
+        <div className="ml-auto flex min-w-0 items-center gap-2">
+          {loaded && inMake && (
+            <>
+              {/*
+                되돌리기는 단축키(Cmd/Ctrl+Z)가 본자리지만, 버튼도 함께 둔다.
+                단축키는 아는 사람만 쓰고, 태블릿에는 누를 자판이 아예 없다.
+                쓸 수 없을 때도 자리는 지킨다 — 버튼이 나타났다 사라지면 옆 버튼들이 밀린다.
+
+                폰에서만 접는다. 이 머리줄에는 이미 메뉴·저장·계정·로그아웃이 서 있어
+                두 개를 더 놓으면 화면 밖으로 밀려나는데, 폰으로 주보를 만드는 일은 드물다.
+              */}
+              <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
+                <Btn
+                  size="sm"
+                  variant="ghost"
+                  disabled={!canUndo}
+                  onClick={undo}
+                  title="되돌리기 (Cmd/Ctrl+Z)"
+                  aria-label="되돌리기"
+                >
+                  ↶
+                </Btn>
+                <Btn
+                  size="sm"
+                  variant="ghost"
+                  disabled={!canRedo}
+                  onClick={redo}
+                  title="다시 앞으로 (Shift+Cmd/Ctrl+Z)"
+                  aria-label="다시 앞으로"
+                >
+                  ↷
+                </Btn>
+              </div>
+
+              {canRevert && (
+                <Btn size="sm" onClick={() => void handleRevert()} title="마지막으로 저장한 상태로 되돌립니다">
+                  초기화
+                </Btn>
+              )}
               <Btn
+                variant={dirty ? "primary" : "default"}
                 size="sm"
-                variant="ghost"
-                disabled={!canRedo}
-                onClick={redo}
-                title="다시 앞으로 (Shift+Cmd/Ctrl+Z)"
-                aria-label="다시 앞으로"
+                onClick={() => void handleSave()}
+                title="저장 (Cmd/Ctrl+S)"
               >
-                ↷
+                {dirty ? "저장" : "저장됨"}
               </Btn>
-            </div>
+            </>
+          )}
 
-            {canRevert && (
-              <Btn size="sm" onClick={() => void handleRevert()} title="마지막으로 저장한 상태로 되돌립니다">
-                초기화
-              </Btn>
-            )}
-            <Btn
-              variant={dirty ? "primary" : "default"}
-              size="sm"
-              onClick={() => void handleSave()}
-              title="저장 (Cmd/Ctrl+S)"
-            >
-              {dirty ? "저장" : "저장됨"}
-            </Btn>
-          </>
-        )}
+          {enabled && user && (
+            <>
+              {/*
+                누구로 들어와 있는지 — 여럿이 같은 컴퓨터를 쓰는 자리라 이름이 보여야 한다.
+                눌러서 내 계정(비밀번호 바꾸기)으로 간다. 자기 이름은 자기 설정을 찾는 자리다.
 
-        {enabled && user && (
-          <>
-            {/*
-              누구로 들어와 있는지 — 여럿이 같은 컴퓨터를 쓰는 자리라 이름이 보여야 한다.
-              눌러서 내 계정(비밀번호 바꾸기)으로 간다. 자기 이름은 자기 설정을 찾는 자리다.
-
-              다만 폰에서는 이름까지 놓을 자리가 없다. 이메일이 길면 메뉴가 화면 밖으로
-              밀려나므로, 좁은 화면에서는 '계정' 두 글자로 접는다 —
-              통째로 감추면 폰에서는 비밀번호를 바꾸러 갈 길 자체가 없어진다.
-            */}
-            <Link
-              href="/account"
-              className="shrink-0 truncate text-[12px] font-semibold sm:max-w-[140px]"
-              title={`${user.email} · 비밀번호 바꾸기`}
-            >
-              <span className="hidden sm:inline">{user.name || user.email}</span>
-              <span className="sm:hidden">계정</span>
-            </Link>
-            <button
-              onClick={handleSignOut}
-              className="shrink-0 text-[12px]"
-              style={{ color: "var(--ui-muted)" }}
-            >
-              로그아웃
-            </button>
-          </>
-        )}
-      </div>
-    </header>
+                다만 폰에서는 이름까지 놓을 자리가 없다. 이메일이 길면 메뉴가 화면 밖으로
+                밀려나므로, 좁은 화면에서는 '계정' 두 글자로 접는다 —
+                통째로 감추면 폰에서는 비밀번호를 바꾸러 갈 길 자체가 없어진다.
+              */}
+              <Link
+                href="/account"
+                className="shrink-0 truncate text-[12px] font-semibold sm:max-w-[140px]"
+                title={`${user.email} · 비밀번호 바꾸기`}
+              >
+                <span className="hidden sm:inline">{user.name || user.email}</span>
+                <span className="sm:hidden">계정</span>
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="shrink-0 text-[12px]"
+                style={{ color: "var(--ui-muted)" }}
+              >
+                로그아웃
+              </button>
+            </>
+          )}
+        </div>
+      </header>
+      {/* 서버와 끊기면 머리줄 바로 아래에 이유를 띄운다 */}
+      <ConnectionStatus />
+    </>
   );
 }
 

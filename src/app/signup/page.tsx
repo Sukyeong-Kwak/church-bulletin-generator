@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthError, AuthNotice, AuthShell } from "@/components/auth/AuthShell";
-import { authMessage, redeemFailMessage } from "@/components/auth/messages";
+import { authFailure, redeemFailMessage } from "@/components/auth/messages";
+import { ServerCheck } from "@/components/auth/ServerCheck";
 import { Btn, Field, Hint } from "@/components/ui";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { supabaseConfigured } from "@/lib/supabase/config";
@@ -149,7 +150,7 @@ export default function SignupPage() {
     if (sentWith?.email === email) {
       const { error } = await supabase.auth.resend({ type: "signup", email });
       if (error) {
-        setError(authMessage(error.message));
+        setError(authFailure(error));
         setBusy(false);
         return;
       }
@@ -168,7 +169,7 @@ export default function SignupPage() {
 
     if (signUpError) {
       // 가입 조건은 DB에서도 막는다. 트리거가 올린 말은 이미 우리말이라 그대로 지나간다.
-      setError(authMessage(signUpError.message));
+      setError(authFailure(signUpError, { databaseIsServer: false }));
       setBusy(false);
       return;
     }
@@ -211,7 +212,7 @@ export default function SignupPage() {
     });
 
     if (error) {
-      setError(authMessage(error.message));
+      setError(authFailure(error));
       setBusy(false);
       return;
     }
@@ -249,7 +250,7 @@ export default function SignupPage() {
     // 바뀐 것이 없으면 Supabase가 '같은 비밀번호'라고 되돌려 보내는데, 그것은 탈이 아니다.
     const { error: pwError } = await supabase.auth.updateUser({ password });
     if (pwError && !pwError.message.toLowerCase().includes("should be different")) {
-      setError(authMessage(pwError.message));
+      setError(authFailure(pwError));
       setBusy(false);
       return;
     }
@@ -493,6 +494,7 @@ export default function SignupPage() {
 
         <AuthNotice message={notice} />
         <AuthError message={error} />
+        <ServerCheck recheck={error} />
 
         <Btn
           type="submit"

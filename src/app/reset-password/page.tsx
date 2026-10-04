@@ -4,7 +4,8 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthError, AuthNotice, AuthShell } from "@/components/auth/AuthShell";
-import { authMessage } from "@/components/auth/messages";
+import { authFailure } from "@/components/auth/messages";
+import { ServerCheck } from "@/components/auth/ServerCheck";
 import { Btn, Field } from "@/components/ui";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { supabaseConfigured } from "@/lib/supabase/config";
@@ -43,7 +44,7 @@ function RequestForm() {
       redirectTo: `${window.location.origin}/auth/callback?next=/reset-password%3Fmode%3Dupdate`,
     });
 
-    if (error) setError(authMessage(error.message));
+    if (error) setError(authFailure(error));
     else setSent(true);
     setBusy(false);
   };
@@ -70,6 +71,7 @@ function RequestForm() {
         </Field>
 
         <AuthError message={error} />
+        <ServerCheck recheck={error} />
         <AuthNotice message={sent ? "메일을 보냈습니다. 받은편지함을 확인해주세요." : undefined} />
 
         <Btn type="submit" variant="primary" disabled={busy} style={{ padding: "10px 12px" }}>
@@ -123,7 +125,7 @@ function UpdateForm() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setError(authMessage(error.message));
+      setError(authFailure(error));
       setBusy(false);
       return;
     }
@@ -177,6 +179,7 @@ function UpdateForm() {
         </Field>
 
         <AuthError message={error} />
+        <ServerCheck recheck={error} />
 
         <Btn
           type="submit"
