@@ -3,7 +3,7 @@ import { anchorBlocks } from "@/lib/ai/anchor";
 import { GeminiError, splitAdText } from "@/lib/ai/gemini";
 import { tidyBlocks } from "@/lib/ai/tidy";
 import { MAX_INPUT, type ParseErrorResponse, type ParseResponse } from "@/lib/ai/types";
-import { normalize, parseAdText } from "@/lib/parseAds";
+import { finishBlocks, normalize, parseAdText } from "@/lib/parseAds";
 import { supabaseConfigured } from "@/lib/supabase/config";
 import { currentUser } from "@/lib/supabase/server";
 
@@ -70,7 +70,7 @@ export async function POST(request: Request): Promise<NextResponse<ParseResponse
 
   // 나누기가 원문과 꼭 맞았을 때에만 다듬기로 넘어간다.
   // 다듬은 글은 tidy에 따로 담기므로 원문은 여기서도 그대로 남는다.
-  const tidied = await tidyBlocks(blocks);
+  const tidied = await tidyBlocks(finishBlocks(blocks));
 
   return NextResponse.json<ParseResponse>({
     source: "ai",

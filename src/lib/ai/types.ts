@@ -10,6 +10,8 @@ export interface AdPair {
   body: string;
   /** 광고인지, 주요일정인지, 본문 말씀인지 */
   kind: ParsedKind;
+  /** 원문에 제목이 없어 AI가 지은 제목. 원문 글자가 아니라 anchor 대조에서 빠진다. */
+  newTitle?: string;
 }
 
 export type ParseFailure =

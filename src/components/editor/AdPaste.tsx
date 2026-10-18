@@ -225,8 +225,20 @@ export function AdPaste({ onApply, onClose }: Props) {
                     >
                       <div className="mb-1 flex flex-wrap items-center gap-1.5">
                         <span className="text-[12px] font-bold">
-                          {p.title || <span style={{ color: "#f08c00" }}>제목 없음</span>}
+                          {p.title ||
+                            (p.kind === "ad" && p.suggestedTitle) || (
+                              <span style={{ color: "#f08c00" }}>{p.kind === "ad" ? "제목 없음" : ""}</span>
+                            )}
                         </span>
+                        {/* 원문에 없던 제목이라는 걸 밝혀 둔다 — 넣은 뒤에 편집기에서 고칠 수 있다 */}
+                        {!p.title && p.kind === "ad" && p.suggestedTitle && (
+                          <span
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{ background: "#e7f5ff", color: "#1971c2" }}
+                          >
+                            AI 제목
+                          </span>
+                        )}
                         {/* 광고가 아닌 것은 어느 자리로 들어가는지 알려준다 */}
                         {p.kind !== "ad" && (
                           <span
@@ -385,7 +397,7 @@ function BlockPreview({ block }: { block: ParsedBlock }) {
   const muted = { color: "var(--ui-muted)" };
 
   if (block.kind === "sermon") {
-    const { title, verse } = parseSermon(block.body);
+    const { title, verse } = parseSermon(block.title, block.body);
     return (
       <div className="text-[11px] leading-relaxed" style={muted}>
         <div>제목: {title || <span style={{ color: "#f08c00" }}>못 찾음</span>}</div>
@@ -432,7 +444,7 @@ function toFlowBlock(p: ParsedBlock): FlowBlock {
 
   // 소제목은 늘 '본문 말씀'이다. 원문 제목(`<8월 3일 말씀>`)은 버리고 제목·본문만 가져온다.
   if (p.kind === "sermon") {
-    const { title, verse } = parseSermon(p.body);
+    const { title, verse } = parseSermon(p.title, p.body);
     return { id: newId("ser"), kind: "sermon", heading: SERMON_HEADING, title, verse };
   }
 
@@ -448,5 +460,6 @@ function toFlowBlock(p: ParsedBlock): FlowBlock {
     };
   }
 
-  return { id: newId("ad"), kind: "ad", title: p.title, body: flowBody(p.body) };
+  // 원문에 제목이 없으면 AI가 지은 제목을 쓴다
+  return { id: newId("ad"), kind: "ad", title: p.title || p.suggestedTitle || "", body: flowBody(p.body) };
 }
